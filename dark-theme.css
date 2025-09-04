@@ -1,0 +1,533 @@
+/* Dark Theme for Kywy Web Tools */
+
+/* Exclude functional elements from theme styling */
+.resize-handle, .splitter, .resize-grip, [data-resize], 
+.panel-resizer, .draggable-handle, .sortable-handle {
+    all: revert !important;
+}
+
+/* Dark theme color scheme */
+
+/* Override font family for consistency */
+body, input, button, select, textarea {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif !important;
+}
+
+/* Dark color scheme - but not for menu page */
+body:not(.menu-page) {
+    background-color: #1a1a1a !important;
+    color: #e0e0e0 !important;
+}
+
+/* Dark button styling */
+button, .back-button, .nav-btn, input[type="button"], input[type="submit"] {
+    background-color: #333333 !important;
+    border: 1px solid #555555 !important;
+    color: #e0e0e0 !important;
+    padding: 8px 16px !important;
+    border-radius: 4px !important;
+}
+
+/* Ensure back to menu text is visible */
+.back-button, .back-button:link, .back-button:visited {
+    color: #e0e0e0 !important;
+    text-decoration: none !important;
+}
+
+.back-button:hover, .nav-btn:hover {
+    background-color: #444444 !important;
+    color: #ffffff !important;
+}
+
+button:hover, .nav-btn:hover {
+    background-color: #444444 !important;
+}
+
+button:active, .back-button:active, .nav-btn:active {
+    background-color: #222222 !important;
+    border: 1px solid #666666 !important;
+}
+
+button:disabled, .nav-btn:disabled {
+    color: #666666 !important;
+    background-color: #2a2a2a !important;
+    border: 1px solid #444444 !important;
+}
+
+/* Active/pressed button states - Kywy green for dark theme */
+button.active, .nav-btn.active, button[data-active="true"], 
+.tool-btn.active, .mirror-btn.active, button.pressed {
+    background-color: #4CAF50 !important;
+    border: 1px solid #5CBF60 !important;
+    color: #ffffff !important;
+}
+
+button.active:hover, .nav-btn.active:hover, button[data-active="true"]:hover,
+.tool-btn.active:hover, .mirror-btn.active:hover, button.pressed:hover {
+    background-color: #45a049 !important;
+}
+
+/* Selected tool buttons and toggle states - Kywy green */
+.tool-button.selected, .tool-btn.selected, input[type="checkbox"]:checked + label,
+.toggle-button.on, .mirror-x.active, .mirror-y.active {
+    background-color: #4CAF50 !important;
+    border: 1px solid #5CBF60 !important;
+    color: #ffffff !important;
+}
+
+/* Tool selection indicators - Kywy green */
+.tool-section .active, .brush-tool.active, .eraser-tool.active, 
+.line-tool.active, .rect-tool.active, .circle-tool.active {
+    background-color: #4CAF50 !important;
+    border: 1px solid #5CBF60 !important;
+    color: #ffffff !important;
+}
+
+/* Dark input styling */
+input[type="text"], input[type="number"], input[type="email"], input[type="password"] {
+    border: 1px solid #555555 !important;
+    background-color: #2a2a2a !important;
+    color: #e0e0e0 !important;
+    border-radius: 4px !important;
+    padding: 6px 8px !important;
+}
+
+input[type="text"]:focus, input[type="number"]:focus, 
+input[type="email"]:focus, input[type="password"]:focus {
+    border: 1px solid #4CAF50 !important;
+    background-color: #333333 !important;
+    color: #ffffff !important;
+    outline: none !important;
+}
+
+/* Dark select styling */
+select {
+    border: 1px solid #555555 !important;
+    background-color: #2a2a2a !important;
+    color: #e0e0e0 !important;
+    border-radius: 4px !important;
+    padding: 6px 8px !important;
+}
+
+select:focus {
+    border: 1px solid #4CAF50 !important;
+    background-color: #333333 !important;
+    color: #ffffff !important;
+    outline: none !important;
+}
+
+/* Dark textarea styling */
+textarea {
+    border: 1px solid #555555 !important;
+    background-color: #2a2a2a !important;
+    color: #e0e0e0 !important;
+    border-radius: 4px !important;
+    font-family: "Consolas", "Monaco", "Courier New", monospace !important;
+}
+
+textarea:focus {
+    border: 1px solid #4CAF50 !important;
+    background-color: #333333 !important;
+    outline: none !important;
+}
+
+/* Dark file input styling */
+input[type="file"] {
+    background-color: #2a2a2a !important;
+    border: 1px solid #555555 !important;
+    color: #e0e0e0 !important;
+    border-radius: 4px !important;
+}
+
+/* Dark range slider styling */
+input[type="range"] {
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    background: #333333 !important;
+    height: 6px !important;
+    border-radius: 3px !important;
+    outline: none !important;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    width: 18px !important;
+    height: 18px !important;
+    background: #4CAF50 !important;
+    border-radius: 50% !important;
+    cursor: pointer !important;
+}
+
+input[type="range"]::-moz-range-thumb {
+    width: 18px !important;
+    height: 18px !important;
+    background: #4CAF50 !important;
+    border-radius: 50% !important;
+    cursor: pointer !important;
+    border: none !important;
+}
+
+/* Dark checkbox styling */
+input[type="checkbox"] {
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    width: 16px !important;
+    height: 16px !important;
+    border: 1px solid #555555 !important;
+    background-color: #2a2a2a !important;
+    border-radius: 3px !important;
+    position: relative !important;
+}
+
+input[type="checkbox"]:checked {
+    background-color: #4CAF50 !important;
+    border-color: #5CBF60 !important;
+}
+
+input[type="checkbox"]:checked::after {
+    content: "✓" !important;
+    position: absolute !important;
+    left: 2px !important;
+    top: -1px !important;
+    color: #ffffff !important;
+    font-size: 12px !important;
+    font-weight: bold !important;
+}
+
+/* Dark containers and sections */
+.window, .container {
+    background-color: #1a1a1a !important;
+    border: none !important;
+}
+
+.window-body {
+    background-color: #1a1a1a !important;
+}
+
+section, .section, .tool-section {
+    background-color: #222222 !important;
+    border: 1px solid #333333 !important;
+    border-radius: 6px !important;
+    padding: 16px !important;
+    margin-bottom: 16px !important;
+}
+
+/* Dark headers */
+header {
+    background-color: #222222 !important;
+    border: 1px solid #333333 !important;
+    border-radius: 6px !important;
+    box-shadow: none !important;
+}
+
+/* Dark navigation bar */
+.nav-bar {
+    background-color: #222222 !important;
+    border: none !important;
+    border-radius: 6px !important;
+}
+
+/* Dark panels */
+.tools-panel, .import-panel, .export-panel {
+    background-color: #222222 !important;
+    border: 1px solid #333333 !important;
+    border-radius: 6px !important;
+}
+
+.frames-container, .timeline-container {
+    background-color: #222222 !important;
+    border: 1px solid #333333 !important;
+    border-radius: 6px !important;
+}
+
+/* Canvas containers - keep light for visibility */
+.canvas-container {
+    background-color: #333333 !important;
+    border: 1px solid #555555 !important;
+    border-radius: 6px !important;
+    padding: 16px !important;
+}
+
+.main-content, .canvas-workspace {
+    background-color: #2a2a2a !important;
+    border: 1px solid #444444 !important;
+    border-radius: 6px !important;
+}
+
+/* Canvas sheets/frames - keep functional */
+.canvas-sheet, .frame-sheet, .layer {
+    background-color: #ffffff !important;
+    border: 1px solid #666666 !important;
+    border-radius: 4px !important;
+}
+
+.canvas-sheet.active, .frame-sheet.active, .layer.active {
+    border: 2px solid #4CAF50 !important;
+    background-color: #ffffff !important;
+}
+
+/* Drawing and art preview areas */
+#originalImage, #processedImage, #binaryPreview {
+    background-color: #2a2a2a !important;
+    border: 1px solid #555555 !important;
+    border-radius: 6px !important;
+}
+
+/* Usage examples and code areas */
+.usage-example {
+    background-color: #2a2a2a !important;
+    border: 1px solid #555555 !important;
+    border-radius: 6px !important;
+}
+
+/* Dark drag and drop areas */
+.import-zone {
+    border: 2px dashed #555555 !important;
+    background-color: #2a2a2a !important;
+    color: #e0e0e0 !important;
+    border-radius: 6px !important;
+}
+
+.import-zone:hover {
+    border-color: #777777 !important;
+    background-color: #333333 !important;
+}
+
+.import-zone.drag-over {
+    border-color: #4CAF50 !important;
+    background-color: #2d4a2f !important;
+}
+
+/* Dark frame styling */
+.frame {
+    border: 1px solid #555555 !important;
+    background-color: #2a2a2a !important;
+    border-radius: 4px !important;
+}
+
+.frame.selected {
+    border: 2px solid #4CAF50 !important;
+}
+
+/* Dark warning styling */
+.size-warning {
+    background-color: #4a3d00 !important;
+    border: 1px solid #ffcc00 !important;
+    color: #ffdd44 !important;
+    border-radius: 6px !important;
+}
+
+/* Dark code blocks */
+pre, code {
+    background-color: #2a2a2a !important;
+    border: 1px solid #555555 !important;
+    color: #e0e0e0 !important;
+    border-radius: 4px !important;
+    font-family: "Consolas", "Monaco", "Courier New", monospace !important;
+}
+
+/* Dark text colors */
+h1, h2, h3, h4, h5, h6, p, span, label {
+    color: #e0e0e0 !important;
+}
+
+/* Dark link styling */
+a {
+    color: #66b3ff !important;
+}
+
+a:visited {
+    color: #cc99ff !important;
+}
+
+a:hover {
+    color: #99ccff !important;
+}
+
+/* Remove setting group borders */
+.setting-group {
+    border: none !important;
+    background: transparent !important;
+}
+
+.setting-item, .import-options label, .tool-group {
+    border: none !important;
+    background: transparent !important;
+}
+
+/* Dark scrollbar styling (webkit browsers only) */
+::-webkit-scrollbar {
+    width: 12px !important;
+    height: 12px !important;
+}
+
+::-webkit-scrollbar-track {
+    background-color: #2a2a2a !important;
+    border-radius: 6px !important;
+}
+
+::-webkit-scrollbar-thumb {
+    background-color: #555555 !important;
+    border-radius: 6px !important;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background-color: #666666 !important;
+}
+
+::-webkit-scrollbar-button {
+    background-color: #333333 !important;
+    border-radius: 6px !important;
+}
+
+::-webkit-scrollbar-button:hover {
+    background-color: #444444 !important;
+}
+
+/* Modern styling with subtle shadows */
+section, .section, .tool-section, header, .tools-panel, .import-panel, .export-panel {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+}
+
+button, .back-button, .nav-btn {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2) !important;
+}
+
+button:hover, .back-button:hover, .nav-btn:hover {
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3) !important;
+}
+
+button:active, .back-button:active, .nav-btn:active {
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Dark bottom bar / status bar styling */
+.bottom-bar, .status-bar, .zoom-controls, .canvas-controls {
+    background-color: #222222 !important;
+    border: 1px solid #333333 !important;
+    color: #e0e0e0 !important;
+    border-radius: 6px !important;
+    padding: 8px !important;
+}
+
+/* Bottom bar buttons */
+.bottom-bar button, .status-bar button, .zoom-controls button, .canvas-controls button {
+    background-color: #333333 !important;
+    border: 1px solid #555555 !important;
+    color: #e0e0e0 !important;
+    padding: 4px 8px !important;
+    border-radius: 4px !important;
+    margin: 0 2px !important;
+}
+
+.bottom-bar button:hover, .status-bar button:hover, .zoom-controls button:hover, .canvas-controls button:hover {
+    background-color: #444444 !important;
+    color: #ffffff !important;
+}
+
+/* Bottom bar text and labels */
+.bottom-bar span, .status-bar span, .zoom-controls span, .canvas-controls span,
+.bottom-bar label, .status-bar label, .zoom-controls label, .canvas-controls label {
+    color: #e0e0e0 !important;
+}
+
+/* Canvas info and zoom display */
+.canvas-info, .zoom-info, .position-info {
+    background-color: #2a2a2a !important;
+    color: #e0e0e0 !important;
+    border: 1px solid #555555 !important;
+    border-radius: 4px !important;
+    padding: 4px 8px !important;
+}
+
+/* Additional bottom bar elements */
+.toolbar, .bottom-toolbar, .canvas-toolbar {
+    background-color: #222222 !important;
+    border: 1px solid #333333 !important;
+    color: #e0e0e0 !important;
+    border-radius: 6px !important;
+    padding: 8px !important;
+}
+
+/* Any elements with zoom, fit, center in class names */
+[class*="zoom"], [class*="fit"], [class*="center"], [class*="toolbar"] {
+    background-color: #222222 !important;
+    color: #e0e0e0 !important;
+}
+
+/* Ensure all buttons in bottom areas are visible */
+[class*="bottom"] button, [class*="toolbar"] button, [class*="controls"] button {
+    background-color: #333333 !important;
+    border: 1px solid #555555 !important;
+    color: #e0e0e0 !important;
+    border-radius: 4px !important;
+}
+
+[class*="bottom"] button:hover, [class*="toolbar"] button:hover, [class*="controls"] button:hover {
+    background-color: #444444 !important;
+    color: #ffffff !important;
+}
+
+/* Dark theme for menu page - preserve teal background */
+body.menu-page, .desktop {
+    background: #006666 !important; /* Darker teal instead of black */
+}
+
+/* Keep desktop icons visible on dark teal */
+.desktop-icon .icon-label {
+    color: #ffffff !important;
+    text-shadow: 1px 1px 0px #000000 !important;
+}
+
+.taskbar {
+    background: #222222 !important;
+    border-top: 1px solid #333333 !important;
+}
+
+.start-button {
+    background: #333333 !important;
+    border: 1px solid #555555 !important;
+    color: #e0e0e0 !important;
+}
+
+.start-button:hover {
+    background: #444444 !important;
+}
+
+.start-button:active {
+    background: #222222 !important;
+    border: 1px inset #444444 !important;
+}
+
+.taskbar-info {
+    color: #e0e0e0 !important;
+}
+
+.taskbar-info a {
+    color: #66b3ff !important;
+}
+
+.taskbar-info a:visited {
+    color: #cc99ff !important;
+}
+
+.taskbar-info a:hover {
+    color: #99ccff !important;
+}
+
+/* Theme button in taskbar for dark theme */
+.taskbar-theme button {
+    background: #333333 !important;
+    border: 1px solid #555555 !important;
+    color: #e0e0e0 !important;
+}
+
+.taskbar-theme button:hover {
+    background: #444444 !important;
+}
+
+.taskbar-theme button:active {
+    background: #222222 !important;
+    border: 1px inset #444444 !important;
+}

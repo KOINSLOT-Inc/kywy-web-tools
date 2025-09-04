@@ -1,0 +1,596 @@
+/* Animation Generator Styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #f0f2f5;
+    color: #333;
+    overflow: hidden;
+}
+
+.container {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Header - same as drawing editor */
+header {
+    background: white;
+    border-bottom: 1px solid #ddd;
+    padding: 12px 20px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.nav-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.back-button {
+    color: #667eea;
+    text-decoration: none;
+    font-weight: 600;
+    padding: 8px 16px;
+    border-radius: 6px;
+    transition: background-color 0.2s;
+}
+
+.back-button:hover {
+    background-color: #f0f2f5;
+}
+
+header h1 {
+    font-size: 1.5rem;
+    color: #333;
+}
+
+.nav-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.nav-btn {
+    background: #667eea;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: background-color 0.2s;
+}
+
+.nav-btn:hover {
+    background: #5a6fd8;
+}
+
+/* Generator Layout */
+.generator-layout {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+}
+
+.import-panel, .export-panel {
+    width: 300px;
+    background: white;
+    overflow-y: auto;
+    flex-shrink: 0;
+}
+
+.import-panel {
+    border-right: 1px solid #ddd;
+}
+
+.export-panel {
+    border-left: 1px solid #ddd;
+}
+
+.frame-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: #f8f9fa;
+    overflow: hidden;
+}
+
+/* Sections */
+.section {
+    padding: 20px;
+    border-bottom: 1px solid #eee;
+}
+
+.section:last-child {
+    border-bottom: none;
+}
+
+.section h3 {
+    margin-bottom: 15px;
+    color: #333;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+/* Import Zone */
+.import-zone {
+    border: 2px dashed #ccc;
+    border-radius: 8px;
+    padding: 30px;
+    text-align: center;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    background: #fafafa;
+}
+
+.import-zone:hover {
+    border-color: #667eea;
+    background: #f0f4ff;
+}
+
+.import-zone.dragover {
+    border-color: #667eea;
+    background: #e8f2ff;
+    transform: scale(1.02);
+}
+
+.import-content .import-icon {
+    font-size: 3rem;
+    margin-bottom: 15px;
+    opacity: 0.6;
+}
+
+.import-content p {
+    margin-bottom: 8px;
+    font-weight: 500;
+}
+
+.import-hint {
+    font-size: 0.9rem;
+    color: #666;
+}
+
+.import-options {
+    margin-top: 15px;
+}
+
+.import-options label {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 0.9rem;
+}
+
+.import-options input[type="checkbox"] {
+    margin-right: 8px;
+}
+
+/* Settings Groups */
+.setting-group {
+    margin-bottom: 20px;
+}
+
+.setting-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 500;
+    font-size: 0.9rem;
+}
+
+.setting-group select,
+.setting-group input[type="text"] {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 0.9rem;
+}
+
+.setting-group input[type="range"] {
+    width: 100%;
+    margin-bottom: 5px;
+}
+
+.custom-inputs {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.custom-inputs input {
+    flex: 1;
+    width: 60px;
+}
+
+/* Auto Adjustment Buttons */
+.auto-btn {
+    width: 100%;
+    background: #28a745;
+    color: white;
+    border: none;
+    padding: 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 1rem;
+    margin-bottom: 10px;
+    transition: background-color 0.2s;
+}
+
+.auto-btn:hover {
+    background: #218838;
+}
+
+.auto-buttons {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 5px;
+}
+
+.mini-auto-btn {
+    background: #6c757d;
+    color: white;
+    border: none;
+    padding: 6px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: background-color 0.2s;
+}
+
+.mini-auto-btn:hover {
+    background: #5a6268;
+}
+
+/* Frame Area */
+.frames-header {
+    background: white;
+    padding: 15px 20px;
+    border-bottom: 1px solid #ddd;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.frame-controls {
+    display: flex;
+    gap: 8px;
+}
+
+.frame-controls button {
+    background: #6c757d;
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: background-color 0.2s;
+}
+
+.frame-controls button:hover:not(:disabled) {
+    background: #5a6268;
+}
+
+.frame-controls button:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+}
+
+/* Frames Container */
+.frames-container {
+    flex: 1;
+    padding: 20px;
+    overflow-y: auto;
+    min-height: 300px;
+}
+
+.empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: #666;
+    text-align: center;
+}
+
+.empty-icon {
+    font-size: 4rem;
+    margin-bottom: 20px;
+    opacity: 0.5;
+}
+
+.empty-hint {
+    font-size: 0.9rem;
+    margin-top: 5px;
+}
+
+.frames-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 15px;
+}
+
+.frame-item {
+    background: white;
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+    padding: 10px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.frame-item:hover {
+    border-color: #667eea;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.frame-item.selected {
+    border-color: #667eea;
+    background: #f0f4ff;
+}
+
+.frame-preview {
+    width: 80px;
+    height: 80px;
+    border: 1px solid #ddd;
+    margin: 0 auto 8px;
+    background: white;
+    image-rendering: pixelated;
+    image-rendering: -moz-crisp-edges;
+    image-rendering: crisp-edges;
+}
+
+.frame-info {
+    font-size: 0.8rem;
+    color: #666;
+}
+
+/* Preview Section */
+.preview-section {
+    background: white;
+    border-top: 1px solid #ddd;
+    padding: 20px;
+}
+
+.preview-container {
+    text-align: center;
+}
+
+.preview-canvas {
+    border: 2px solid #333;
+    background: white;
+    image-rendering: pixelated;
+    image-rendering: -moz-crisp-edges;
+    image-rendering: crisp-edges;
+    margin-bottom: 15px;
+}
+
+.preview-controls {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 15px;
+}
+
+.preview-controls button {
+    background: #17a2b8;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: background-color 0.2s;
+}
+
+.preview-controls button:hover:not(:disabled) {
+    background: #138496;
+}
+
+.preview-controls button:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+}
+
+.playback-info {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    font-size: 0.9rem;
+    color: #666;
+    font-family: 'Monaco', 'Menlo', monospace;
+}
+
+/* Export Panel */
+.export-format,
+.export-naming {
+    margin-bottom: 15px;
+}
+
+.export-format label,
+.export-naming label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 500;
+    font-size: 0.9rem;
+}
+
+.export-btn,
+.copy-btn {
+    width: 100%;
+    background: #667eea;
+    color: white;
+    border: none;
+    padding: 10px;
+    margin-bottom: 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: background-color 0.2s;
+}
+
+.export-btn:hover:not(:disabled) {
+    background: #5a6fd8;
+}
+
+.export-btn:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+}
+
+.copy-btn {
+    background: #28a745;
+}
+
+.copy-btn:hover:not(:disabled) {
+    background: #218838;
+}
+
+/* Selected Frame Info */
+.selected-frame {
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 6px;
+    padding: 15px;
+    margin-bottom: 15px;
+    font-size: 0.9rem;
+}
+
+.selected-frame p {
+    margin-bottom: 5px;
+}
+
+.frame-operations {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 15px;
+}
+
+.frame-operations button {
+    background: #6c757d;
+    color: white;
+    border: none;
+    padding: 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: background-color 0.2s;
+}
+
+.frame-operations button:hover:not(:disabled) {
+    background: #5a6268;
+}
+
+.frame-operations button:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+}
+
+/* Statistics */
+.stats {
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 6px;
+    padding: 15px;
+    margin-bottom: 20px;
+}
+
+.stat-item {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    font-size: 0.9rem;
+}
+
+.stat-item:last-child {
+    margin-bottom: 0;
+}
+
+.stat-label {
+    color: #666;
+}
+
+.stat-value {
+    font-weight: 600;
+    font-family: 'Monaco', 'Menlo', monospace;
+}
+
+/* Code Output */
+#codeOutput {
+    width: 100%;
+    height: 200px;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-family: 'Monaco', 'Menlo', monospace;
+    font-size: 0.75rem;
+    resize: vertical;
+    background: #f8f9fa;
+    margin-bottom: 10px;
+}
+
+/* Responsive Design */
+@media (max-width: 1400px) {
+    .import-panel, .export-panel {
+        width: 250px;
+    }
+}
+
+@media (max-width: 1200px) {
+    .generator-layout {
+        flex-direction: column;
+    }
+    
+    .import-panel, .export-panel {
+        width: 100%;
+        height: auto;
+        max-height: 300px;
+        overflow-y: auto;
+    }
+    
+    .frame-area {
+        height: 400px;
+    }
+    
+    .frames-container {
+        min-height: 200px;
+    }
+}
+
+@media (max-width: 768px) {
+    .nav-bar {
+        flex-direction: column;
+        gap: 10px;
+        align-items: stretch;
+    }
+    
+    header h1 {
+        text-align: center;
+        font-size: 1.3rem;
+    }
+    
+    .frames-grid {
+        grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+        gap: 10px;
+    }
+    
+    .frame-preview {
+        width: 60px;
+        height: 60px;
+    }
+    
+    .preview-controls {
+        flex-direction: column;
+        gap: 10px;
+    }
+}

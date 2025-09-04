@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kywy Image Tools Suite</title>
+    <link rel="stylesheet" href="menu-style.css">
+    <style>
+        /* Fallback styles in case external CSS doesn't load */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            background: #008080;
+            min-height: 100vh;
+        }
+        .desktop {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .desktop-icons {
+            flex: 1;
+            padding: 20px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        .desktop-icon {
+            width: 120px;
+            text-align: center;
+            cursor: pointer;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .desktop-icon:hover {
+            background: rgba(255,255,255,0.2);
+        }
+        .icon-image {
+            font-size: 48px;
+            margin-bottom: 8px;
+        }
+        .icon-label {
+            color: white;
+            font-size: 12px;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.7);
+        }
+        .taskbar {
+            height: 40px;
+            background: #c0c0c0;
+            display: flex;
+            align-items: center;
+            padding: 0 10px;
+            border-top: 1px solid #808080;
+        }
+        .start-button {
+            padding: 4px 8px;
+            background: #c0c0c0;
+            border: 1px outset #c0c0c0;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+        }
+        .taskbar-info {
+            margin-left: auto;
+            font-size: 11px;
+        }
+        .taskbar-info a {
+            color: #000080;
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body class="menu-page">
+    <div class="desktop">
+        <div class="desktop-icons">
+            <!-- Icon for Image Converter -->
+            <div class="desktop-icon" onclick="window.location.href='converter.html'">
+                <div class="icon-image">
+                    📁
+                </div>
+                <div class="icon-label">Image Converter</div>
+            </div>
+
+            <!-- Icon for Drawing Editor -->
+            <div class="desktop-icon" onclick="window.location.href='drawing-editor.html'">
+                <div class="icon-image">
+                    🖍️
+                </div>
+                <div class="icon-label">Drawing Editor</div>
+            </div>
+
+            <!-- Icon for Animation Generator -->
+            <div class="desktop-icon" onclick="window.location.href='animation-generator.html'">
+                <div class="icon-image">
+                    🎬
+                </div>
+                <div class="icon-label">Animation Generator</div>
+            </div>
+        </div>
+
+        <div class="taskbar">
+            <div class="start-button" onclick="window.open('https://kywy.io', '_blank')">
+                <img src="KS Icon Black.png" alt="Start" style="height: 16px; margin-right: 4px;" onerror="this.style.display='none'">
+                Start
+            </div>
+            <div class="taskbar-info">
+                <strong>Kywy Tools</strong> - 
+                <a href="https://github.com/KOINSLOT-Inc/kywy" target="_blank">GitHub</a> | 
+                <a href="https://docs.kywy.io" target="_blank">Documentation</a> 
+            </div>
+        </div>
+    </div>
+</body>
+</html>

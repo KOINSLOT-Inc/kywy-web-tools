@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Converter - Kywy Image Tools</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="layout-safety.css">
+</head>
+<body>
+  <div class="window">
+    <div class="window-body">
+        <div id="app">
+            <header>
+                <div class="nav-bar">
+                    <a href="menu.html" class="back-button">← Back to Menu</a>
+                    <div class="header-content">
+                        <h1>🔄 Image to HPP Converter</h1>
+                        <p>Convert images to C++ header files for Kywy display</p>
+                    </div>
+                </div>
+            </header>
+
+            <main>
+                <section id="upload-section">
+                    <h2>Upload Image</h2>
+                    <input type="file" id="imageInput" accept="image/*">
+                    <div id="originalImage"></div>
+                </section>
+
+                <section id="settings-section">
+                    <h2>Settings</h2>
+                    
+                    <div class="setting-group">
+                        <label for="resize">Resize:</label>
+                        <select id="resize">
+                            <option value="">Keep original size</option>
+                            <option value="16x16">16x16</option>
+                            <option value="32x32">32x32</option>
+                            <option value="64x64">64x64</option>
+                            <option value="144x168" selected>144x168</option>
+                            <option value="custom">Custom size</option>
+                        </select>
+                        <div id="customSize" style="display: none;">
+                            <input type="number" id="customWidth" placeholder="Width" min="1" max="1000">
+                            x
+                            <input type="number" id="customHeight" placeholder="Height" min="1" max="1000">
+                        </div>
+                    </div>
+
+                    <div class="setting-group">
+                        <label>
+                            <input type="checkbox" id="invert">
+                            Invert colors
+                        </label>
+                        <label>
+                            <input type="checkbox" id="edgeDetection">
+                            Edge detection
+                        </label>
+                    </div>
+
+                    <div class="setting-group">
+                        <label for="rotate">Rotate:</label>
+                        <select id="rotate">
+                            <option value="0">0°</option>
+                            <option value="90">90°</option>
+                            <option value="180">180°</option>
+                            <option value="270">270°</option>
+                        </select>
+                    </div>
+
+                    <div class="setting-group">
+                        <label for="dithering">Dithering:</label>
+                        <select id="dithering">
+                            <option value="none">None</option>
+                            <option value="floyd-steinberg">Floyd-Steinberg</option>
+                            <option value="atkinson">Atkinson</option>
+                            <option value="ordered">Ordered (Bayer)</option>
+                        </select>
+                    </div>
+
+                    <div class="setting-group">
+                        <label for="contrast">Contrast:</label>
+                        <input type="range" id="contrast" min="-100" max="100" value="0" step="1">
+                        <span id="contrastValue">0</span>
+                        <button id="autoContrastBtn" class="auto-btn">Auto</button>
+                    </div>
+
+                    <div class="setting-group">
+                        <label for="brightness">Brightness:</label>
+                        <input type="range" id="brightness" min="-100" max="100" value="0" step="1">
+                        <span id="brightnessValue">0</span>
+                        <button id="autoBrightnessBtn" class="auto-btn">Auto</button>
+                    </div>
+
+                    <div class="setting-group">
+                        <label for="threshold">Threshold:</label>
+                        <input type="range" id="threshold" min="0" max="255" value="128" step="1">
+                        <span id="thresholdValue">128</span>
+                        <button id="autoThresholdBtn" class="auto-btn">Auto</button>
+                    </div>
+
+                    <div class="setting-group auto-all-container">
+                        <button id="autoAllBtn" class="auto-all-btn">Auto All</button>
+                    </div>
+
+                    <div id="sizeWarning" class="size-warning" style="display: none;">
+                        <strong>⚠️ Warning:</strong> Output is larger than display size (144×168)
+                    </div>
+                </section>
+
+                <section id="preview-section">
+                    <h2>Preview</h2>
+                    <div class="setting-group">
+                        <label for="previewScale">Preview Scale:</label>
+                        <input type="range" id="previewScale" min="1" max="10" value="4" step="1">
+                        <span id="previewScaleValue">4x</span>
+                    </div>
+                    <div id="processedImage"></div>
+                    <div id="binaryPreview"></div>
+                </section>
+
+                <section id="output-section">
+                    <h2>HPP Output</h2>
+                    <div class="setting-group">
+                        <label for="arrayName">Array name:</label>
+                        <input type="text" id="arrayName" value="my_image" placeholder="my_image">
+                    </div>
+                    <textarea id="hppOutput" rows="20" cols="80" readonly></textarea>
+                    <div class="output-buttons">
+                        <button id="copyBtn">Copy to Clipboard</button>
+                        <button id="downloadBtn">Download HPP File</button>
+                        <button id="downloadImageBtn">Download Processed Image</button>
+                    </div>
+                </section>
+
+                <section id="usage-section">
+                    <h2>Usage Example</h2>
+                    <div class="usage-example">
+                        <p>In your Kywy sketch, use the bitmap like this:</p>
+                        <code id="usageExample">engine.display.drawBitmap(0, 0, width, height, my_image);</code>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+
+    <script src="theme-switcher.js"></script>
+    <script src="converter.js"></script>
+</body>
+</html>

@@ -1,0 +1,7389 @@
+/*
+ * KYWY Web Tools - Drawing Editor
+ * Copyright (c) 2025 KOINSLOT, Inc.
+ * Licensed under the BSD 3-Clause License
+ */
+
+// Command Pattern for Undo/Redo System
+class Command {
+    constructor(editor, frameIndex = null) {
+        this.editor = editor;
+        this.frameIndex = frameIndex !== null ? frameIndex : editor.currentFrameIndex;
+        this.timestamp = Date.now();
+    }
+    
+    execute() {
+        throw new Error('Execute method must be implemented');
+    }
+    
+    undo() {
+        throw new Error('Undo method must be implemented');
+    }
+    
+    // Get the context for the frame this command affects
+    getFrameContext() {
+        return this.editor.frames[this.frameIndex].getContext('2d', { willReadFrequently: true });
+    }
+}
+
+// Command for drawing strokes (continuous pen/brush drawing)
+class DrawStrokeCommand extends Command {
+    constructor(editor, pixelData, frameIndex = null) {
+        super(editor, frameIndex);
+        this.pixelData = pixelData; // Array of {x, y, oldColor, newColor} objects
+        this.tool = editor.currentTool;
+        this.brushSize = editor.brushSize;
+        this.brushShape = editor.brushShape;
+    }
+    
+    execute() {
+        const ctx = this.getFrameContext();
+        this.pixelData.forEach(pixel => {
+            this.editor.setPixelInFrameWithColor(pixel.x, pixel.y, pixel.newColor, ctx);
+        });
+        this.editor.redrawCanvas();
+    }
+    
+    undo() {
+        const ctx = this.getFrameContext();
+        this.pixelData.forEach(pixel => {
+            this.editor.setPixelInFrameWithColor(pixel.x, pixel.y, pixel.oldColor, ctx);
+        });
+        this.editor.redrawCanvas();
+    }
+}
+
+// Command for shape drawing (circles, rectangles)
+class DrawShapeCommand extends Command {
+    constructor(editor, shapeData, frameIndex = null) {
+        super(editor, frameIndex);
+        this.shapeData = shapeData; // {type, startX, startY, endX, endY, pixelData}
+        this.shapeFillMode = editor.shapeFillMode;
+        this.shapeThickness = editor.shapeThickness;
+        this.shapeStrokePosition = editor.shapeStrokePosition;
+    }
+    
+    execute() {
+        const ctx = this.getFrameContext();
+        this.shapeData.pixelData.forEach(pixel => {
+            this.editor.setPixelInFrameWithColor(pixel.x, pixel.y, pixel.newColor, ctx);
+        });
+        this.editor.redrawCanvas();
+    }
+    
+    undo() {
+        const ctx = this.getFrameContext();
+        this.shapeData.pixelData.forEach(pixel => {
+            this.editor.setPixelInFrameWithColor(pixel.x, pixel.y, pixel.oldColor, ctx);
+        });
+        this.editor.redrawCanvas();
+    }
+}
+
+// Command for flood fill operations
+class FloodFillCommand extends Command {
+    constructor(editor, pixelData, frameIndex = null) {
+        super(editor, frameIndex);
+        this.pixelData = pixelData; // Array of {x, y, oldColor, newColor} objects
+    }
+    
+    execute() {
+        const ctx = this.getFrameContext();
+        this.pixelData.forEach(pixel => {
+            this.editor.setPixelInFrameWithColor(pixel.x, pixel.y, pixel.newColor, ctx);
+        });
+        this.editor.redrawCanvas();
+    }
+    
+    undo() {
+        const ctx = this.getFrameContext();
+        this.pixelData.forEach(pixel => {
+            this.editor.setPixelInFrameWithColor(pixel.x, pixel.y, pixel.oldColor, ctx);
+        });
+        this.editor.redrawCanvas();
+    }
+}
+
+// Command for clear canvas operations
+class ClearCanvasCommand extends Command {
+    constructor(editor, canvasSnapshot, frameIndex = null) {
+        super(editor, frameIndex);
+        this.canvasSnapshot = canvasSnapshot; // ImageData of the canvas before clearing
+    }
+    
+    execute() {
+        const ctx = this.getFrameContext();
+        ctx.fillStyle = 'white';
+        ctx.fillRect(0, 0, this.editor.canvasWidth, this.editor.canvasHeight);
+        this.editor.redrawCanvas();
+    }
+    
+    undo() {
+        const ctx = this.getFrameContext();
+        ctx.putImageData(this.canvasSnapshot, 0, 0);
+        this.editor.redrawCanvas();
+    }
+}
+
+// Command for canvas transform operations (flip, rotate)
+class TransformCommand extends Command {
+    constructor(editor, canvasSnapshot, transformType, frameIndex = null) {
+        super(editor, frameIndex);
+        this.canvasSnapshot = canvasSnapshot; // ImageData before transform
+        this.transformType = transformType; // 'flipH', 'flipV', 'rotateL', 'rotateR'
+    }
+    
+    execute() {
+        // Transform is already applied, this is for redo
+        this.applyTransform();
+    }
+    
+    undo() {
+        const ctx = this.getFrameContext();
+        ctx.putImageData(this.canvasSnapshot, 0, 0);
+        this.editor.redrawCanvas();
+    }
+    
+    applyTransform() {
+        // Reapply the specific transform
+        switch(this.transformType) {
+            case 'flipH':
+                this.editor.flipCanvasHorizontal();
+                break;
+            case 'flipV':
+                this.editor.flipCanvasVertical();
+                break;
+            case 'rotateL':
+                this.editor.rotateCanvas(-90);
+                break;
+            case 'rotateR':
+                this.editor.rotateCanvas(90);
+                break;
+        }
+    }
+}
+
+class DrawingEditor {
+    constructor() {
+        
+        // Initialize basic state first
+        this.canvasWidth = 144;
+        this.canvasHeight = 168;
+        this.currentFrameIndex = 0;
+        this.zoom = 4;
+        
+        // Initialize canvas elements
+        this.initializeCanvas();
+        
+        // Drawing state
+        this.currentTool = 'pen';
+        this.currentColor = 'black';
+        this.brushSize = 1;
+        this.brushShape = 'square';
+        this.isDrawing = false;
+        this.isPanning = false;
+        
+        // Throttling for canvas updates
+        this.lastRedrawTime = 0;
+        this.pendingRedrawTimeout = null;
+        
+        // Rectangle properties
+        this.rectangleThickness = 1;
+        this.rectangleStyle = 'outside'; // 'outside', 'inside', 'centered'
+        
+        // Shape properties (for both rectangle and circle)
+        this.shapeFillMode = 'outline'; // 'outline', 'filled'
+        this.shapeThickness = 1;
+        this.shapeStrokePosition = 'outside'; // 'outside', 'inside', 'centered'
+        
+        // Grid properties
+        this.showPixelGrid = false;
+        this.showGrid = false;
+        
+        // Fill pattern properties
+        this.fillPattern = 'solid'; // default to solid fill
+        this.gradientType = null; // 'linear' or 'radial'
+        this.gradientVariant = 'smooth'; // 'smooth', 'stipple', or 'dither'
+        this.gradientAngle = 0; // angle for gradients
+        this.gradientSteepness = 1.0; // steepness for gradients
+        this.gradientContrast = 1.0; // contrast for dithered gradients (0.1 = low contrast, 2.0 = high contrast)
+        this.gradientCenterDistance = 0.5; // center distance adjustment for gradients
+        
+        // Linear gradient properties
+        this.gradientPositionX = 0.5; // X position for linear gradient center (0.0 = left, 1.0 = right)
+        this.gradientPositionY = 0.5; // Y position for linear gradient center (0.0 = top, 1.0 = bottom)
+        
+        // Radial gradient properties
+        this.radialRadius = 0.7; // radius for radial gradients (0.1 = small, 2.0 = large)
+        this.radialPositionX = 0.5; // X position for radial gradient center (0.0 = left, 1.0 = right)
+        this.radialPositionY = 0.5; // Y position for radial gradient center (0.0 = top, 1.0 = bottom)
+        
+        // Line pattern properties
+        this.lineAngle = 0; // angle for line patterns (0-180 degrees)
+        this.lineSpacing = 6; // spacing between lines (in pixels)
+        this.lineWidth = 1; // width of lines (in pixels)
+        this.linePhase = 0; // phase offset for line patterns (0-20 pixels)
+        
+        // Percentage fill properties
+        this.currentPercentage = 50; // default percentage fill (5-95%)
+        
+        // Checkerboard pattern properties
+        this.checkerboardSize = 2; // size of checkerboard squares (1-8 pixels)
+        this.checkerboardInvert = false; // whether to invert the pattern
+        
+        // Clipboard pattern properties  
+        this.clipboardScale = 100; // scale percentage for clipboard pattern (25-300%)
+        this.clipboardInvert = false; // whether to invert the pattern
+        
+        // Dots pattern properties
+        this.dotsSpacing = 4; // spacing between dots (2-16 pixels)
+        this.dotsSize = 1; // size of dots (1-4 pixels)
+        this.dotsOffset = 50; // offset percentage for staggered rows (0-100%)
+        this.dotsInvert = false; // whether to invert the pattern
+        
+        // Generate pattern data
+        this.patterns = this.generatePatterns();
+        
+        
+        // Animation state - initialize frames BEFORE calling other methods
+        this.frames = [];
+        this.isPlaying = false;
+        this.animationInterval = null;
+        this.animationMode = 'cycle'; // 'cycle' or 'boomerang'
+        this.animationDirection = 1; // 1 for forward, -1 for backward (boomerang)
+        
+        // Create first frame after frames array is initialized
+        this.frames.push(this.createEmptyFrame());
+        
+        // Selection state
+        this.clipboard = null;
+        this.selection = null;
+        
+        // Last preview area for live pattern updates
+        this.lastPreviewArea = null;
+        
+        // Touch tracking for gestures
+        this.lastTouchDistance = null;
+        this.lastTouchCenter = null;
+        
+        // Mirror drawing state
+        this.mirrorHorizontal = false;
+        this.mirrorVertical = false;
+        
+        // Undo/Redo system
+        this.undoStack = [];
+        this.redoStack = [];
+        this.maxUndoStackSize = 50;
+        this.currentStroke = null; // For grouping continuous drawing operations
+        
+        // Unsaved work tracking
+        this.hasUnsavedChanges = false;
+        this.isBlankCanvas = true; // Starts with blank canvas
+        
+        // Setup unsaved changes warning
+        this.setupUnsavedWarning();
+        
+        // Now safe to initialize tools and events
+        this.initializeTools();
+        this.initializeEvents();
+        this.initializeMobileMenus();
+        this.initializeFrameSystem();
+        
+        this.updateUI();
+        // Submenus start closed by default - removed initialization toggles
+        this.generateThumbnail(0);
+        
+        // Initialize default fill pattern
+        this.setFillPattern('solid');
+    }
+    
+    initializeCanvas() {
+        this.backgroundCanvas = document.getElementById('backgroundCanvas');
+        this.onionCanvas = document.getElementById('onionCanvas');
+        this.drawingCanvas = document.getElementById('drawingCanvas');
+        this.overlayCanvas = document.getElementById('overlayCanvas');
+        
+        this.backgroundCtx = this.backgroundCanvas.getContext('2d', { willReadFrequently: true });
+        this.onionCtx = this.onionCanvas.getContext('2d', { willReadFrequently: true });
+        this.drawingCtx = this.drawingCanvas.getContext('2d', { willReadFrequently: true });
+        this.overlayCtx = this.overlayCanvas.getContext('2d', { willReadFrequently: true });
+        
+        // Disable smoothing for pixel art
+        [this.backgroundCtx, this.onionCtx, this.drawingCtx, this.overlayCtx].forEach(ctx => {
+            ctx.imageSmoothingEnabled = false;
+            ctx.webkitImageSmoothingEnabled = false;
+            ctx.mozImageSmoothingEnabled = false;
+            ctx.msImageSmoothingEnabled = false;
+        });
+        
+        this.setCanvasSize(144, 168);
+        this.initializeBackgroundCanvas();
+        
+        // Center the canvas on initialization - wait longer for DOM to be ready
+        setTimeout(() => this.centerCanvas(), 300);
+    }
+    
+    initializeBackgroundCanvas() {
+        // Fill background canvas with white
+        this.backgroundCtx.fillStyle = 'white';
+        this.backgroundCtx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
+    }
+    
+    setCanvasSize(width, height) {
+        this.canvasWidth = width;
+        this.canvasHeight = height;
+        
+        const displayWidth = width * this.zoom;
+        const displayHeight = height * this.zoom;
+        
+        [this.backgroundCanvas, this.onionCanvas, this.drawingCanvas, this.overlayCanvas].forEach(canvas => {
+            canvas.width = width;
+            canvas.height = height;
+            canvas.style.width = `${displayWidth}px`;
+            canvas.style.height = `${displayHeight}px`;
+        });
+        
+        // Re-initialize background canvas after size change
+        this.initializeBackgroundCanvas();
+        this.redrawCanvas();
+        this.updateCanvasInfo();
+    }
+    
+    createEmptyFrame() {
+        const canvas = document.createElement('canvas');
+        canvas.width = this.canvasWidth;
+        canvas.height = this.canvasHeight;
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        ctx.imageSmoothingEnabled = false;
+        
+        // Fill with white
+        ctx.fillStyle = 'white';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        return canvas;
+    }
+    
+    centerCanvas() {
+        const canvasContainer = document.querySelector('.canvas-container');
+        const canvasWrapper = document.querySelector('.canvas-wrapper');
+        const drawingCanvas = document.getElementById('drawingCanvas');
+        
+        if (canvasContainer && canvasWrapper && drawingCanvas) {
+            // Wait for next frame to ensure layout is complete
+            requestAnimationFrame(() => {
+                // Override flexbox centering
+                canvasContainer.style.display = 'block';
+                canvasContainer.style.position = 'relative';
+                canvasWrapper.style.position = 'absolute';
+                
+                // Get actual dimensions - need to account for padding
+                const containerPadding = 20;
+                const availableWidth = canvasContainer.clientWidth - (containerPadding * 2);
+                const availableHeight = canvasContainer.clientHeight - (containerPadding * 2);
+                
+                // Get canvas dimensions from the actual canvas element (scaled by zoom)
+                const actualCanvasWidth = this.canvasWidth * this.zoom;
+                const actualCanvasHeight = this.canvasHeight * this.zoom;
+                
+                // Calculate the position to center the canvas middle in available space
+                const leftPos = Math.max(containerPadding, ((availableWidth - actualCanvasWidth) / 2) + containerPadding);
+                const topPos = Math.max(containerPadding, ((availableHeight - actualCanvasHeight) / 2) + containerPadding);
+                
+                // Set the position directly
+                canvasWrapper.style.left = leftPos + 'px';
+                canvasWrapper.style.top = topPos + 'px';
+                canvasWrapper.style.transform = 'none';
+                
+                // Reset scroll position
+                canvasContainer.scrollLeft = 0;
+                canvasContainer.scrollTop = 0;
+                
+                // Verify the center calculation
+                const canvasCenterX = leftPos + (actualCanvasWidth / 2);
+                const canvasCenterY = topPos + (actualCanvasHeight / 2);
+                const containerCenterX = (availableWidth / 2) + containerPadding;
+                const containerCenterY = (availableHeight / 2) + containerPadding;
+            });
+        }
+    }
+    
+    initializeTools() {
+        // Tool selection
+        document.querySelectorAll('.tool-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                this.setTool(btn.dataset.tool);
+            });
+        });
+
+        // Color selection
+        document.querySelectorAll('.color-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                this.setColor(btn.dataset.color);
+            });
+        });
+
+        // Brush shape selection
+        document.querySelectorAll('.brush-shape-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                this.setBrushShape(btn.dataset.shape);
+            });
+        });
+
+        // Fill pattern selection
+        document.querySelectorAll('.pattern-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                this.setFillPattern(btn.dataset.pattern);
+            });
+        });
+
+        // Gradient variant selection
+        document.querySelectorAll('.variant-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                this.setGradientVariant(btn.dataset.variant);
+            });
+        });
+
+        // Gradient controls - Linear gradients
+        const gradientAngleSlider = document.getElementById('gradientAngle');
+        if (gradientAngleSlider) {
+            gradientAngleSlider.addEventListener('input', () => {
+                this.gradientAngle = parseInt(gradientAngleSlider.value);
+                document.getElementById('angleDisplay').textContent = this.gradientAngle + '°';
+                if (this.currentTool === 'bucket' && this.fillPattern.startsWith('gradient-linear')) {
+                    this.updateGradientLivePreview();
+                }
+            });
+        }
+
+        const gradientSteepnessSlider = document.getElementById('gradientSteepness');
+        if (gradientSteepnessSlider) {
+            gradientSteepnessSlider.addEventListener('input', () => {
+                this.gradientSteepness = parseFloat(gradientSteepnessSlider.value);
+                document.getElementById('steepnessDisplay').textContent = this.gradientSteepness.toFixed(1);
+                if (this.currentTool === 'bucket' && this.fillPattern.startsWith('gradient-linear')) {
+                    this.updateGradientLivePreview();
+                }
+            });
+        }
+
+        const gradientPositionXSlider = document.getElementById('gradientPositionX');
+        if (gradientPositionXSlider) {
+            gradientPositionXSlider.addEventListener('input', () => {
+                this.gradientPositionX = parseFloat(gradientPositionXSlider.value);
+                document.getElementById('positionXDisplay').textContent = this.gradientPositionX.toFixed(1);
+                if (this.currentTool === 'bucket' && this.fillPattern.startsWith('gradient-linear')) {
+                    this.updateGradientLivePreview();
+                }
+            });
+        }
+
+        const gradientPositionYSlider = document.getElementById('gradientPositionY');
+        if (gradientPositionYSlider) {
+            gradientPositionYSlider.addEventListener('input', () => {
+                this.gradientPositionY = parseFloat(gradientPositionYSlider.value);
+                document.getElementById('positionYDisplay').textContent = this.gradientPositionY.toFixed(1);
+                if (this.currentTool === 'bucket' && this.fillPattern.startsWith('gradient-linear')) {
+                    this.updateGradientLivePreview();
+                }
+            });
+        }
+
+        // Radial gradient controls
+        const radialRadiusSlider = document.getElementById('radialRadius');
+        if (radialRadiusSlider) {
+            radialRadiusSlider.addEventListener('input', () => {
+                this.radialRadius = parseFloat(radialRadiusSlider.value);
+                document.getElementById('radiusDisplay').textContent = this.radialRadius.toFixed(1);
+                if (this.currentTool === 'bucket' && this.fillPattern.startsWith('gradient-radial')) {
+                    this.updateGradientLivePreview();
+                }
+            });
+        }
+
+        const radialPositionXSlider = document.getElementById('radialPositionX');
+        if (radialPositionXSlider) {
+            radialPositionXSlider.addEventListener('input', () => {
+                this.radialPositionX = parseFloat(radialPositionXSlider.value);
+                document.getElementById('radialXDisplay').textContent = this.radialPositionX.toFixed(1);
+                if (this.currentTool === 'bucket' && this.fillPattern.startsWith('gradient-radial')) {
+                    this.updateGradientLivePreview();
+                }
+            });
+        }
+
+        const radialPositionYSlider = document.getElementById('radialPositionY');
+        if (radialPositionYSlider) {
+            radialPositionYSlider.addEventListener('input', () => {
+                this.radialPositionY = parseFloat(radialPositionYSlider.value);
+                document.getElementById('radialYDisplay').textContent = this.radialPositionY.toFixed(1);
+                if (this.currentTool === 'bucket' && this.fillPattern.startsWith('gradient-radial')) {
+                    this.updateGradientLivePreview();
+                }
+            });
+        }
+
+        // Stipple/Dither contrast control
+        const gradientContrastSlider = document.getElementById('gradientContrast');
+        if (gradientContrastSlider) {
+            gradientContrastSlider.addEventListener('input', () => {
+                this.gradientContrast = parseFloat(gradientContrastSlider.value);
+                document.getElementById('contrastDisplay').textContent = this.gradientContrast.toFixed(1);
+                if (this.currentTool === 'bucket' && (this.fillPattern.includes('stipple') || this.fillPattern.includes('dither'))) {
+                    this.updateGradientLivePreview();
+                }
+            });
+        }
+
+        // Line pattern controls
+        const lineAngleSlider = document.getElementById('lineAngle');
+        if (lineAngleSlider) {
+            lineAngleSlider.addEventListener('input', () => {
+                this.lineAngle = parseInt(lineAngleSlider.value);
+                document.getElementById('lineAngleDisplay').textContent = this.lineAngle + '°';
+                // Regenerate line pattern when changed
+                this.patterns = this.generatePatterns();
+                // Update live preview if using bucket tool with lines pattern
+                if (this.currentTool === 'bucket' && this.fillPattern === 'lines') {
+                    setTimeout(() => this.updateGradientLivePreview(), 10);
+                }
+            });
+        }
+
+        const lineSpacingSlider = document.getElementById('lineSpacing');
+        if (lineSpacingSlider) {
+            lineSpacingSlider.addEventListener('input', () => {
+                this.lineSpacing = parseInt(lineSpacingSlider.value);
+                document.getElementById('lineSpacingDisplay').textContent = this.lineSpacing + 'px';
+                // Regenerate line pattern when changed
+                this.patterns = this.generatePatterns();
+                // Update live preview if using bucket tool with lines pattern
+                if (this.currentTool === 'bucket' && this.fillPattern === 'lines') {
+                    setTimeout(() => this.updateGradientLivePreview(), 10);
+                }
+            });
+        }
+
+        const lineWidthSlider = document.getElementById('lineWidth');
+        if (lineWidthSlider) {
+            lineWidthSlider.addEventListener('input', () => {
+                this.lineWidth = parseInt(lineWidthSlider.value);
+                document.getElementById('lineWidthDisplay').textContent = this.lineWidth + 'px';
+                // Regenerate line pattern when changed
+                this.patterns = this.generatePatterns();
+                // Update live preview if using bucket tool with lines pattern
+                if (this.currentTool === 'bucket' && this.fillPattern === 'lines') {
+                    setTimeout(() => this.updateGradientLivePreview(), 10);
+                }
+            });
+        }
+
+        const linePhaseSlider = document.getElementById('linePhase');
+        if (linePhaseSlider) {
+            linePhaseSlider.addEventListener('input', () => {
+                this.linePhase = parseInt(linePhaseSlider.value);
+                document.getElementById('linePhaseDisplay').textContent = this.linePhase + 'px';
+                // Regenerate line pattern when changed
+                this.patterns = this.generatePatterns();
+                // Update live preview if using bucket tool with lines pattern
+                if (this.currentTool === 'bucket' && this.fillPattern === 'lines') {
+                    setTimeout(() => this.updateGradientLivePreview(), 10);
+                }
+            });
+        }
+
+        // Brush size
+        const brushSizeSlider = document.getElementById('brushSize');
+        brushSizeSlider.addEventListener('input', () => {
+            this.brushSize = parseInt(brushSizeSlider.value);
+            document.getElementById('brushSizeDisplay').textContent = this.brushSize;
+        });
+
+        // Percentage pattern controls
+        this.setupPercentageControls();
+        
+        // Pattern adjustment controls
+        this.setupPatternControls();
+    }
+
+    setupPatternControls() {
+        // Checkerboard controls
+        const checkerboardSizeSlider = document.getElementById('checkerboardSize');
+        if (checkerboardSizeSlider) {
+            checkerboardSizeSlider.addEventListener('input', () => {
+                this.checkerboardSize = parseInt(checkerboardSizeSlider.value);
+                document.getElementById('checkerboardSizeDisplay').textContent = this.checkerboardSize + 'px';
+                this.patterns = this.generatePatterns();
+                // Update live preview if using bucket tool with checkerboard pattern
+                if (this.currentTool === 'bucket' && this.fillPattern === 'checkerboard') {
+                    setTimeout(() => this.updateGradientLivePreview(), 10);
+                }
+            });
+        }
+        
+        const checkerboardInvertCheck = document.getElementById('checkerboardInvert');
+        if (checkerboardInvertCheck) {
+            checkerboardInvertCheck.addEventListener('change', () => {
+                this.checkerboardInvert = checkerboardInvertCheck.checked;
+                this.patterns = this.generatePatterns();
+                // Update live preview if using bucket tool with checkerboard pattern
+                if (this.currentTool === 'bucket' && this.fillPattern === 'checkerboard') {
+                    setTimeout(() => this.updateGradientLivePreview(), 10);
+                }
+            });
+        }
+        
+        // Clipboard controls
+        const clipboardScaleSlider = document.getElementById('clipboardScale');
+        if (clipboardScaleSlider) {
+            clipboardScaleSlider.addEventListener('input', () => {
+                this.clipboardScale = parseInt(clipboardScaleSlider.value);
+                document.getElementById('clipboardScaleDisplay').textContent = this.clipboardScale + '%';
+                this.patterns = this.generatePatterns();
+                // Update live preview if using bucket tool with clipboard pattern
+                if (this.currentTool === 'bucket' && this.fillPattern === 'clipboard') {
+                    setTimeout(() => this.updateGradientLivePreview(), 10);
+                }
+            });
+        }
+        
+        const clipboardInvertCheck = document.getElementById('clipboardInvert');
+        if (clipboardInvertCheck) {
+            clipboardInvertCheck.addEventListener('change', () => {
+                this.clipboardInvert = clipboardInvertCheck.checked;
+                this.patterns = this.generatePatterns();
+                // Update live preview if using bucket tool with clipboard pattern
+                if (this.currentTool === 'bucket' && this.fillPattern === 'clipboard') {
+                    setTimeout(() => this.updateGradientLivePreview(), 10);
+                }
+            });
+        }
+        
+        // Dots controls
+        const dotsSpacingSlider = document.getElementById('dotsSpacing');
+        if (dotsSpacingSlider) {
+            dotsSpacingSlider.addEventListener('input', () => {
+                this.dotsSpacing = parseInt(dotsSpacingSlider.value);
+                document.getElementById('dotsSpacingDisplay').textContent = this.dotsSpacing + 'px';
+                this.patterns = this.generatePatterns();
+                // Update live preview if using bucket tool with dots pattern
+                if (this.currentTool === 'bucket' && this.fillPattern === 'dots') {
+                    setTimeout(() => this.updateGradientLivePreview(), 10);
+                }
+            });
+        }
+        
+        const dotsSizeSlider = document.getElementById('dotsSize');
+        if (dotsSizeSlider) {
+            dotsSizeSlider.addEventListener('input', () => {
+                this.dotsSize = parseInt(dotsSizeSlider.value);
+                document.getElementById('dotsSizeDisplay').textContent = this.dotsSize + 'px';
+                this.patterns = this.generatePatterns();
+                // Update live preview if using bucket tool with dots pattern
+                if (this.currentTool === 'bucket' && this.fillPattern === 'dots') {
+                    setTimeout(() => this.updateGradientLivePreview(), 10);
+                }
+            });
+        }
+        
+        const dotsOffsetSlider = document.getElementById('dotsOffset');
+        if (dotsOffsetSlider) {
+            dotsOffsetSlider.addEventListener('input', () => {
+                this.dotsOffset = parseInt(dotsOffsetSlider.value);
+                document.getElementById('dotsOffsetDisplay').textContent = this.dotsOffset + '%';
+                this.patterns = this.generatePatterns();
+                // Update live preview if using bucket tool with dots pattern
+                if (this.currentTool === 'bucket' && this.fillPattern === 'dots') {
+                    setTimeout(() => this.updateGradientLivePreview(), 10);
+                }
+            });
+        }
+        
+        const dotsInvertCheck = document.getElementById('dotsInvert');
+        if (dotsInvertCheck) {
+            dotsInvertCheck.addEventListener('change', () => {
+                this.dotsInvert = dotsInvertCheck.checked;
+                this.patterns = this.generatePatterns();
+                // Update live preview if using bucket tool with dots pattern
+                if (this.currentTool === 'bucket' && this.fillPattern === 'dots') {
+                    setTimeout(() => this.updateGradientLivePreview(), 10);
+                }
+            });
+        }
+    }
+
+    setupPercentageControls() {
+        const percentageSlider = document.getElementById('percentageFillSlider');
+        if (percentageSlider) {
+            percentageSlider.addEventListener('input', () => {
+                this.currentPercentage = parseInt(percentageSlider.value);
+                document.getElementById('percentageDisplay').textContent = this.currentPercentage;
+                
+                // Update the percentage button text to show current selection
+                const percentageBtn = document.getElementById('percentageFill');
+                if (percentageBtn) {
+                    percentageBtn.innerHTML = `▦ ${this.currentPercentage}%`;
+                    percentageBtn.setAttribute('title', `${this.currentPercentage}% Fill`);
+                }
+                
+                // Regenerate patterns to include new percentage
+                this.patterns = this.generatePatterns();
+                // Update live preview if using bucket tool with percentage pattern
+                if (this.currentTool === 'bucket' && this.fillPattern === 'percentage') {
+                    setTimeout(() => this.updateGradientLivePreview(), 10);
+                }
+            });
+        }
+    }    initializeEvents() {
+        // Canvas mouse events - add to both drawing and overlay canvas
+        [this.drawingCanvas, this.overlayCanvas].forEach(canvas => {
+            canvas.addEventListener('mousedown', (e) => this.onMouseDown(e));
+            canvas.addEventListener('mousemove', (e) => this.onMouseMove(e));
+            canvas.addEventListener('mouseup', (e) => this.onMouseUp(e));
+            
+            // Add scroll wheel zooming
+            canvas.addEventListener('wheel', (e) => this.onMouseWheel(e), { passive: false });
+            
+            // Add touch events
+            canvas.addEventListener('touchstart', (e) => this.onTouchStart(e), { passive: false });
+            canvas.addEventListener('touchmove', (e) => this.onTouchMove(e), { passive: false });
+            canvas.addEventListener('touchend', (e) => this.onTouchEnd(e), { passive: false });
+            canvas.addEventListener('touchcancel', (e) => this.onTouchEnd(e), { passive: false });
+            
+            // Prevent middle and right mouse button default behavior
+            canvas.addEventListener('mousedown', (e) => {
+                if (e.button === 1 || e.button === 2) {
+                    e.preventDefault();
+                }
+            });
+            
+            // Prevent context menu
+            canvas.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                return false;
+            });
+        });
+        
+        // Add global mouse events to handle drawing outside canvas
+        document.addEventListener('mousemove', (e) => {
+            // Store the current mouse event for panning
+            this.lastMouseEvent = e;
+            
+            // Handle panning regardless of mouse position with throttling
+            if (this.isPanning) {
+                // Throttle panning updates for better performance
+                if (!this.panningThrottle) {
+                    this.panningThrottle = requestAnimationFrame(() => {
+                        this.updatePanning();
+                        this.panningThrottle = null;
+                    });
+                }
+                return;
+            }
+            
+            if (this.isDrawing && this.currentTool === 'pen' && !this.shiftKey) {
+                // Only handle normal pen drawing here, not straight lines (shift mode)
+                // Check if mouse is over one of our canvases
+                const canvasRect = this.drawingCanvas.getBoundingClientRect();
+                const x = e.clientX - canvasRect.left;
+                const y = e.clientY - canvasRect.top;
+                
+                // Convert to canvas coordinates
+                const canvasX = Math.floor(x / this.zoom);
+                const canvasY = Math.floor(y / this.zoom);
+                
+                // Check if current position is within canvas bounds
+                const isWithinBounds = canvasX >= 0 && canvasX < this.canvasWidth && canvasY >= 0 && canvasY < this.canvasHeight;
+                
+                if (this.lastPos) {
+                    if (isWithinBounds) {
+                        // Normal drawing within bounds
+                        this.drawLine(this.lastPos.x, this.lastPos.y, canvasX, canvasY);
+                        this.lastPos = {x: canvasX, y: canvasY};
+                    } else {
+                        // Mouse moved outside bounds - draw to the edge and stop
+                        const clamped = this.clampLineToCanvas(this.lastPos.x, this.lastPos.y, canvasX, canvasY);
+                        this.drawLine(clamped.x1, clamped.y1, clamped.x2, clamped.y2);
+                        // End the line by resetting lastPos
+                        this.lastPos = null;
+                    }
+                } else if (isWithinBounds) {
+                    // Starting a new line segment within bounds
+                    this.lastPos = {x: canvasX, y: canvasY};
+                }
+            }
+        });
+        
+        document.addEventListener('mouseup', (e) => {
+            // Handle panning end regardless of mouse position
+            if (this.isPanning) {
+                this.endPanning();
+            }
+            
+            if (this.isDrawing) {
+                this.onMouseUp(e);
+            }
+        });
+        
+        // Canvas size change
+        document.getElementById('canvasSize').addEventListener('change', (e) => {
+            if (e.target.value === 'custom') {
+                document.getElementById('customSize').style.display = 'flex';
+            } else {
+                document.getElementById('customSize').style.display = 'none';
+                const [width, height] = e.target.value.split('x').map(n => parseInt(n));
+                this.setCanvasSize(width, height);
+            }
+        });
+        
+        document.getElementById('applyCustomSize').addEventListener('click', () => {
+            const width = parseInt(document.getElementById('customWidth').value);
+            const height = parseInt(document.getElementById('customHeight').value);
+            if (width > 0 && height > 0) {
+                this.setCanvasSize(width, height);
+            }
+        });
+        
+        // Edit buttons
+        document.getElementById('copyBtn').addEventListener('click', () => this.copy());
+        document.getElementById('pasteBtn').addEventListener('click', () => this.paste());
+        document.getElementById('cutBtn').addEventListener('click', () => this.cut());
+        document.getElementById('clearBtn').addEventListener('click', () => this.clear());
+        
+        // Rotation controls
+        document.getElementById('rotationAngle').addEventListener('input', (e) => {
+            document.getElementById('rotationAngleDisplay').textContent = e.target.value;
+        });
+        document.getElementById('rotateBtn').addEventListener('click', () => {
+            const angle = parseInt(document.getElementById('rotationAngle').value);
+            this.rotateSelectionByAngle(angle);
+        });
+        document.getElementById('resetRotationBtn').addEventListener('click', () => {
+            document.getElementById('rotationAngle').value = '0';
+            document.getElementById('rotationAngleDisplay').textContent = '0';
+        });
+        
+        // Export buttons
+        document.getElementById('exportBtn').addEventListener('click', () => this.export());
+        document.getElementById('copyCodeBtn').addEventListener('click', () => this.copyCode());
+        
+        // Asset name input
+        document.getElementById('assetName').addEventListener('input', (e) => {
+            this.validateAssetName(e.target);
+            this.generateCode();
+        });
+        
+        // Export format change - update default name and regenerate code
+        document.getElementById('exportFormat').addEventListener('change', (e) => {
+            this.updateAssetNameDefault(e.target.value);
+            this.generateCode();
+        });
+        
+        // File operations
+        document.getElementById('newBtn').addEventListener('click', () => this.newDrawing());
+        document.getElementById('saveBtn').addEventListener('click', () => this.save());
+        document.getElementById('loadBtn').addEventListener('click', () => this.load());
+        
+        // Help button
+        document.getElementById('helpBtn').addEventListener('click', () => this.showHelp());
+        document.getElementById('closeHelp').addEventListener('click', () => this.hideHelp());
+        
+        // Close modal when clicking outside
+        document.getElementById('helpModal').addEventListener('click', (e) => {
+            if (e.target.id === 'helpModal') {
+                this.hideHelp();
+            }
+        });
+        
+        // Zoom controls
+        document.getElementById('zoomIn').addEventListener('click', () => this.setZoom(this.zoom * 1.5));
+        document.getElementById('zoomOut').addEventListener('click', () => this.setZoom(this.zoom / 1.5));
+        document.getElementById('fitToScreen').addEventListener('click', () => this.fitToScreen());
+        document.getElementById('centerCanvas').addEventListener('click', () => this.centerCanvas());
+        
+        // Pixel grid control
+        document.getElementById('pixelGrid').addEventListener('change', () => this.togglePixelGrid());
+        
+        // Mirror drawing controls
+        document.getElementById('mirrorHorizontal').addEventListener('click', () => this.toggleMirrorHorizontal());
+        document.getElementById('mirrorVertical').addEventListener('click', () => this.toggleMirrorVertical());
+        
+        // Canvas transform controls
+        document.getElementById('flipHorizontal').addEventListener('click', () => this.flipCanvasHorizontal());
+        document.getElementById('flipVertical').addEventListener('click', () => this.flipCanvasVertical());
+        document.getElementById('rotateLeft').addEventListener('click', () => this.rotateCanvas(-90));
+        document.getElementById('rotateRight').addEventListener('click', () => this.rotateCanvas(90));
+    }
+    
+    initializeMobileMenus() {
+        // Mobile dropdown toggle buttons
+        const toolsDropdown = document.getElementById('mobileToolsDropdown');
+        const menuDropdown = document.getElementById('mobileMenuDropdown');
+        
+        if (toolsDropdown) {
+            toolsDropdown.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.toggleMobileDropdown('mobileToolsMenu');
+            });
+        }
+        
+        if (menuDropdown) {
+            menuDropdown.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.toggleMobileDropdown('mobileMainMenu');
+            });
+        }
+        
+        // Handle clicks outside dropdowns to close them
+        document.addEventListener('click', () => this.closeMobileDropdowns());
+        
+        // Handle window resize to manage mobile state
+        window.addEventListener('resize', () => this.handleMobileResize());
+        
+        // Initialize mobile state
+        this.handleMobileResize();
+    }
+    
+    toggleMobileDropdown(menuId) {
+        const menu = document.getElementById(menuId);
+        if (menu) {
+            const isVisible = menu.style.display === 'block';
+            // Close all dropdowns first
+            this.closeMobileDropdowns();
+            // Open this one if it wasn't already visible
+            if (!isVisible) {
+                menu.style.display = 'block';
+            }
+        }
+    }
+    
+    closeMobileDropdowns() {
+        const dropdowns = ['mobileToolsMenu', 'mobileMainMenu'];
+        dropdowns.forEach(id => {
+            const menu = document.getElementById(id);
+            if (menu) {
+                menu.style.display = 'none';
+            }
+        });
+    }
+    
+    handleMobileResize() {
+        // Handle mobile interface adjustments on resize
+        if (window.innerWidth <= 768) {
+            // Mobile mode
+            if (!this.mobileInterface) {
+                this.mobileInterface = new MobileInterface(this);
+            }
+        } else {
+            // Desktop mode - hide mobile elements
+            this.closeMobileDropdowns();
+        }
+    }
+    
+    initializeFrameSystem() {
+        // Frame navigation
+        document.getElementById('prevFrame').addEventListener('click', () => this.previousFrame());
+        document.getElementById('nextFrame').addEventListener('click', () => this.nextFrame());
+        document.getElementById('addFrame').addEventListener('click', () => this.addFrame());
+        document.getElementById('deleteFrame').addEventListener('click', () => this.deleteFrame());
+        
+        // Animation controls
+        document.getElementById('playBtn').addEventListener('click', () => this.toggleAnimation());
+        
+        // Frame rate
+        const frameRateSlider = document.getElementById('frameRate');
+        frameRateSlider.addEventListener('input', () => {
+            const fps = parseFloat(frameRateSlider.value);
+            document.getElementById('frameRateDisplay').textContent = fps.toFixed(1);
+            
+            // If animation is playing, restart with new speed
+            if (this.isPlaying) {
+                clearInterval(this.animationInterval);
+                this.animationInterval = setInterval(() => {
+                    this.advanceFrame();
+                    this.updateUI();
+                    this.redrawCanvas();
+                }, 1000 / fps);
+            }
+        });
+        
+        // Animation mode buttons
+        document.querySelectorAll('.mode-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                this.setAnimationMode(btn.dataset.mode);
+            });
+        });
+        
+        // Shape fill mode buttons
+        document.querySelectorAll('.fill-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                this.setShapeFillMode(btn.dataset.fill);
+            });
+        });
+        
+        // Shape thickness controls
+        document.getElementById('shapeThicknessSlider').addEventListener('input', (e) => {
+            this.shapeThickness = parseInt(e.target.value);
+            document.getElementById('shapeThicknessDisplay').textContent = e.target.value;
+        });
+        
+        // Shape stroke position buttons
+        document.querySelectorAll('.style-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                this.setShapeStrokePosition(btn.dataset.style);
+            });
+        });
+        
+        // Onion skinning
+        document.getElementById('onionSkinToggle').addEventListener('click', () => this.toggleOnionSkin());
+        document.getElementById('onionOpacity').addEventListener('input', () => {
+            const opacity = document.getElementById('onionOpacity').value;
+            document.getElementById('onionOpacityDisplay').textContent = opacity;
+            this.updateOnionSkin();
+        });
+
+        // Onion skin mode buttons
+        document.getElementById('onionModeBlackOnWhite').addEventListener('click', () => this.setOnionMode('blackOnWhite'));
+        document.getElementById('onionModeWhiteOnBlack').addEventListener('click', () => this.setOnionMode('whiteOnBlack'));
+        
+        // Clear canvas button
+        document.getElementById('clearCanvas').addEventListener('click', () => this.clearCurrentFrame());
+        
+        // Undo/Redo buttons
+        document.getElementById('undoBtn').addEventListener('click', () => this.undo());
+        document.getElementById('redoBtn').addEventListener('click', () => this.redo());
+        
+        // Mirror & Transform toggle button
+        document.getElementById('mirrorTransformToggle').addEventListener('click', () => this.toggleMirrorTransformSettings());
+        
+        // Fill Patterns toggle button
+        document.getElementById('fillPatternsToggle').addEventListener('click', () => this.toggleFillPatternsSettings());
+        
+        // Animation toggle button
+        document.getElementById('animationToggle').addEventListener('click', () => this.toggleAnimationSettings());
+        
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => this.handleKeyboardShortcuts(e));
+        
+        // Import image functionality
+        document.getElementById('importImageBtn').addEventListener('click', () => this.showImageImportModal());
+        this.setupImageImporter();
+    }
+    
+    handleKeyboardShortcuts(e) {
+        // Prevent shortcuts when typing in inputs
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+            return;
+        }
+        
+        switch (e.key.toLowerCase()) {
+            case 'p':
+                this.setTool('pen');
+                e.preventDefault();
+                break;
+            case 'c':
+                if (e.ctrlKey || e.metaKey) {
+                    this.copySelection();
+                    e.preventDefault();
+                } else {
+                    this.setTool('circle');
+                    e.preventDefault();
+                }
+                break;
+            case 'r': // Rectangle/Square
+                this.setTool('square');
+                e.preventDefault();
+                break;
+            case 'f':
+                this.setTool('bucket');
+                e.preventDefault();
+                break;
+            case 'h':
+                if (e.ctrlKey || e.metaKey) {
+                    this.showHelp();
+                    e.preventDefault();
+                } else {
+                    this.setTool('hand');
+                    e.preventDefault();
+                }
+                break;
+            case 'i':
+                this.showImageImportModal();
+                e.preventDefault();
+                break;
+            case 's':
+                if (e.ctrlKey || e.metaKey) {
+                    this.saveDrawing();
+                    e.preventDefault();
+                }
+                break;
+            case 'z':
+                if (e.ctrlKey || e.metaKey) {
+                    if (e.shiftKey) {
+                        // Ctrl+Shift+Z or Cmd+Shift+Z for redo
+                        this.redo();
+                    } else {
+                        // Ctrl+Z or Cmd+Z for undo
+                        this.undo();
+                    }
+                    e.preventDefault();
+                }
+                break;
+            case 'y':
+                if (e.ctrlKey || e.metaKey) {
+                    // Ctrl+Y for redo (Windows style)
+                    this.redo();
+                    e.preventDefault();
+                }
+                break;
+            case 'o':
+                if (e.ctrlKey || e.metaKey) {
+                    this.loadDrawing();
+                    e.preventDefault();
+                } else {
+                    this.setTool('select');
+                    e.preventDefault();
+                }
+                break;
+            case 'n':
+                if (e.ctrlKey || e.metaKey) {
+                    this.newDrawing();
+                    e.preventDefault();
+                }
+                break;
+            case 'c':
+                if (e.ctrlKey || e.metaKey) {
+                    this.copySelection();
+                    e.preventDefault();
+                }
+                break;
+            case 'v':
+                if (e.ctrlKey || e.metaKey) {
+                    this.paste();
+                    e.preventDefault();
+                }
+                break;
+            case 'x':
+                if (e.ctrlKey || e.metaKey) {
+                    this.cutSelection();
+                    e.preventDefault();
+                }
+                break;
+            case 'z':
+                if (e.ctrlKey || e.metaKey) {
+                    if (e.shiftKey) {
+                        // Redo functionality could be added here
+                    } else {
+                        // Undo functionality could be added here
+                    }
+                    e.preventDefault();
+                }
+                break;
+            case 'delete':
+            case 'backspace':
+                this.clearCurrentFrame();
+                e.preventDefault();
+                break;
+            case 'arrowleft':
+                this.previousFrame();
+                e.preventDefault();
+                break;
+            case 'arrowright':
+                this.nextFrame();
+                e.preventDefault();
+                break;
+            case ' ':
+                this.toggleAnimation();
+                e.preventDefault();
+                break;
+            case '1':
+            case '2':
+            case '3':
+            case '4':
+            case '5':
+            case '6':
+            case '7':
+            case '8':
+            case '9':
+                const size = parseInt(e.key);
+                if (size <= 10) {
+                    this.brushSize = size;
+                    document.getElementById('brushSize').value = size;
+                    document.getElementById('brushSizeDisplay').textContent = size;
+                }
+                e.preventDefault();
+                break;
+            case 'b':
+                this.currentColor = 'black';
+                this.updateColorButtons();
+                e.preventDefault();
+                break;
+            case 'w':
+                this.currentColor = 'white';
+                this.updateColorButtons();
+                e.preventDefault();
+                break;
+            case '+':
+            case '=':
+                this.zoomIn();
+                e.preventDefault();
+                break;
+            case '-':
+                this.zoomOut();
+                e.preventDefault();
+                break;
+            case '0':
+                this.fitToScreen();
+                e.preventDefault();
+                break;
+            case '.':
+                this.centerCanvas();
+                e.preventDefault();
+                break;
+            case '?':
+                this.showHelp();
+                e.preventDefault();
+                break;
+            case 'escape':
+                this.hideHelp();
+                e.preventDefault();
+                break;
+        }
+    }
+    
+    getMousePos(e) {
+        const rect = this.drawingCanvas.getBoundingClientRect();
+        const scaleX = this.canvasWidth / rect.width;
+        const scaleY = this.canvasHeight / rect.height;
+        
+        const pos = {
+            x: Math.floor((e.clientX - rect.left) * scaleX),
+            y: Math.floor((e.clientY - rect.top) * scaleY)
+        };
+        
+        return pos;
+    }
+    
+    onMouseDown(e) {
+        this.lastMouseEvent = e; // Store for panning
+        
+        // Handle middle mouse button (button 1) or right mouse button (button 2) for panning regardless of current tool
+        if (e.button === 1 || e.button === 2) {
+            e.preventDefault(); // Prevent browser's default behavior
+            const pos = this.getMousePos(e);
+            this.startPanning(pos);
+            return;
+        }
+        
+        if (e.button !== 0) return; // Only handle left mouse button for drawing tools
+        
+        this.isDrawing = true;
+        const pos = this.getMousePos(e);
+        this.lastPos = pos;
+        this.startPos = pos; // Store start position for straight lines
+        this.shiftKey = e.shiftKey;
+        
+        switch (this.currentTool) {
+            case 'pen':
+                // Start stroke for undo system
+                this.startStroke();
+                // Only draw initial pixel if not holding Shift (for straight lines)
+                if (!this.shiftKey) {
+                    this.drawPixel(pos.x, pos.y);
+                }
+                break;
+            case 'circle':
+                this.startShape('circle', pos);
+                break;
+            case 'square':
+                this.startShape('square', pos);
+                break;
+            case 'bucket':
+                this.executeFloodFill(pos.x, pos.y);
+                break;
+            case 'hand':
+                this.startPanning(pos);
+                break;
+            case 'select':
+                this.startSelection(pos.x, pos.y);
+                break;
+        }
+        
+        this.updateMousePosition(pos);
+    }
+    
+    onMouseWheel(e) {
+        e.preventDefault();
+        
+        // Zoom in/out based on wheel direction
+        const zoomFactor = 1.1;
+        const rect = this.drawingCanvas.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+        
+        // Get the canvas wrapper to calculate current offset
+        const canvasWrapper = document.querySelector('.canvas-wrapper');
+        const currentTransform = canvasWrapper.style.transform || 'translate3d(0px, 0px, 0px)';
+        const matches = currentTransform.match(/translate3d\(([^,]+),\s*([^,]+),\s*([^)]+)\)/);
+        const currentOffsetX = matches ? parseFloat(matches[1]) : 0;
+        const currentOffsetY = matches ? parseFloat(matches[2]) : 0;
+        
+        // Calculate the point under the cursor in canvas coordinates
+        const canvasX = (mouseX - currentOffsetX) / this.zoom;
+        const canvasY = (mouseY - currentOffsetY) / this.zoom;
+        
+        const oldZoom = this.zoom;
+        let newZoom;
+        
+        if (e.deltaY < 0) {
+            // Zoom in
+            newZoom = oldZoom * zoomFactor;
+        } else {
+            // Zoom out
+            newZoom = oldZoom / zoomFactor;
+        }
+        
+        // Constrain zoom levels
+        newZoom = Math.max(0.5, Math.min(newZoom, 20));
+        
+        // Calculate the new position of the point under cursor after zoom
+        const newCanvasX = canvasX * newZoom;
+        const newCanvasY = canvasY * newZoom;
+        
+        // Calculate how much to adjust the offset to keep cursor point stable
+        const offsetAdjustX = mouseX - newCanvasX - currentOffsetX;
+        const offsetAdjustY = mouseY - newCanvasY - currentOffsetY;
+        
+        // Apply the zoom
+        this.setZoom(newZoom);
+        
+        // Adjust the canvas position to zoom towards cursor
+        const newOffsetX = currentOffsetX + offsetAdjustX;
+        const newOffsetY = currentOffsetY + offsetAdjustY;
+        canvasWrapper.style.transform = `translate3d(${newOffsetX}px, ${newOffsetY}px, 0)`;
+    }
+    
+    // Touch event handlers
+    onTouchStart(e) {
+        e.preventDefault();
+        
+        const touches = e.touches;
+        
+        if (touches.length === 1) {
+            // Single touch - treat as mouse down
+            const touch = touches[0];
+            const mouseEvent = this.createMouseEventFromTouch(touch, 'mousedown');
+            this.onMouseDown(mouseEvent);
+        } else if (touches.length === 2) {
+            // Two finger touch - prepare for pinch zoom
+            this.lastTouchDistance = this.getTouchDistance(touches[0], touches[1]);
+            this.lastTouchCenter = this.getTouchCenter(touches[0], touches[1]);
+        }
+    }
+    
+    onTouchMove(e) {
+        e.preventDefault();
+        
+        const touches = e.touches;
+        
+        if (touches.length === 1) {
+            // Single touch - treat as mouse move
+            const touch = touches[0];
+            const mouseEvent = this.createMouseEventFromTouch(touch, 'mousemove');
+            this.onMouseMove(mouseEvent);
+        } else if (touches.length === 2 && this.lastTouchDistance) {
+            // Two finger touch - handle pinch zoom
+            const currentDistance = this.getTouchDistance(touches[0], touches[1]);
+            const currentCenter = this.getTouchCenter(touches[0], touches[1]);
+            
+            // Calculate zoom change
+            const zoomChange = currentDistance / this.lastTouchDistance;
+            const newZoom = this.zoom * zoomChange;
+            
+            // Apply zoom
+            this.setZoom(newZoom);
+            
+            // Update for next frame
+            this.lastTouchDistance = currentDistance;
+            this.lastTouchCenter = currentCenter;
+        }
+    }
+    
+    onTouchEnd(e) {
+        e.preventDefault();
+        
+        const touches = e.touches;
+        
+        if (touches.length === 0) {
+            // All touches ended - treat as mouse up
+            const mouseEvent = this.createMouseEventFromTouch(e.changedTouches[0], 'mouseup');
+            this.onMouseUp(mouseEvent);
+            
+            // Reset touch tracking
+            this.lastTouchDistance = null;
+            this.lastTouchCenter = null;
+        } else if (touches.length === 1) {
+            // Went from multi-touch to single touch
+            this.lastTouchDistance = null;
+            this.lastTouchCenter = null;
+        }
+    }
+    
+    // Helper methods for touch handling
+    createMouseEventFromTouch(touch, type) {
+        return {
+            type: type,
+            clientX: touch.clientX,
+            clientY: touch.clientY,
+            button: 0,
+            buttons: 1,
+            preventDefault: () => {},
+            target: touch.target
+        };
+    }
+    
+    getTouchDistance(touch1, touch2) {
+        const dx = touch1.clientX - touch2.clientX;
+        const dy = touch1.clientY - touch2.clientY;
+        return Math.sqrt(dx * dx + dy * dy);
+    }
+    
+    getTouchCenter(touch1, touch2) {
+        return {
+            x: (touch1.clientX + touch2.clientX) / 2,
+            y: (touch1.clientY + touch2.clientY) / 2
+        };
+    }
+    
+    onMouseMove(e) {
+        this.lastMouseEvent = e; // Store for panning
+        const pos = this.getMousePos(e);
+        this.updateMousePosition(pos);
+        
+        // Update shift key state during mouse movement
+        this.shiftKey = e.shiftKey;
+        
+        // Handle right-click panning
+        if (this.isPanning) {
+            this.updatePanning();
+            return;
+        }
+        
+        // Show pen preview when hovering with pen tool (even when not drawing)
+        if (this.currentTool === 'pen' && !this.isDrawing) {
+            this.showPenPreview(pos.x, pos.y);
+        }
+        
+        // Show fill preview when hovering with bucket tool
+        if (this.currentTool === 'bucket' && !this.isDrawing) {
+            this.showFillPreview(pos.x, pos.y);
+        }
+        
+        if (!this.isDrawing) return;
+        
+        switch (this.currentTool) {
+            case 'pen':
+                if (this.shiftKey && this.startPos) {
+                    // Draw straight line from start position - only preview, don't draw to canvas yet
+                    this.drawStraightLinePreview(this.startPos.x, this.startPos.y, pos.x, pos.y);
+                } else {
+                    // Normal drawing - draw line and update position
+                    this.drawLine(this.lastPos.x, this.lastPos.y, pos.x, pos.y);
+                    this.lastPos = pos;
+                }
+                break;
+            case 'circle':
+            case 'square':
+                this.updateShapePreview(pos);
+                break;
+            case 'hand':
+                this.updatePanning();
+                break;
+            case 'select':
+                this.updateSelection(pos.x, pos.y);
+                break;
+        }
+    }
+    
+    onMouseUp(e) {
+        if (!this.isDrawing && !this.isPanning) return;
+        
+        // End panning for any mouse button
+        if (this.isPanning) {
+            this.endPanning();
+            return;
+        }
+        
+        this.isDrawing = false;
+        
+        // Update shift key state during mouse up
+        this.shiftKey = e.shiftKey;
+        
+        // Handle selection dragging completion
+        if (this.selection && this.selection.isDragging) {
+            this.finishDraggingSelection();
+        }
+        
+        // If we were drawing a straight line, finalize it
+        if (this.currentTool === 'pen' && this.shiftKey && this.startPos) {
+            const pos = this.getMousePos(e);
+            this.drawStraightLine(this.startPos.x, this.startPos.y, pos.x, pos.y);
+            // Clear the overlay after drawing the final line and restore base layers
+            this.clearOverlayAndRedrawBase();
+        }
+        
+        // Finalize shapes
+        if ((this.currentTool === 'circle' || this.currentTool === 'square') && this.startPos) {
+            const pos = this.getMousePos(e);
+            this.finalizeShape(pos);
+        }
+        
+        // End panning
+        if (this.currentTool === 'hand') {
+            this.endPanning();
+        }
+        
+        if (this.currentTool === 'pen' || this.currentTool === 'circle' || this.currentTool === 'square') {
+            this.generateThumbnail(this.currentFrameIndex);
+            this.generateCode();
+        }
+        
+        // Finish stroke for undo system
+        if (this.currentTool === 'pen' && this.currentStroke) {
+            this.finishStroke();
+            
+            // Ensure final redraw after pen drawing is complete
+            if (this.pendingRedrawTimeout) {
+                clearTimeout(this.pendingRedrawTimeout);
+                this.pendingRedrawTimeout = null;
+            }
+            this.redrawCanvas();
+            this.lastRedrawTime = Date.now();
+        }
+    }
+    
+    finishDraggingSelection() {
+        if (!this.selection || !this.selection.cutContent) return;
+        
+        // Place the cut content at the new location
+        const { startX, startY, endX, endY } = this.selection;
+        const minX = Math.min(startX, endX);
+        const minY = Math.min(startY, endY);
+        
+        const ctx = this.getCurrentFrameContext();
+        ctx.drawImage(this.selection.cutContent, minX, minY);
+        
+        // Clear the cut content and selection
+        this.selection.cutContent = null;
+        this.selection.isDragging = false;
+        this.selection.active = false;
+        this.selection = null;
+        
+        this.redrawCanvas();
+        this.drawSelectionOverlay();
+    }
+    
+    drawPixel(x, y) {
+        const ctx = this.getCurrentFrameContext();
+        const color = this.currentColor; // Simply use the selected color
+        
+        // Start pixel tracking for this operation
+        this.startPixelTracking();
+        
+        // Draw the main pixel
+        if (this.brushShape === 'circle') {
+            this.drawCircleBrush(x, y, this.brushSize, ctx, color);
+        } else {
+            this.drawSquareBrush(x, y, this.brushSize, ctx, color);
+        }
+        
+        // Draw mirrored pixels if mirror mode is enabled
+        if (this.mirrorHorizontal || this.mirrorVertical) {
+            this.drawMirroredPixels(x, y, ctx, color);
+        }
+        
+        // End pixel tracking and add to stroke
+        this.endPixelTracking();
+        
+        // Throttle canvas updates during continuous drawing for better performance
+        this.throttledRedrawCanvas();
+    }
+    
+    throttledRedrawCanvas() {
+        const now = Date.now();
+        const timeSinceLastRedraw = now - (this.lastRedrawTime || 0);
+        
+        // If it's been more than 20ms since last redraw, or this is the first draw, redraw immediately
+        if (timeSinceLastRedraw >= 20) {
+            this.redrawCanvas();
+            this.lastRedrawTime = now;
+        } else {
+            // Schedule a redraw for the remaining time
+            if (this.pendingRedrawTimeout) {
+                clearTimeout(this.pendingRedrawTimeout);
+            }
+            
+            this.pendingRedrawTimeout = setTimeout(() => {
+                this.redrawCanvas();
+                this.lastRedrawTime = Date.now();
+                this.pendingRedrawTimeout = null;
+            }, 20 - timeSinceLastRedraw);
+        }
+    }
+    
+    drawMirroredPixels(x, y, ctx, color) {
+        // Calculate mirror lines based on even/odd pixel count
+        // For even width: mirror across line between center pixels (e.g. 144 pixels: mirror line at 71.5)
+        // For odd width: center pixel serves as mirror line (e.g. 143 pixels: center at 71)
+        
+        if (this.mirrorHorizontal && !this.mirrorVertical) {
+            // Horizontal mirror only
+            let mirrorX;
+            if (this.canvasWidth % 2 === 0) {
+                // Even width: mirror across line between center pixels
+                const centerLine = (this.canvasWidth / 2) - 0.5;
+                mirrorX = Math.floor(2 * centerLine - x);
+            } else {
+                // Odd width: mirror across center pixel
+                const centerPixel = Math.floor(this.canvasWidth / 2);
+                mirrorX = 2 * centerPixel - x;
+            }
+            
+            if (mirrorX >= 0 && mirrorX < this.canvasWidth && mirrorX !== x) {
+                if (this.brushShape === 'circle') {
+                    this.drawCircleBrush(mirrorX, y, this.brushSize, ctx, color);
+                } else {
+                    this.drawSquareBrush(mirrorX, y, this.brushSize, ctx, color);
+                }
+            }
+        }
+        
+        if (this.mirrorVertical && !this.mirrorHorizontal) {
+            // Vertical mirror only
+            let mirrorY;
+            if (this.canvasHeight % 2 === 0) {
+                // Even height: mirror across line between center pixels
+                const centerLine = (this.canvasHeight / 2) - 0.5;
+                mirrorY = Math.floor(2 * centerLine - y);
+            } else {
+                // Odd height: mirror across center pixel
+                const centerPixel = Math.floor(this.canvasHeight / 2);
+                mirrorY = 2 * centerPixel - y;
+            }
+            
+            if (mirrorY >= 0 && mirrorY < this.canvasHeight && mirrorY !== y) {
+                if (this.brushShape === 'circle') {
+                    this.drawCircleBrush(x, mirrorY, this.brushSize, ctx, color);
+                } else {
+                    this.drawSquareBrush(x, mirrorY, this.brushSize, ctx, color);
+                }
+            }
+        }
+        
+        if (this.mirrorHorizontal && this.mirrorVertical) {
+            // Both mirrors - calculate both mirror positions
+            let mirrorX, mirrorY;
+            
+            if (this.canvasWidth % 2 === 0) {
+                const centerLine = (this.canvasWidth / 2) - 0.5;
+                mirrorX = Math.floor(2 * centerLine - x);
+            } else {
+                const centerPixel = Math.floor(this.canvasWidth / 2);
+                mirrorX = 2 * centerPixel - x;
+            }
+            
+            if (this.canvasHeight % 2 === 0) {
+                const centerLine = (this.canvasHeight / 2) - 0.5;
+                mirrorY = Math.floor(2 * centerLine - y);
+            } else {
+                const centerPixel = Math.floor(this.canvasHeight / 2);
+                mirrorY = 2 * centerPixel - y;
+            }
+            
+            // Horizontal mirror
+            if (mirrorX >= 0 && mirrorX < this.canvasWidth && mirrorX !== x) {
+                if (this.brushShape === 'circle') {
+                    this.drawCircleBrush(mirrorX, y, this.brushSize, ctx, color);
+                } else {
+                    this.drawSquareBrush(mirrorX, y, this.brushSize, ctx, color);
+                }
+            }
+            
+            // Vertical mirror
+            if (mirrorY >= 0 && mirrorY < this.canvasHeight && mirrorY !== y) {
+                if (this.brushShape === 'circle') {
+                    this.drawCircleBrush(x, mirrorY, this.brushSize, ctx, color);
+                } else {
+                    this.drawSquareBrush(x, mirrorY, this.brushSize, ctx, color);
+                }
+            }
+            
+            // Diagonal mirror (both axes)
+            if (mirrorX >= 0 && mirrorX < this.canvasWidth && mirrorY >= 0 && mirrorY < this.canvasHeight && 
+                (mirrorX !== x || mirrorY !== y)) {
+                if (this.brushShape === 'circle') {
+                    this.drawCircleBrush(mirrorX, mirrorY, this.brushSize, ctx, color);
+                } else {
+                    this.drawSquareBrush(mirrorX, mirrorY, this.brushSize, ctx, color);
+                }
+            }
+        }
+    }
+    
+    drawSquareBrush(x, y, size, ctx, color) {
+        const halfSize = Math.floor(size / 2);
+        for (let dx = 0; dx < size; dx++) {
+            for (let dy = 0; dy < size; dy++) {
+                const px = x + dx - halfSize;
+                const py = y + dy - halfSize;
+                
+                if (px >= 0 && px < this.canvasWidth && py >= 0 && py < this.canvasHeight) {
+                    ctx.fillStyle = color;
+                    ctx.fillRect(px, py, 1, 1);
+                }
+            }
+        }
+    }
+    
+    drawCircleBrush(x, y, size, ctx, color) {
+        const radius = size / 2;
+        const halfSize = Math.floor(size / 2);
+        
+        for (let dx = 0; dx < size; dx++) {
+            for (let dy = 0; dy < size; dy++) {
+                const px = x + dx - halfSize;
+                const py = y + dy - halfSize;
+                
+                // Check if point is within circle
+                const distance = Math.sqrt((dx - halfSize) ** 2 + (dy - halfSize) ** 2);
+                if (distance <= radius && px >= 0 && px < this.canvasWidth && py >= 0 && py < this.canvasHeight) {
+                    ctx.fillStyle = color;
+                    ctx.fillRect(px, py, 1, 1);
+                }
+            }
+        }
+    }
+    
+    drawLine(x0, y0, x1, y1) {
+        // Bresenham's line algorithm
+        const dx = Math.abs(x1 - x0);
+        const dy = Math.abs(y1 - y0);
+        const sx = x0 < x1 ? 1 : -1;
+        const sy = y0 < y1 ? 1 : -1;
+        let err = dx - dy;
+        
+        let x = x0;
+        let y = y0;
+        
+        while (true) {
+            this.drawPixel(x, y);
+            
+            if (x === x1 && y === y1) break;
+            
+            const e2 = 2 * err;
+            if (e2 > -dy) {
+                err -= dy;
+                x += sx;
+            }
+            if (e2 < dx) {
+                err += dx;
+                y += sy;
+            }
+        }
+    }
+    
+    getLinePixels(x0, y0, x1, y1) {
+        // Bresenham's line algorithm - returns array of pixel coordinates
+        const pixels = [];
+        const dx = Math.abs(x1 - x0);
+        const dy = Math.abs(y1 - y0);
+        const sx = x0 < x1 ? 1 : -1;
+        const sy = y0 < y1 ? 1 : -1;
+        let err = dx - dy;
+        
+        let x = x0;
+        let y = y0;
+        
+        while (true) {
+            pixels.push({ x: x, y: y });
+            
+            if (x === x1 && y === y1) break;
+            
+            const e2 = 2 * err;
+            if (e2 > -dy) {
+                err -= dy;
+                x += sx;
+            }
+            if (e2 < dx) {
+                err += dx;
+                y += sy;
+            }
+        }
+        
+        return pixels;
+    }
+    
+    drawStraightLinePreview(x0, y0, x1, y1) {
+        // Clear overlay completely first
+        this.overlayCtx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
+        
+        // Phase 1: Draw grid if enabled (bottom layer)
+        if (this.showPixelGrid && this.zoom >= 2) {
+            this.overlayCtx.save();
+            this.overlayCtx.fillStyle = 'rgba(135, 206, 235, 0.25)'; // Increased opacity to 25% for better visibility
+            
+            for (let x = 0; x < this.canvasWidth; x++) {
+                for (let y = 0; y < this.canvasHeight; y++) {
+                    if ((x + y) % 2 === 0) {
+                        this.overlayCtx.fillRect(x, y, 1, 1);
+                    }
+                }
+            }
+            this.overlayCtx.restore();
+        }
+        
+        // Phase 2: Draw selection overlay if active (middle layer)
+        if (this.selection && this.selection.active) {
+            this.drawSelectionOverlay();
+        }
+        
+        // Phase 3: Draw actual pixels that will be drawn for the straight line (top layer)
+        this.overlayCtx.save();
+        this.overlayCtx.fillStyle = 'rgba(255, 0, 0, 0.9)'; // Very strong red with 90% opacity for clear visibility
+        
+        // Get the pixels that would be drawn by the line using Bresenham algorithm
+        const linePixels = this.getLinePixels(x0, y0, x1, y1);
+        
+        // Draw each pixel that would be affected by the brush
+        linePixels.forEach(pixel => {
+            if (this.brushShape === 'circle') {
+                this.drawCircleBrushPreview(pixel.x, pixel.y, this.brushSize);
+            } else {
+                this.drawSquareBrushPreview(pixel.x, pixel.y, this.brushSize);
+            }
+        });
+        
+        this.overlayCtx.restore();
+    }
+    
+    drawStraightLine(x0, y0, x1, y1) {
+        // Draw the actual straight line to the canvas
+        this.drawLine(x0, y0, x1, y1);
+    }
+    
+    showPenPreview(x, y) {
+        // Clear overlay completely first
+        this.overlayCtx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
+        
+        // Phase 1: Draw grid if enabled (bottom layer)
+        if (this.showPixelGrid && this.zoom >= 2) {
+            this.overlayCtx.save();
+            this.overlayCtx.fillStyle = 'rgba(135, 206, 235, 0.25)'; // Increased opacity to 25% for better visibility
+            
+            for (let x = 0; x < this.canvasWidth; x++) {
+                for (let y = 0; y < this.canvasHeight; y++) {
+                    if ((x + y) % 2 === 0) {
+                        this.overlayCtx.fillRect(x, y, 1, 1);
+                    }
+                }
+            }
+            this.overlayCtx.restore();
+        }
+        
+        // Phase 2: Draw selection overlay if active (middle layer)
+        if (this.selection && this.selection.active) {
+            this.drawSelectionOverlay();
+        }
+        
+        // Phase 3: Draw pen preview (top layer)
+        this.overlayCtx.save();
+        this.overlayCtx.fillStyle = 'rgba(255, 0, 0, 0.9)'; // Very strong red with 90% opacity for clear visibility
+        
+        // Draw pen preview based on brush shape and size
+        if (this.brushShape === 'circle') {
+            this.drawCircleBrushPreview(x, y, this.brushSize);
+        } else {
+            this.drawSquareBrushPreview(x, y, this.brushSize);
+        }
+        
+        // Draw mirrored previews if mirror mode is enabled
+        if (this.mirrorHorizontal || this.mirrorVertical) {
+            this.drawMirroredPenPreview(x, y);
+        }
+        
+        // Restore overlay context
+        this.overlayCtx.restore();
+    }
+    
+    drawCircleBrushPreview(x, y, size) {
+        const radius = size / 2;
+        const halfSize = Math.floor(size / 2);
+        
+        for (let dx = 0; dx < size; dx++) {
+            for (let dy = 0; dy < size; dy++) {
+                const px = x + dx - halfSize;
+                const py = y + dy - halfSize;
+                
+                // Check if point is within circle and canvas bounds
+                const distance = Math.sqrt((dx - halfSize) ** 2 + (dy - halfSize) ** 2);
+                if (distance <= radius && px >= 0 && px < this.canvasWidth && py >= 0 && py < this.canvasHeight) {
+                    this.overlayCtx.fillRect(px, py, 1, 1);
+                }
+            }
+        }
+    }
+    
+    drawSquareBrushPreview(x, y, size) {
+        const halfSize = Math.floor(size / 2);
+        for (let dx = 0; dx < size; dx++) {
+            for (let dy = 0; dy < size; dy++) {
+                const px = x + dx - halfSize;
+                const py = y + dy - halfSize;
+                
+                if (px >= 0 && px < this.canvasWidth && py >= 0 && py < this.canvasHeight) {
+                    this.overlayCtx.fillRect(px, py, 1, 1);
+                }
+            }
+        }
+    }
+    
+    showFillPreview(x, y) {
+        // Clear overlay and redraw base layers
+        this.clearOverlayAndRedrawBase();
+        
+        // Get the target color at this position
+        const ctx = this.getCurrentFrameContext();
+        const imageData = ctx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
+        const data = imageData.data;
+        const targetColor = this.getPixelColor(data, x, y);
+        const fillColor = this.currentColor === 'black' ? [0, 0, 0, 255] : [255, 255, 255, 255];
+        
+        // Don't show preview if colors are the same
+        if (this.colorsEqual(targetColor, fillColor)) {
+            return;
+        }
+        
+        // Find all pixels that would be filled using flood fill algorithm
+        const fillPixels = this.getFillPreviewPixels(x, y, targetColor, imageData);
+        
+        // Store this as the last preview area for live pattern updates
+        this.lastPreviewArea = {
+            pixels: fillPixels,
+            targetColor: targetColor,
+            clickX: x,
+            clickY: y
+        };
+        
+        // Draw preview based on the current fill pattern
+        fillPixels.forEach(pixel => {
+            let shouldShowPixel = true;
+            let previewColor = 'rgba(255, 0, 0, 0.6)'; // Default red preview
+            
+            if (this.fillPattern.startsWith('gradient-')) {
+                // For gradients, calculate what the actual fill would be
+                if (this.fillPattern.includes('-dither') || this.fillPattern.includes('-stipple')) {
+                    // For dithered gradients, check if this pixel would be filled
+                    const hexColor = this.getGradientColor(pixel.x, pixel.y, this.fillPattern, this.currentColor);
+                    if ((this.currentColor === 'black' && hexColor === '#ffffff') ||
+                        (this.currentColor === 'white' && hexColor === '#000000')) {
+                        shouldShowPixel = false;
+                    }
+                } else {
+                    // For regular gradients, show all pixels (they're just black/white decisions)
+                    shouldShowPixel = true;
+                }
+            } else if (this.fillPattern !== 'solid') {
+                // For stippling patterns, check if pixel should be filled
+                shouldShowPixel = this.shouldFillPixel(pixel.x, pixel.y, this.fillPattern);
+            }
+            
+            if (shouldShowPixel) {
+                this.overlayCtx.fillStyle = previewColor;
+                this.overlayCtx.fillRect(pixel.x, pixel.y, 1, 1);
+            }
+        });
+        
+        // Draw mirrored fill previews if mirror mode is enabled
+        if (this.mirrorHorizontal || this.mirrorVertical) {
+            this.showMirroredFillPreview(x, y);
+        }
+        
+        // Reset overlay context
+        this.overlayCtx.globalAlpha = 1;
+    }
+    
+    getFillPreviewPixels(startX, startY, targetColor, imageData) {
+        const data = imageData.data;
+        const fillPixels = [];
+        const stack = [[startX, startY]];
+        const visited = new Set();
+        
+        while (stack.length > 0) {
+            const [x, y] = stack.pop();
+            const key = `${x},${y}`;
+            
+            if (visited.has(key)) continue;
+            if (x < 0 || x >= this.canvasWidth || y < 0 || y >= this.canvasHeight) continue;
+            
+            const currentColor = this.getPixelColor(data, x, y);
+            if (!this.colorsEqual(currentColor, targetColor)) continue;
+            
+            visited.add(key);
+            fillPixels.push({x, y});
+            
+            stack.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]);
+        }
+        
+        return fillPixels;
+    }
+
+    showMirroredFillPreview(x, y) {
+        // Calculate mirror positions using the same logic as pen tool
+        const mirrorPositions = this.calculateMirrorPositions(x, y);
+        
+        // Show fill preview for each mirror position
+        mirrorPositions.forEach(pos => {
+            if (pos.x >= 0 && pos.x < this.canvasWidth && pos.y >= 0 && pos.y < this.canvasHeight) {
+                // Get the target color at this mirror position
+                const ctx = this.getCurrentFrameContext();
+                const imageData = ctx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
+                const data = imageData.data;
+                const targetColor = this.getPixelColor(data, pos.x, pos.y);
+                const fillColor = this.currentColor === 'black' ? [0, 0, 0, 255] : [255, 255, 255, 255];
+                
+                // Don't show preview if colors are the same
+                if (this.colorsEqual(targetColor, fillColor)) {
+                    return;
+                }
+                
+                // Find all pixels that would be filled for this mirror position
+                const fillPixels = this.getFillPreviewPixels(pos.x, pos.y, targetColor, imageData);
+                
+                // Draw preview based on the current fill pattern
+                fillPixels.forEach(pixel => {
+                    let shouldShowPixel = true;
+                    let previewColor = 'rgba(255, 0, 0, 0.6)'; // Red preview
+                    
+                    if (this.fillPattern.startsWith('gradient-')) {
+                        // For gradients, calculate what the actual fill would be
+                        if (this.fillPattern.includes('-dither') || this.fillPattern.includes('-stipple')) {
+                            // For dithered gradients, check if this pixel would be filled
+                            const hexColor = this.getGradientColor(pixel.x, pixel.y, this.fillPattern, this.currentColor);
+                            if ((this.currentColor === 'black' && hexColor === '#ffffff') ||
+                                (this.currentColor === 'white' && hexColor === '#000000')) {
+                                shouldShowPixel = false;
+                            }
+                        } else {
+                            // For regular gradients, show all pixels
+                            shouldShowPixel = true;
+                        }
+                    } else if (this.fillPattern !== 'solid') {
+                        // For stippling patterns, check if pixel should be filled
+                        shouldShowPixel = this.shouldFillPixel(pixel.x, pixel.y, this.fillPattern);
+                    }
+                    
+                    if (shouldShowPixel) {
+                        this.overlayCtx.fillStyle = previewColor;
+                        this.overlayCtx.fillRect(pixel.x, pixel.y, 1, 1);
+                    }
+                });
+            }
+        });
+    }
+
+    calculateMirrorPositions(x, y) {
+        const positions = [];
+        
+        if (this.mirrorHorizontal && !this.mirrorVertical) {
+            // Horizontal mirror only
+            let mirrorX;
+            if (this.canvasWidth % 2 === 0) {
+                const centerLine = (this.canvasWidth / 2) - 0.5;
+                mirrorX = Math.floor(2 * centerLine - x);
+            } else {
+                const centerPixel = Math.floor(this.canvasWidth / 2);
+                mirrorX = 2 * centerPixel - x;
+            }
+            
+            if (mirrorX >= 0 && mirrorX < this.canvasWidth && mirrorX !== x) {
+                positions.push({x: mirrorX, y: y});
+            }
+        }
+        
+        if (this.mirrorVertical && !this.mirrorHorizontal) {
+            // Vertical mirror only
+            let mirrorY;
+            if (this.canvasHeight % 2 === 0) {
+                const centerLine = (this.canvasHeight / 2) - 0.5;
+                mirrorY = Math.floor(2 * centerLine - y);
+            } else {
+                const centerPixel = Math.floor(this.canvasHeight / 2);
+                mirrorY = 2 * centerPixel - y;
+            }
+            
+            if (mirrorY >= 0 && mirrorY < this.canvasHeight && mirrorY !== y) {
+                positions.push({x: x, y: mirrorY});
+            }
+        }
+        
+        if (this.mirrorHorizontal && this.mirrorVertical) {
+            // Both mirrors - calculate all mirror positions
+            let mirrorX, mirrorY;
+            
+            if (this.canvasWidth % 2 === 0) {
+                const centerLine = (this.canvasWidth / 2) - 0.5;
+                mirrorX = Math.floor(2 * centerLine - x);
+            } else {
+                const centerPixel = Math.floor(this.canvasWidth / 2);
+                mirrorX = 2 * centerPixel - x;
+            }
+            
+            if (this.canvasHeight % 2 === 0) {
+                const centerLine = (this.canvasHeight / 2) - 0.5;
+                mirrorY = Math.floor(2 * centerLine - y);
+            } else {
+                const centerPixel = Math.floor(this.canvasHeight / 2);
+                mirrorY = 2 * centerPixel - y;
+            }
+            
+            // Horizontal mirror
+            if (mirrorX >= 0 && mirrorX < this.canvasWidth && mirrorX !== x) {
+                positions.push({x: mirrorX, y: y});
+            }
+            
+            // Vertical mirror
+            if (mirrorY >= 0 && mirrorY < this.canvasHeight && mirrorY !== y) {
+                positions.push({x: x, y: mirrorY});
+            }
+            
+            // Diagonal mirror (both axes)
+            if (mirrorX >= 0 && mirrorX < this.canvasWidth && mirrorY >= 0 && mirrorY < this.canvasHeight && 
+                (mirrorX !== x || mirrorY !== y)) {
+                positions.push({x: mirrorX, y: mirrorY});
+            }
+        }
+        
+        return positions;
+    }
+
+    updateGradientLivePreview() {
+        // Only show live preview when bucket tool is selected
+        if (this.currentTool !== 'bucket') {
+            return;
+        }
+        
+        // Clear overlay and redraw base layers
+        this.clearOverlayAndRedrawBase();
+        
+        // Handle gradient patterns differently - show full gradient preview
+        if (this.fillPattern.startsWith('gradient-')) {
+            // For gradients, show a full canvas preview with transparency
+            this.overlayCtx.globalAlpha = 0.3; // More transparent for full canvas
+            
+            // Sample the gradient at regular intervals for performance
+            const sampleRate = 2; // Sample every 2 pixels for better performance
+            
+            for (let y = 0; y < this.canvasHeight; y += sampleRate) {
+                for (let x = 0; x < this.canvasWidth; x += sampleRate) {
+                    let shouldShowPixel = true;
+                    
+                    if (this.fillPattern.includes('-dither') || this.fillPattern.includes('-stipple')) {
+                        // For dithered gradients, check if this pixel would be filled
+                        const hexColor = this.getGradientColor(x, y, this.fillPattern, this.currentColor);
+                        if ((this.currentColor === 'black' && hexColor === '#ffffff') ||
+                            (this.currentColor === 'white' && hexColor === '#000000')) {
+                            shouldShowPixel = false;
+                        }
+                    } else {
+                        // For regular gradients, show the transition pattern
+                        const hexColor = this.getGradientColor(x, y, this.fillPattern, this.currentColor);
+                        if ((this.currentColor === 'black' && hexColor === '#ffffff') ||
+                            (this.currentColor === 'white' && hexColor === '#000000')) {
+                            shouldShowPixel = false;
+                        }
+                    }
+                    
+                    if (shouldShowPixel) {
+                        this.overlayCtx.fillStyle = 'rgba(255, 0, 0, 1)';
+                        this.overlayCtx.fillRect(x, y, sampleRate, sampleRate);
+                    }
+                }
+            }
+        } else {
+            // For non-gradient patterns, use targeted area preview
+            if (!this.lastPreviewArea || !this.lastPreviewArea.pixels) {
+                return;
+            }
+            
+            this.overlayCtx.globalAlpha = 0.6; // Semi-transparent for area preview
+            
+            // Apply the current pattern to the stored preview area
+            this.lastPreviewArea.pixels.forEach(pixel => {
+                let shouldShowPixel = true;
+                
+                if (this.fillPattern !== 'solid') {
+                    // For non-gradient patterns, check if pixel should be filled
+                    shouldShowPixel = this.shouldFillPixel(pixel.x, pixel.y, this.fillPattern);
+                }
+                
+                if (shouldShowPixel) {
+                    this.overlayCtx.fillStyle = 'rgba(255, 0, 0, 1)';
+                    this.overlayCtx.fillRect(pixel.x, pixel.y, 1, 1);
+                }
+            });
+        }
+        
+        // Reset overlay context
+        this.overlayCtx.globalAlpha = 1;
+    }
+
+    drawMirroredPenPreview(x, y) {
+        // Calculate mirror lines based on even/odd pixel count
+        // For even width: mirror across line between center pixels (e.g. 144 pixels: mirror line at 71.5)
+        // For odd width: center pixel serves as mirror line (e.g. 143 pixels: center at 71)
+        
+        if (this.mirrorHorizontal && !this.mirrorVertical) {
+            // Horizontal mirror only
+            let mirrorX;
+            if (this.canvasWidth % 2 === 0) {
+                // Even width: mirror across line between center pixels
+                const centerLine = (this.canvasWidth / 2) - 0.5;
+                mirrorX = Math.floor(2 * centerLine - x);
+            } else {
+                // Odd width: mirror across center pixel
+                const centerPixel = Math.floor(this.canvasWidth / 2);
+                mirrorX = 2 * centerPixel - x;
+            }
+            
+            if (mirrorX >= 0 && mirrorX < this.canvasWidth && mirrorX !== x) {
+                if (this.brushShape === 'circle') {
+                    this.drawCircleBrushPreview(mirrorX, y, this.brushSize);
+                } else {
+                    this.drawSquareBrushPreview(mirrorX, y, this.brushSize);
+                }
+            }
+        }
+        
+        if (this.mirrorVertical && !this.mirrorHorizontal) {
+            // Vertical mirror only
+            let mirrorY;
+            if (this.canvasHeight % 2 === 0) {
+                // Even height: mirror across line between center pixels
+                const centerLine = (this.canvasHeight / 2) - 0.5;
+                mirrorY = Math.floor(2 * centerLine - y);
+            } else {
+                // Odd height: mirror across center pixel
+                const centerPixel = Math.floor(this.canvasHeight / 2);
+                mirrorY = 2 * centerPixel - y;
+            }
+            
+            if (mirrorY >= 0 && mirrorY < this.canvasHeight && mirrorY !== y) {
+                if (this.brushShape === 'circle') {
+                    this.drawCircleBrushPreview(x, mirrorY, this.brushSize);
+                } else {
+                    this.drawSquareBrushPreview(x, mirrorY, this.brushSize);
+                }
+            }
+        }
+        
+        if (this.mirrorHorizontal && this.mirrorVertical) {
+            // Both mirrors - calculate both mirror positions
+            let mirrorX, mirrorY;
+            
+            if (this.canvasWidth % 2 === 0) {
+                const centerLine = (this.canvasWidth / 2) - 0.5;
+                mirrorX = Math.floor(2 * centerLine - x);
+            } else {
+                const centerPixel = Math.floor(this.canvasWidth / 2);
+                mirrorX = 2 * centerPixel - x;
+            }
+            
+            if (this.canvasHeight % 2 === 0) {
+                const centerLine = (this.canvasHeight / 2) - 0.5;
+                mirrorY = Math.floor(2 * centerLine - y);
+            } else {
+                const centerPixel = Math.floor(this.canvasHeight / 2);
+                mirrorY = 2 * centerPixel - y;
+            }
+            
+            // Horizontal mirror
+            if (mirrorX >= 0 && mirrorX < this.canvasWidth && mirrorX !== x) {
+                if (this.brushShape === 'circle') {
+                    this.drawCircleBrushPreview(mirrorX, y, this.brushSize);
+                } else {
+                    this.drawSquareBrushPreview(mirrorX, y, this.brushSize);
+                }
+            }
+            
+            // Vertical mirror
+            if (mirrorY >= 0 && mirrorY < this.canvasHeight && mirrorY !== y) {
+                if (this.brushShape === 'circle') {
+                    this.drawCircleBrushPreview(x, mirrorY, this.brushSize);
+                } else {
+                    this.drawSquareBrushPreview(x, mirrorY, this.brushSize);
+                }
+            }
+            
+            // Diagonal mirror (both axes)
+            if (mirrorX >= 0 && mirrorX < this.canvasWidth && mirrorY >= 0 && mirrorY < this.canvasHeight && 
+                (mirrorX !== x || mirrorY !== y)) {
+                if (this.brushShape === 'circle') {
+                    this.drawCircleBrushPreview(mirrorX, mirrorY, this.brushSize);
+                } else {
+                    this.drawSquareBrushPreview(mirrorX, mirrorY, this.brushSize);
+                }
+            }
+        }
+    }
+    
+    // Shape drawing methods
+    startShape(shapeType, pos) {
+        this.shapeStart = pos;
+        this.currentShape = shapeType;
+    }
+    
+    updateShapePreview(pos) {
+        if (!this.shapeStart || !this.currentShape) return;
+        
+        // Clear overlay and redraw base layers
+        this.clearOverlayAndRedrawBase();
+        
+        // Set preview style once for the entire operation
+        this.overlayCtx.fillStyle = '#ff0000';
+        this.overlayCtx.globalAlpha = 1.0;
+        
+        const startX = this.shapeStart.x;
+        const startY = this.shapeStart.y;
+        const endX = pos.x;
+        const endY = pos.y;
+        
+        if (this.currentShape === 'circle') {
+            if (this.shiftKey) {
+                // Shift held: draw circle from center to radius
+                const radius = Math.sqrt(Math.pow(endX - startX, 2) + Math.pow(endY - startY, 2));
+                this.drawCirclePreview(startX, startY, radius);
+                this.showMirroredShapePreview('circle', startX, startY, radius, 0, 0);
+            } else {
+                // Normal: draw ellipse from corner to corner
+                this.drawEllipsePreview(startX, startY, endX, endY);
+                this.showMirroredShapePreview('ellipse', startX, startY, 0, endX, endY);
+            }
+        } else if (this.currentShape === 'square') {
+            if (this.shiftKey) {
+                // Shift held: draw square from center outward
+                const halfWidth = Math.abs(endX - startX);
+                const halfHeight = Math.abs(endY - startY);
+                const halfSize = Math.max(halfWidth, halfHeight); // Make it square
+                const x1 = startX - halfSize;
+                const y1 = startY - halfSize;
+                const x2 = startX + halfSize;
+                const y2 = startY + halfSize;
+                this.drawRectanglePreview(x1, y1, x2, y2);
+                this.showMirroredShapePreview('rectangle', x1, y1, 0, x2, y2);
+            } else {
+                // Normal: draw rectangle from corner to corner
+                this.drawRectanglePreview(startX, startY, endX, endY);
+                this.showMirroredShapePreview('rectangle', startX, startY, 0, endX, endY);
+            }
+        }
+    }
+    
+    drawEllipsePreview(x1, y1, x2, y2) {
+        const centerX = Math.floor((x1 + x2) / 2);
+        const centerY = Math.floor((y1 + y2) / 2);
+        const radiusX = Math.abs(x2 - x1) / 2;
+        const radiusY = Math.abs(y2 - y1) / 2;
+        
+        if (radiusX < 1 || radiusY < 1) return; // Skip tiny ellipses
+        
+        if (this.shapeFillMode === 'filled') {
+            // Draw filled ellipse
+            for (let x = -radiusX; x <= radiusX; x++) {
+                for (let y = -radiusY; y <= radiusY; y++) {
+                    // Ellipse equation: (x/rx)² + (y/ry)² <= 1
+                    if ((x * x) / (radiusX * radiusX) + (y * y) / (radiusY * radiusY) <= 1) {
+                        this.setPreviewPixel(centerX + x, centerY + y);
+                    }
+                }
+            }
+            return;
+        }
+        
+        // Draw ellipse outline with thickness
+        const thickness = this.shapeThickness;
+        
+        if (thickness === 1) {
+            // Single pixel outline - use proper edge detection
+            for (let x = -Math.ceil(radiusX); x <= Math.ceil(radiusX); x++) {
+                for (let y = -Math.ceil(radiusY); y <= Math.ceil(radiusY); y++) {
+                    const distance = (x * x) / (radiusX * radiusX) + (y * y) / (radiusY * radiusY);
+                    
+                    // Check if this pixel is on the edge by seeing if it's inside but neighbors are outside
+                    if (distance <= 1.0) {
+                        // This pixel is inside the ellipse, check if it's on the edge
+                        const hasOutsideNeighbor = 
+                            ((x + 1) * (x + 1)) / (radiusX * radiusX) + (y * y) / (radiusY * radiusY) > 1.0 ||
+                            ((x - 1) * (x - 1)) / (radiusX * radiusX) + (y * y) / (radiusY * radiusY) > 1.0 ||
+                            (x * x) / (radiusX * radiusX) + ((y + 1) * (y + 1)) / (radiusY * radiusY) > 1.0 ||
+                            (x * x) / (radiusX * radiusX) + ((y - 1) * (y - 1)) / (radiusY * radiusY) > 1.0;
+                        
+                        if (hasOutsideNeighbor) {
+                            this.setPreviewPixel(centerX + x, centerY + y);
+                        }
+                    }
+                }
+            }
+        } else {
+            // Multi-pixel thickness - draw between outer and inner ellipse
+            const halfThickness = thickness / 2;
+            const outerRadiusX = radiusX + halfThickness;
+            const outerRadiusY = radiusY + halfThickness;
+            const innerRadiusX = Math.max(0, radiusX - halfThickness);
+            const innerRadiusY = Math.max(0, radiusY - halfThickness);
+            
+            for (let x = -Math.ceil(outerRadiusX); x <= Math.ceil(outerRadiusX); x++) {
+                for (let y = -Math.ceil(outerRadiusY); y <= Math.ceil(outerRadiusY); y++) {
+                    const outerTest = (x * x) / (outerRadiusX * outerRadiusX) + (y * y) / (outerRadiusY * outerRadiusY);
+                    const innerTest = (x * x) / (innerRadiusX * innerRadiusX) + (y * y) / (innerRadiusY * innerRadiusY);
+                    
+                    if (outerTest <= 1 && (innerRadiusX <= 0 || innerRadiusY <= 0 || innerTest > 1)) {
+                        this.setPreviewPixel(centerX + x, centerY + y);
+                    }
+                }
+            }
+        }
+    }
+
+    drawCirclePreview(centerX, centerY, radius) {
+        if (radius < 1) return; // Skip tiny circles
+        
+        if (this.shapeFillMode === 'filled') {
+            // Use canvas arc for filled circle preview (much faster)
+            this.overlayCtx.beginPath();
+            this.overlayCtx.arc(centerX + 0.5, centerY + 0.5, radius, 0, 2 * Math.PI);
+            this.overlayCtx.fill();
+            return;
+        }
+        
+        // Draw circle outline preview with thickness
+        const thickness = this.shapeThickness;
+        
+        if (thickness === 1) {
+            // Single pixel outline using Bresenham
+            this.bresenhamCirclePreview(centerX, centerY, radius);
+        } else {
+            // For thick outlines, draw pixel by pixel to avoid compositing issues
+            const outerRadius = this.shapeStrokePosition === 'outside' ? radius + thickness - 1 : 
+                               this.shapeStrokePosition === 'centered' ? radius + Math.floor((thickness - 1) / 2) : radius;
+            const innerRadius = this.shapeStrokePosition === 'outside' ? radius : 
+                               this.shapeStrokePosition === 'centered' ? radius - Math.floor(thickness / 2) : radius - thickness + 1;
+            
+            // Draw the thick circle preview pixel by pixel to avoid erasing other previews
+            for (let x = -outerRadius; x <= outerRadius; x++) {
+                for (let y = -outerRadius; y <= outerRadius; y++) {
+                    const distance = Math.sqrt(x * x + y * y);
+                    if (distance <= outerRadius) {
+                        // If innerRadius is 0 or negative, fill the entire circle
+                        // Otherwise, only fill the ring between inner and outer radius
+                        if (innerRadius <= 0 || distance >= innerRadius) {
+                            this.setPreviewPixel(centerX + x, centerY + y);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    bresenhamCirclePreview(centerX, centerY, radius) {
+        // Bresenham's circle algorithm for pixel-perfect preview
+        let x = 0;
+        let y = Math.floor(radius);
+        let d = 3 - 2 * radius;
+        
+        while (y >= x) {
+            // Draw 8 points of the circle in red
+            this.setPreviewPixel(centerX + x, centerY + y);
+            this.setPreviewPixel(centerX - x, centerY + y);
+            this.setPreviewPixel(centerX + x, centerY - y);
+            this.setPreviewPixel(centerX - x, centerY - y);
+            this.setPreviewPixel(centerX + y, centerY + x);
+            this.setPreviewPixel(centerX - y, centerY + x);
+            this.setPreviewPixel(centerX + y, centerY - x);
+            this.setPreviewPixel(centerX - y, centerY - x);
+            
+            x++;
+            
+            if (d > 0) {
+                y--;
+                d = d + 4 * (x - y) + 10;
+            } else {
+                d = d + 4 * x + 6;
+            }
+        }
+    }
+    
+    drawRectanglePreview(x1, y1, x2, y2) {
+        const minX = Math.min(x1, x2);
+        const maxX = Math.max(x1, x2);
+        const minY = Math.min(y1, y2);
+        const maxY = Math.max(y1, y2);
+        
+        if (this.shapeFillMode === 'filled') {
+            // Preview filled rectangle
+            for (let x = minX; x <= maxX; x++) {
+                for (let y = minY; y <= maxY; y++) {
+                    this.setPreviewPixel(x, y);
+                }
+            }
+            return;
+        }
+        
+        // Preview rectangle outline with thickness
+        const thickness = this.shapeThickness;
+        
+        if (this.shapeStrokePosition === 'outside') {
+            // Preview outside rectangle
+            for (let t = 0; t < thickness; t++) {
+                const adjustedMinX = minX - t;
+                const adjustedMaxX = maxX + t;
+                const adjustedMinY = minY - t;
+                const adjustedMaxY = maxY + t;
+                
+                // Draw preview border
+                for (let x = adjustedMinX; x <= adjustedMaxX; x++) {
+                    this.setPreviewPixel(x, adjustedMinY);
+                    this.setPreviewPixel(x, adjustedMaxY);
+                }
+                for (let y = adjustedMinY; y <= adjustedMaxY; y++) {
+                    this.setPreviewPixel(adjustedMinX, y);
+                    this.setPreviewPixel(adjustedMaxX, y);
+                }
+            }
+        } else if (this.shapeStrokePosition === 'inside') {
+            // Preview inside rectangle
+            for (let t = 0; t < thickness; t++) {
+                const adjustedMinX = minX + t;
+                const adjustedMaxX = maxX - t;
+                const adjustedMinY = minY + t;
+                const adjustedMaxY = maxY - t;
+                
+                if (adjustedMinX > adjustedMaxX || adjustedMinY > adjustedMaxY) break;
+                
+                for (let x = adjustedMinX; x <= adjustedMaxX; x++) {
+                    this.setPreviewPixel(x, adjustedMinY);
+                    this.setPreviewPixel(x, adjustedMaxY);
+                }
+                for (let y = adjustedMinY; y <= adjustedMaxY; y++) {
+                    this.setPreviewPixel(adjustedMinX, y);
+                    this.setPreviewPixel(adjustedMaxX, y);
+                }
+            }
+        } else { // 'centered'
+            // Preview centered rectangle
+            const halfThickness = Math.floor(thickness / 2);
+            
+            for (let t = -halfThickness; t <= halfThickness; t++) {
+                const adjustedMinX = minX + t;
+                const adjustedMaxX = maxX - t;
+                const adjustedMinY = minY + t;
+                const adjustedMaxY = maxY - t;
+                
+                if (adjustedMinX > adjustedMaxX || adjustedMinY > adjustedMaxY) continue;
+                
+                for (let x = adjustedMinX; x <= adjustedMaxX; x++) {
+                    this.setPreviewPixel(x, adjustedMinY);
+                    this.setPreviewPixel(x, adjustedMaxY);
+                }
+                for (let y = adjustedMinY; y <= adjustedMaxY; y++) {
+                    this.setPreviewPixel(adjustedMinX, y);
+                    this.setPreviewPixel(adjustedMaxX, y);
+                }
+            }
+        }
+    }
+    
+    setPreviewPixel(x, y) {
+        if (x >= 0 && x < this.canvasWidth && y >= 0 && y < this.canvasHeight) {
+            // Ensure red color for preview
+            this.overlayCtx.fillStyle = '#ff0000';
+            this.overlayCtx.fillRect(x, y, 1, 1);
+        }
+    }
+    
+    showMirroredShapePreview(shapeType, startX, startY, radius, endX, endY) {
+        // Only show mirror previews if mirroring is enabled
+        if (!this.mirrorHorizontal && !this.mirrorVertical) return;
+        
+        if (shapeType === 'circle') {
+            // Calculate mirror positions for the circle center
+            const mirrorPositions = this.calculateMirrorPositions(startX, startY);
+            mirrorPositions.forEach(mirrorPos => {
+                this.drawCirclePreview(mirrorPos.x, mirrorPos.y, radius);
+            });
+        } else if (shapeType === 'ellipse') {
+            // For ellipses, we need to mirror both corners properly
+            const mirrorPositions = this.calculateMirrorShapePositions(startX, startY, endX, endY);
+            mirrorPositions.forEach(mirror => {
+                this.drawEllipsePreview(mirror.x1, mirror.y1, mirror.x2, mirror.y2);
+            });
+        } else if (shapeType === 'rectangle') {
+            // For rectangles, we need to mirror both corners properly
+            const mirrorPositions = this.calculateMirrorShapePositions(startX, startY, endX, endY);
+            mirrorPositions.forEach(mirror => {
+                this.drawRectanglePreview(mirror.x1, mirror.y1, mirror.x2, mirror.y2);
+            });
+        }
+    }
+    
+    getMirrorX(x) {
+        let mirrorX;
+        if (this.canvasWidth % 2 === 0) {
+            const centerLine = (this.canvasWidth / 2) - 0.5;
+            mirrorX = Math.floor(2 * centerLine - x);
+        } else {
+            const centerPixel = Math.floor(this.canvasWidth / 2);
+            mirrorX = 2 * centerPixel - x;
+        }
+        
+        if (mirrorX >= 0 && mirrorX < this.canvasWidth && mirrorX !== x) {
+            return mirrorX;
+        }
+        return null;
+    }
+    
+    getMirrorY(y) {
+        let mirrorY;
+        if (this.canvasHeight % 2 === 0) {
+            const centerLine = (this.canvasHeight / 2) - 0.5;
+            mirrorY = Math.floor(2 * centerLine - y);
+        } else {
+            const centerPixel = Math.floor(this.canvasHeight / 2);
+            mirrorY = 2 * centerPixel - y;
+        }
+        
+        if (mirrorY >= 0 && mirrorY < this.canvasHeight && mirrorY !== y) {
+            return mirrorY;
+        }
+        return null;
+    }
+    
+    finalizeShape(pos) {
+        if (!this.shapeStart || !this.currentShape) return;
+        
+        const ctx = this.getCurrentFrameContext();
+        const startX = this.shapeStart.x;
+        const startY = this.shapeStart.y;
+        const endX = pos.x;
+        const endY = pos.y;
+        
+        // Capture canvas state before drawing
+        const beforeImageData = ctx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
+        
+        // Draw the shape
+        if (this.currentShape === 'circle') {
+            if (this.shiftKey) {
+                // Shift held: draw circle from center to radius
+                const radius = Math.sqrt(Math.pow(endX - startX, 2) + Math.pow(endY - startY, 2));
+                this.drawCircle(startX, startY, radius, ctx);
+                
+                // Draw mirrored circles
+                if (this.mirrorHorizontal || this.mirrorVertical) {
+                    const mirrorPositions = this.calculateMirrorPositions(startX, startY);
+                    mirrorPositions.forEach(mirrorPos => {
+                        this.drawCircle(mirrorPos.x, mirrorPos.y, radius, ctx);
+                    });
+                }
+            } else {
+                // Normal: draw ellipse from corner to corner
+                this.drawEllipse(startX, startY, endX, endY, ctx);
+                
+                // Draw mirrored ellipses
+                if (this.mirrorHorizontal || this.mirrorVertical) {
+                    const mirrorPositions = this.calculateMirrorShapePositions(startX, startY, endX, endY);
+                    mirrorPositions.forEach(mirror => {
+                        this.drawEllipse(mirror.x1, mirror.y1, mirror.x2, mirror.y2, ctx);
+                    });
+                }
+            }
+        } else if (this.currentShape === 'square') {
+            if (this.shiftKey) {
+                // Shift held: draw square from center outward
+                const halfWidth = Math.abs(endX - startX);
+                const halfHeight = Math.abs(endY - startY);
+                const halfSize = Math.max(halfWidth, halfHeight); // Make it square
+                const x1 = startX - halfSize;
+                const y1 = startY - halfSize;
+                const x2 = startX + halfSize;
+                const y2 = startY + halfSize;
+                this.drawRectangle(x1, y1, x2, y2, ctx);
+                
+                // Draw mirrored squares
+                if (this.mirrorHorizontal || this.mirrorVertical) {
+                    const mirrorPositions = this.calculateMirrorShapePositions(x1, y1, x2, y2);
+                    mirrorPositions.forEach(mirror => {
+                        this.drawRectangle(mirror.x1, mirror.y1, mirror.x2, mirror.y2, ctx);
+                    });
+                }
+            } else {
+                // Normal: draw rectangle from corner to corner
+                this.drawRectangle(startX, startY, endX, endY, ctx);
+                
+                // Draw mirrored rectangles
+                if (this.mirrorHorizontal || this.mirrorVertical) {
+                    const mirrorPositions = this.calculateMirrorShapePositions(startX, startY, endX, endY);
+                    mirrorPositions.forEach(mirror => {
+                        this.drawRectangle(mirror.x1, mirror.y1, mirror.x2, mirror.y2, ctx);
+                    });
+                }
+            }
+        }
+        
+        // Capture canvas state after drawing
+        const afterImageData = ctx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
+        
+        // Find exactly which pixels changed
+        const pixelData = this.compareImageData(beforeImageData, afterImageData);
+        
+        // Create and add command to undo system
+        const shapeData = {
+            type: this.currentShape,
+            startX, startY, endX, endY,
+            pixelData: pixelData
+        };
+        const command = new DrawShapeCommand(this, shapeData);
+        // Add to undo stack without re-executing (shape already drawn)
+        this.undoStack.push(command);
+        this.redoStack = [];
+        
+        // Limit undo stack size
+        if (this.undoStack.length > this.maxUndoStackSize) {
+            this.undoStack.shift();
+        }
+        
+        // Mark as unsaved
+        this.markAsUnsaved();
+        
+        this.updateUndoRedoUI();
+        
+        // Clear overlay
+        this.overlayCtx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
+        this.redrawCanvas();
+        
+        // Reset shape state
+        this.shapeStart = null;
+        this.currentShape = null;
+    }
+    
+    drawEllipse(x1, y1, x2, y2, ctx) {
+        const centerX = Math.floor((x1 + x2) / 2);
+        const centerY = Math.floor((y1 + y2) / 2);
+        const radiusX = Math.abs(x2 - x1) / 2;
+        const radiusY = Math.abs(y2 - y1) / 2;
+        
+        if (radiusX < 1 || radiusY < 1) return; // Skip tiny ellipses
+        
+        if (this.shapeFillMode === 'filled') {
+            // Draw filled ellipse
+            for (let x = -radiusX; x <= radiusX; x++) {
+                for (let y = -radiusY; y <= radiusY; y++) {
+                    // Ellipse equation: (x/rx)² + (y/ry)² <= 1
+                    if ((x * x) / (radiusX * radiusX) + (y * y) / (radiusY * radiusY) <= 1) {
+                        this.setPixelInFrame(centerX + x, centerY + y, ctx);
+                    }
+                }
+            }
+            return;
+        }
+        
+        // Draw ellipse outline with thickness
+        const thickness = this.shapeThickness;
+        
+        if (thickness === 1) {
+            // Single pixel outline - use proper edge detection
+            for (let x = -Math.ceil(radiusX); x <= Math.ceil(radiusX); x++) {
+                for (let y = -Math.ceil(radiusY); y <= Math.ceil(radiusY); y++) {
+                    const distance = (x * x) / (radiusX * radiusX) + (y * y) / (radiusY * radiusY);
+                    
+                    // Check if this pixel is on the edge by seeing if it's inside but neighbors are outside
+                    if (distance <= 1.0) {
+                        // This pixel is inside the ellipse, check if it's on the edge
+                        const hasOutsideNeighbor = 
+                            ((x + 1) * (x + 1)) / (radiusX * radiusX) + (y * y) / (radiusY * radiusY) > 1.0 ||
+                            ((x - 1) * (x - 1)) / (radiusX * radiusX) + (y * y) / (radiusY * radiusY) > 1.0 ||
+                            (x * x) / (radiusX * radiusX) + ((y + 1) * (y + 1)) / (radiusY * radiusY) > 1.0 ||
+                            (x * x) / (radiusX * radiusX) + ((y - 1) * (y - 1)) / (radiusY * radiusY) > 1.0;
+                        
+                        if (hasOutsideNeighbor) {
+                            this.setPixelInFrame(centerX + x, centerY + y, ctx);
+                        }
+                    }
+                }
+            }
+        } else {
+            // Multi-pixel thickness - draw between outer and inner ellipse
+            const halfThickness = thickness / 2;
+            const outerRadiusX = radiusX + halfThickness;
+            const outerRadiusY = radiusY + halfThickness;
+            const innerRadiusX = Math.max(0, radiusX - halfThickness);
+            const innerRadiusY = Math.max(0, radiusY - halfThickness);
+            
+            for (let x = -Math.ceil(outerRadiusX); x <= Math.ceil(outerRadiusX); x++) {
+                for (let y = -Math.ceil(outerRadiusY); y <= Math.ceil(outerRadiusY); y++) {
+                    const outerTest = (x * x) / (outerRadiusX * outerRadiusX) + (y * y) / (outerRadiusY * outerRadiusY);
+                    const innerTest = (x * x) / (innerRadiusX * innerRadiusX) + (y * y) / (innerRadiusY * innerRadiusY);
+                    
+                    if (outerTest <= 1 && (innerRadiusX <= 0 || innerRadiusY <= 0 || innerTest > 1)) {
+                        this.setPixelInFrame(centerX + x, centerY + y, ctx);
+                    }
+                }
+            }
+        }
+    }
+
+    calculateMirrorShapePositions(x1, y1, x2, y2) {
+        const mirrorPositions = [];
+        
+        if (this.mirrorHorizontal && !this.mirrorVertical) {
+            // Horizontal mirror only
+            const mirrorX1 = this.getMirrorX(x1);
+            const mirrorX2 = this.getMirrorX(x2);
+            if (mirrorX1 !== null && mirrorX2 !== null) {
+                mirrorPositions.push({x1: mirrorX1, y1, x2: mirrorX2, y2});
+            }
+        } else if (this.mirrorVertical && !this.mirrorHorizontal) {
+            // Vertical mirror only
+            const mirrorY1 = this.getMirrorY(y1);
+            const mirrorY2 = this.getMirrorY(y2);
+            if (mirrorY1 !== null && mirrorY2 !== null) {
+                mirrorPositions.push({x1, y1: mirrorY1, x2, y2: mirrorY2});
+            }
+        } else if (this.mirrorHorizontal && this.mirrorVertical) {
+            // Both mirrors
+            const mirrorX1 = this.getMirrorX(x1);
+            const mirrorX2 = this.getMirrorX(x2);
+            const mirrorY1 = this.getMirrorY(y1);
+            const mirrorY2 = this.getMirrorY(y2);
+            
+            // Horizontal mirror
+            if (mirrorX1 !== null && mirrorX2 !== null) {
+                mirrorPositions.push({x1: mirrorX1, y1, x2: mirrorX2, y2});
+            }
+            
+            // Vertical mirror
+            if (mirrorY1 !== null && mirrorY2 !== null) {
+                mirrorPositions.push({x1, y1: mirrorY1, x2, y2: mirrorY2});
+            }
+            
+            // Diagonal mirror (both axes)
+            if (mirrorX1 !== null && mirrorX2 !== null && mirrorY1 !== null && mirrorY2 !== null) {
+                mirrorPositions.push({x1: mirrorX1, y1: mirrorY1, x2: mirrorX2, y2: mirrorY2});
+            }
+        }
+        
+        return mirrorPositions;
+    }
+
+    drawCircle(centerX, centerY, radius, ctx) {
+        if (this.shapeFillMode === 'filled') {
+            // Draw filled circle using pixel-by-pixel approach for perfect fill
+            for (let x = -radius; x <= radius; x++) {
+                for (let y = -radius; y <= radius; y++) {
+                    if (x * x + y * y <= radius * radius) {
+                        this.setPixelInFrame(centerX + x, centerY + y, ctx);
+                    }
+                }
+            }
+            return;
+        }
+        
+        // Draw circle outline with thickness
+        const thickness = this.shapeThickness;
+        
+        if (thickness === 1) {
+            // Single pixel outline
+            this.bresenhamCircle(centerX, centerY, radius, ctx);
+        } else {
+            // Use filled approach for thick circles to prevent gaps
+            const outerRadius = this.shapeStrokePosition === 'outside' ? radius + thickness - 1 : 
+                               this.shapeStrokePosition === 'centered' ? radius + Math.floor((thickness - 1) / 2) : radius;
+            const innerRadius = this.shapeStrokePosition === 'outside' ? radius : 
+                               this.shapeStrokePosition === 'centered' ? radius - Math.floor(thickness / 2) : radius - thickness + 1;
+            
+            // Draw the thick circle
+            for (let x = -outerRadius; x <= outerRadius; x++) {
+                for (let y = -outerRadius; y <= outerRadius; y++) {
+                    const distance = Math.sqrt(x * x + y * y);
+                    if (distance <= outerRadius) {
+                        // If innerRadius is 0 or negative, fill the entire circle
+                        // Otherwise, only fill the ring between inner and outer radius
+                        if (innerRadius <= 0 || distance >= innerRadius) {
+                            this.setPixelInFrame(centerX + x, centerY + y, ctx);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    bresenhamCircle(centerX, centerY, radius, ctx) {
+        // Bresenham's circle algorithm for pixel-perfect circles
+        let x = 0;
+        let y = Math.floor(radius);
+        let d = 3 - 2 * radius;
+        
+        while (y >= x) {
+            // Draw 8 points of the circle
+            this.setPixelInFrame(centerX + x, centerY + y, ctx);
+            this.setPixelInFrame(centerX - x, centerY + y, ctx);
+            this.setPixelInFrame(centerX + x, centerY - y, ctx);
+            this.setPixelInFrame(centerX - x, centerY - y, ctx);
+            this.setPixelInFrame(centerX + y, centerY + x, ctx);
+            this.setPixelInFrame(centerX - y, centerY + x, ctx);
+            this.setPixelInFrame(centerX + y, centerY - x, ctx);
+            this.setPixelInFrame(centerX - y, centerY - x, ctx);
+            
+            x++;
+            
+            if (d > 0) {
+                y--;
+                d = d + 4 * (x - y) + 10;
+            } else {
+                d = d + 4 * x + 6;
+            }
+        }
+    }
+    
+    drawRectangle(x1, y1, x2, y2, ctx) {
+        const minX = Math.min(x1, x2);
+        const maxX = Math.max(x1, x2);
+        const minY = Math.min(y1, y2);
+        const maxY = Math.max(y1, y2);
+        
+        if (this.shapeFillMode === 'filled') {
+            // Draw filled rectangle
+            for (let x = minX; x <= maxX; x++) {
+                for (let y = minY; y <= maxY; y++) {
+                    this.setPixelInFrame(x, y, ctx);
+                    // Add mirror support for shapes
+                    if (this.mirrorHorizontal || this.mirrorVertical || this.mirrorBoth) {
+                        this.drawMirroredPixels(x, y, ctx, this.currentColor);
+                    }
+                }
+            }
+            return;
+        }
+        
+        // Draw rectangle outline with thickness
+        const thickness = this.shapeThickness;
+        
+        if (this.shapeStrokePosition === 'outside') {
+            // Draw outside rectangle - thickness goes outward
+            for (let t = 0; t < thickness; t++) {
+                const adjustedMinX = minX - t;
+                const adjustedMaxX = maxX + t;
+                const adjustedMinY = minY - t;
+                const adjustedMaxY = maxY + t;
+                
+                // Horizontal lines
+                for (let x = adjustedMinX; x <= adjustedMaxX; x++) {
+                    this.setPixelInFrame(x, adjustedMinY, ctx);
+                    this.setPixelInFrame(x, adjustedMaxY, ctx);
+                    // Add mirror support for shapes
+                    if (this.mirrorHorizontal || this.mirrorVertical || this.mirrorBoth) {
+                        this.drawMirroredPixels(x, adjustedMinY, ctx, this.currentColor);
+                        this.drawMirroredPixels(x, adjustedMaxY, ctx, this.currentColor);
+                    }
+                }
+                
+                // Vertical lines
+                for (let y = adjustedMinY; y <= adjustedMaxY; y++) {
+                    this.setPixelInFrame(adjustedMinX, y, ctx);
+                    this.setPixelInFrame(adjustedMaxX, y, ctx);
+                    // Add mirror support for shapes
+                    if (this.mirrorHorizontal || this.mirrorVertical || this.mirrorBoth) {
+                        this.drawMirroredPixels(adjustedMinX, y, ctx, this.currentColor);
+                        this.drawMirroredPixels(adjustedMaxX, y, ctx, this.currentColor);
+                    }
+                }
+            }
+        } else if (this.shapeStrokePosition === 'inside') {
+            // Draw inside rectangle - thickness goes inward
+            for (let t = 0; t < thickness; t++) {
+                const adjustedMinX = minX + t;
+                const adjustedMaxX = maxX - t;
+                const adjustedMinY = minY + t;
+                const adjustedMaxY = maxY - t;
+                
+                if (adjustedMinX > adjustedMaxX || adjustedMinY > adjustedMaxY) break;
+                
+                // Horizontal lines
+                for (let x = adjustedMinX; x <= adjustedMaxX; x++) {
+                    this.setPixelInFrame(x, adjustedMinY, ctx);
+                    this.setPixelInFrame(x, adjustedMaxY, ctx);
+                    // Add mirror support for shapes
+                    if (this.mirrorHorizontal || this.mirrorVertical || this.mirrorBoth) {
+                        this.drawMirroredPixels(x, adjustedMinY, ctx, this.currentColor);
+                        this.drawMirroredPixels(x, adjustedMaxY, ctx, this.currentColor);
+                    }
+                }
+                
+                // Vertical lines
+                for (let y = adjustedMinY; y <= adjustedMaxY; y++) {
+                    this.setPixelInFrame(adjustedMinX, y, ctx);
+                    this.setPixelInFrame(adjustedMaxX, y, ctx);
+                    // Add mirror support for shapes
+                    if (this.mirrorHorizontal || this.mirrorVertical || this.mirrorBoth) {
+                        this.drawMirroredPixels(adjustedMinX, y, ctx, this.currentColor);
+                        this.drawMirroredPixels(adjustedMaxX, y, ctx, this.currentColor);
+                    }
+                }
+            }
+        } else { // 'centered'
+            // Draw centered rectangle - thickness goes both inward and outward
+            const halfThickness = Math.floor(thickness / 2);
+            
+            for (let t = -halfThickness; t <= halfThickness; t++) {
+                const adjustedMinX = minX + t;
+                const adjustedMaxX = maxX - t;
+                const adjustedMinY = minY + t;
+                const adjustedMaxY = maxY - t;
+                
+                if (adjustedMinX > adjustedMaxX || adjustedMinY > adjustedMaxY) continue;
+                
+                // Horizontal lines
+                for (let x = adjustedMinX; x <= adjustedMaxX; x++) {
+                    this.setPixelInFrame(x, adjustedMinY, ctx);
+                    this.setPixelInFrame(x, adjustedMaxY, ctx);
+                    // Add mirror support for shapes
+                    if (this.mirrorHorizontal || this.mirrorVertical || this.mirrorBoth) {
+                        this.drawMirroredPixels(x, adjustedMinY, ctx, this.currentColor);
+                        this.drawMirroredPixels(x, adjustedMaxY, ctx, this.currentColor);
+                    }
+                }
+                
+                // Vertical lines
+                for (let y = adjustedMinY; y <= adjustedMaxY; y++) {
+                    this.setPixelInFrame(adjustedMinX, y, ctx);
+                    this.setPixelInFrame(adjustedMaxX, y, ctx);
+                    // Add mirror support for shapes
+                    if (this.mirrorHorizontal || this.mirrorVertical || this.mirrorBoth) {
+                        this.drawMirroredPixels(adjustedMinX, y, ctx, this.currentColor);
+                        this.drawMirroredPixels(adjustedMaxX, y, ctx, this.currentColor);
+                    }
+                }
+            }
+        }
+    }
+    
+    setPixelInFrame(x, y, ctx) {
+        if (x >= 0 && x < this.canvasWidth && y >= 0 && y < this.canvasHeight) {
+            // Use direct pixel manipulation for 100% opacity
+            const imageData = ctx.getImageData(x, y, 1, 1);
+            const data = imageData.data;
+            
+            // Convert color to RGB
+            let r, g, b;
+            if (this.currentColor === 'black') {
+                r = g = b = 0;
+            } else if (this.currentColor === 'white') {
+                r = g = b = 255;
+            } else {
+                // Handle hex colors
+                const hex = this.currentColor.replace('#', '');
+                r = parseInt(hex.substr(0, 2), 16);
+                g = parseInt(hex.substr(2, 2), 16);
+                b = parseInt(hex.substr(4, 2), 16);
+            }
+            
+            data[0] = r;
+            data[1] = g;
+            data[2] = b;
+            data[3] = 255; // Full opacity
+            
+            ctx.putImageData(imageData, x, y);
+        }
+    }
+    
+    // Panning methods
+    startPanning(pos) {
+        // Store screen coordinates for accurate panning
+        this.panStart = {
+            x: this.lastMouseEvent ? this.lastMouseEvent.clientX : 0,
+            y: this.lastMouseEvent ? this.lastMouseEvent.clientY : 0
+        };
+        this.isPanning = true;
+        
+        // Get current transform - handle both translate and translate3d formats
+        const canvasWrapper = document.querySelector('.canvas-wrapper');
+        const currentTransform = canvasWrapper.style.transform || 'translate3d(0px, 0px, 0px)';
+        
+        // Try to match translate3d first, then fallback to translate
+        let matches = currentTransform.match(/translate3d\(([^,]+),\s*([^,]+),\s*([^)]+)\)/);
+        if (!matches) {
+            matches = currentTransform.match(/translate\(([^,]+),\s*([^)]+)\)/);
+        }
+        
+        this.panOffsetStart = {
+            x: matches ? parseFloat(matches[1]) : 0,
+            y: matches ? parseFloat(matches[2]) : 0
+        };
+        
+        // Cache the canvas wrapper element to avoid repeated DOM queries
+        this.canvasWrapper = canvasWrapper;
+        
+        // Use will-change CSS property to optimize for transforms
+        this.canvasWrapper.style.willChange = 'transform';
+        
+        document.body.style.cursor = 'grabbing';
+        [this.drawingCanvas, this.overlayCanvas].forEach(canvas => {
+            canvas.style.cursor = 'grabbing';
+        });
+    }
+    
+    updatePanning() {
+        if (!this.isPanning || !this.panStart || !this.lastMouseEvent || !this.canvasWrapper) return;
+        
+        // Use screen coordinates for smooth panning - no zoom adjustment needed for screen space
+        const deltaX = this.lastMouseEvent.clientX - this.panStart.x;
+        const deltaY = this.lastMouseEvent.clientY - this.panStart.y;
+        
+        const newX = this.panOffsetStart.x + deltaX;
+        const newY = this.panOffsetStart.y + deltaY;
+        
+        // Use transform3d for hardware acceleration and better performance
+        // Use requestAnimationFrame to throttle updates and reduce jank
+        if (!this.panningFrame) {
+            this.panningFrame = requestAnimationFrame(() => {
+                if (this.canvasWrapper) {
+                    this.canvasWrapper.style.transform = `translate3d(${newX}px, ${newY}px, 0)`;
+                }
+                this.panningFrame = null;
+            });
+        }
+    }
+    
+    endPanning() {
+        this.isPanning = false;
+        this.panStart = null;
+        this.panOffsetStart = null;
+        
+        // Clean up performance optimizations
+        if (this.canvasWrapper) {
+            this.canvasWrapper.style.willChange = '';
+            this.canvasWrapper = null;
+        }
+        
+        // Clean up any pending animation frame
+        if (this.panningFrame) {
+            cancelAnimationFrame(this.panningFrame);
+            this.panningFrame = null;
+        }
+        
+        document.body.style.cursor = '';
+        
+        // Reset cursor based on current tool
+        const cursor = this.currentTool === 'hand' ? 'grab' : 'crosshair';
+        [this.drawingCanvas, this.overlayCanvas].forEach(canvas => {
+            canvas.style.cursor = cursor;
+        });
+    }
+    
+    executeFloodFill(x, y) {
+        const ctx = this.getCurrentFrameContext();
+        const targetColor = this.getPixelColor(ctx.getImageData(0, 0, this.canvasWidth, this.canvasHeight).data, x, y);
+        const fillColor = this.currentColor === 'black' ? [0, 0, 0, 255] : [255, 255, 255, 255];
+        
+        if (this.colorsEqual(targetColor, fillColor)) return;
+        
+        // Capture canvas state before flood fill
+        const beforeImageData = ctx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
+        
+        // Perform flood fill
+        this.performFloodFill(x, y, ctx);
+        
+        // Perform mirrored flood fills if mirroring is enabled
+        if (this.mirrorHorizontal || this.mirrorVertical) {
+            // Get the filled pixels from the original fill
+            const afterOriginalFill = ctx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
+            const originalFilledPixels = this.getFilledPixels(beforeImageData, afterOriginalFill);
+            
+            // Apply the same fill pattern to mirror positions
+            this.performMirroredFill(originalFilledPixels, ctx);
+        }
+        
+        // Capture canvas state after all fills (including mirrors)
+        const afterImageData = ctx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
+        
+        // Find exactly which pixels changed
+        const pixelData = this.compareImageData(beforeImageData, afterImageData);
+        
+        // Execute the flood fill command if pixels changed
+        if (pixelData.length > 0) {
+            const command = new FloodFillCommand(this, pixelData, this.currentFrameIndex);
+            // Add to undo stack without re-executing (flood fill already performed)
+            this.undoStack.push(command);
+            this.redoStack = [];
+            
+            // Limit undo stack size
+            if (this.undoStack.length > this.maxUndoStackSize) {
+                this.undoStack.shift();
+            }
+            
+            // Mark as unsaved
+            this.markAsUnsaved();
+            this.updateUndoRedoUI();
+        }
+        
+        this.redrawCanvas();
+    }
+    
+    getFilledPixels(beforeImageData, afterImageData) {
+        const filledPixels = [];
+        const beforeData = beforeImageData.data;
+        const afterData = afterImageData.data;
+        
+        for (let i = 0; i < beforeData.length; i += 4) {
+            const pixelIndex = i / 4;
+            const x = pixelIndex % this.canvasWidth;
+            const y = Math.floor(pixelIndex / this.canvasWidth);
+            
+            // Check if pixel changed
+            const beforeR = beforeData[i];
+            const beforeG = beforeData[i + 1];
+            const beforeB = beforeData[i + 2];
+            const beforeA = beforeData[i + 3];
+            
+            const afterR = afterData[i];
+            const afterG = afterData[i + 1];
+            const afterB = afterData[i + 2];
+            const afterA = afterData[i + 3];
+            
+            if (beforeR !== afterR || beforeG !== afterG || beforeB !== afterB || beforeA !== afterA) {
+                filledPixels.push({
+                    x: x,
+                    y: y,
+                    newColor: [afterR, afterG, afterB, afterA]
+                });
+            }
+        }
+        
+        return filledPixels;
+    }
+    
+    performMirroredFill(originalFilledPixels, ctx) {
+        if (!originalFilledPixels || originalFilledPixels.length === 0) return;
+        
+        const imageData = ctx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
+        const data = imageData.data;
+        
+        // For each filled pixel, mirror it to all applicable quadrants simultaneously
+        originalFilledPixels.forEach(pixel => {
+            const mirrorPositions = [];
+            
+            // Calculate all mirror positions for this pixel
+            if (this.mirrorHorizontal && !this.mirrorVertical) {
+                // Horizontal mirror only
+                const mirrorX = this.getMirrorX(pixel.x);
+                if (mirrorX !== null) {
+                    mirrorPositions.push({x: mirrorX, y: pixel.y});
+                }
+            } else if (this.mirrorVertical && !this.mirrorHorizontal) {
+                // Vertical mirror only
+                const mirrorY = this.getMirrorY(pixel.y);
+                if (mirrorY !== null) {
+                    mirrorPositions.push({x: pixel.x, y: mirrorY});
+                }
+            } else if (this.mirrorHorizontal && this.mirrorVertical) {
+                // Both mirrors - create all 3 mirror positions simultaneously
+                const mirrorX = this.getMirrorX(pixel.x);
+                const mirrorY = this.getMirrorY(pixel.y);
+                
+                // Horizontal mirror
+                if (mirrorX !== null) {
+                    mirrorPositions.push({x: mirrorX, y: pixel.y});
+                }
+                
+                // Vertical mirror
+                if (mirrorY !== null) {
+                    mirrorPositions.push({x: pixel.x, y: mirrorY});
+                }
+                
+                // Diagonal mirror (both axes)
+                if (mirrorX !== null && mirrorY !== null) {
+                    mirrorPositions.push({x: mirrorX, y: mirrorY});
+                }
+            }
+            
+            // Apply the fill to each mirror position
+            mirrorPositions.forEach(mirrorPos => {
+                // Check bounds
+                if (mirrorPos.x < 0 || mirrorPos.x >= this.canvasWidth || 
+                    mirrorPos.y < 0 || mirrorPos.y >= this.canvasHeight) {
+                    return;
+                }
+                
+                // For mirrored fill, we want to copy the exact same pattern result
+                // So we use the same color that was applied to the original pixel
+                let finalColor = pixel.newColor;
+                
+                // However, for patterns that depend on position, recalculate at mirror position
+                if (this.fillPattern.startsWith('gradient-')) {
+                    // For gradients, recalculate the color at the mirror position
+                    const hexColor = this.getGradientColor(mirrorPos.x, mirrorPos.y, this.fillPattern, this.currentColor);
+                    
+                    // For dithered gradients, check if this mirror pixel should be filled
+                    if (this.fillPattern.includes('-dither') || this.fillPattern.includes('-stipple')) {
+                        if ((this.currentColor === 'black' && hexColor === '#ffffff') ||
+                            (this.currentColor === 'white' && hexColor === '#000000')) {
+                            return; // Don't fill this mirror pixel
+                        }
+                    }
+                    
+                    const { r, g, b, a } = this.hexToRgba(hexColor);
+                    finalColor = [r, g, b, a];
+                } else if (this.fillPattern !== 'solid') {
+                    // For stippling patterns, check if mirror pixel should be filled
+                    if (!this.shouldFillPixel(mirrorPos.x, mirrorPos.y, this.fillPattern)) {
+                        return; // Don't fill this mirror pixel
+                    }
+                }
+                
+                this.setPixelColor(data, mirrorPos.x, mirrorPos.y, finalColor);
+            });
+        });
+        
+        ctx.putImageData(imageData, 0, 0);
+    }
+    
+    performFloodFill(x, y, ctx) {
+        const imageData = ctx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
+        const data = imageData.data;
+        
+        const targetColor = this.getPixelColor(data, x, y);
+        const fillColor = this.currentColor === 'black' ? [0, 0, 0, 255] : [255, 255, 255, 255];
+        
+        if (this.colorsEqual(targetColor, fillColor)) return;
+        
+        const stack = [[x, y]];
+        const visited = new Set();
+        
+        while (stack.length > 0) {
+            const [cx, cy] = stack.pop();
+            const key = `${cx},${cy}`;
+            
+            if (visited.has(key)) continue;
+            if (cx < 0 || cx >= this.canvasWidth || cy < 0 || cy >= this.canvasHeight) continue;
+            
+            const currentColor = this.getPixelColor(data, cx, cy);
+            if (!this.colorsEqual(currentColor, targetColor)) continue;
+            
+            visited.add(key);
+            
+            // Check if this pixel should be filled based on pattern
+            let finalColor = fillColor;
+            if (this.fillPattern.startsWith('gradient-')) {
+                // For gradients, calculate the color based on position
+                const hexColor = this.getGradientColor(cx, cy, this.fillPattern, this.currentColor);
+                
+                // For dithered gradients, if the returned color is white and we're filling with black,
+                // or if the returned color is black and we're filling with white, skip this pixel
+                if (this.fillPattern.includes('-dither') || this.fillPattern.includes('-stipple')) {
+                    if ((this.currentColor === 'black' && hexColor === '#ffffff') ||
+                        (this.currentColor === 'white' && hexColor === '#000000')) {
+                        // Don't fill this pixel, continue to next
+                        stack.push([cx + 1, cy], [cx - 1, cy], [cx, cy + 1], [cx, cy - 1]);
+                        continue;
+                    }
+                }
+                
+                const { r, g, b, a } = this.hexToRgba(hexColor);
+                finalColor = [r, g, b, a];
+            } else if (this.fillPattern !== 'solid') {
+                // For stippling patterns, check if pixel should be filled
+                if (!this.shouldFillPixel(cx, cy, this.fillPattern)) {
+                    // Don't fill this pixel, continue to next
+                    stack.push([cx + 1, cy], [cx - 1, cy], [cx, cy + 1], [cx, cy - 1]);
+                    continue;
+                }
+            }
+            
+            this.setPixelColor(data, cx, cy, finalColor);
+            
+            stack.push([cx + 1, cy], [cx - 1, cy], [cx, cy + 1], [cx, cy - 1]);
+        }
+        
+        ctx.putImageData(imageData, 0, 0);
+    }
+    
+    floodFill(x, y) {
+        const ctx = this.getCurrentFrameContext();
+        const imageData = ctx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
+        const data = imageData.data;
+        
+        const targetColor = this.getPixelColor(data, x, y);
+        const fillColor = this.currentColor === 'black' ? [0, 0, 0, 255] : [255, 255, 255, 255];
+        
+        if (this.colorsEqual(targetColor, fillColor)) return;
+        
+        const stack = [[x, y]];
+        const visited = new Set();
+        
+        while (stack.length > 0) {
+            const [cx, cy] = stack.pop();
+            const key = `${cx},${cy}`;
+            
+            if (visited.has(key)) continue;
+            if (cx < 0 || cx >= this.canvasWidth || cy < 0 || cy >= this.canvasHeight) continue;
+            
+            const currentColor = this.getPixelColor(data, cx, cy);
+            if (!this.colorsEqual(currentColor, targetColor)) continue;
+            
+            visited.add(key);
+            this.setPixelColor(data, cx, cy, fillColor);
+            
+            stack.push([cx + 1, cy], [cx - 1, cy], [cx, cy + 1], [cx, cy - 1]);
+        }
+        
+        ctx.putImageData(imageData, 0, 0);
+        this.redrawCanvas();
+        this.generateThumbnail(this.currentFrameIndex);
+        this.generateCode();
+    }
+    
+    getPixelColor(data, x, y) {
+        const index = (y * this.canvasWidth + x) * 4;
+        return [data[index], data[index + 1], data[index + 2], data[index + 3]];
+    }
+    
+    setPixelColor(data, x, y, color) {
+        const index = (y * this.canvasWidth + x) * 4;
+        data[index] = color[0];
+        data[index + 1] = color[1];
+        data[index + 2] = color[2];
+        data[index + 3] = color[3];
+    }
+    
+    colorsEqual(color1, color2) {
+        return color1[0] === color2[0] && color1[1] === color2[1] && 
+               color1[2] === color2[2] && color1[3] === color2[3];
+    }
+    
+    getCurrentFrameContext() {
+        return this.frames[this.currentFrameIndex].getContext('2d');
+    }
+    
+    setTool(tool) {
+        // Don't treat clear as a tool - it's just an action
+        if (tool === 'clear') {
+            this.clear();
+            return; // Don't change the current tool
+        }
+        
+        // Clear any previews when switching tools
+        this.clearOverlayAndRedrawBase();
+        
+        this.currentTool = tool;
+        document.querySelectorAll('.tool-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.tool === tool);
+        });
+        
+        // Update selection overlay visibility when changing tools
+        this.drawSelectionOverlay();
+        
+        // Show live preview if switching to bucket tool with gradient pattern
+        if (tool === 'bucket' && this.fillPattern.startsWith('gradient-')) {
+            setTimeout(() => this.updateGradientLivePreview(), 50);
+        }
+        
+        // Show/hide relevant sections based on tool
+        const brushSettings = document.getElementById('brushSettings');
+        const editSettings = document.getElementById('editSettings');
+        const bucketSettings = document.getElementById('bucketSettings');
+        const shapeSettings = document.getElementById('shapeSettings');
+        const shapeThickness = document.getElementById('shapeThickness');
+        
+        brushSettings.style.display = tool === 'pen' ? 'block' : 'none';
+        editSettings.style.display = tool === 'select' ? 'block' : 'none';
+        bucketSettings.style.display = tool === 'bucket' ? 'block' : 'none';
+        shapeSettings.style.display = (tool === 'circle' || tool === 'square') ? 'block' : 'none';
+        
+        // Show thickness controls for both rectangle and circle tools when outline mode
+        if (shapeThickness) {
+            shapeThickness.style.display = (tool === 'square' || tool === 'circle') && this.shapeFillMode === 'outline' ? 'block' : 'none';
+        }
+        
+        // Update cursor based on tool
+        let cursor = 'crosshair';
+        if (tool === 'hand') {
+            cursor = this.isPanning ? 'grabbing' : 'grab';
+        } else if (tool === 'select') {
+            cursor = 'crosshair';
+        } else if (tool === 'rotate') {
+            cursor = 'pointer';
+        }
+        
+        this.drawingCanvas.style.cursor = cursor;
+        this.overlayCanvas.style.cursor = cursor;
+    }
+    
+    setShapeFillMode(fillMode) {
+        this.shapeFillMode = fillMode;
+        document.querySelectorAll('.fill-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.fill === fillMode);
+        });
+        
+        // Show/hide thickness controls based on fill mode
+        const shapeThickness = document.getElementById('shapeThickness');
+        if (shapeThickness) {
+            const showThickness = (this.currentTool === 'square' || this.currentTool === 'circle') && fillMode === 'outline';
+            shapeThickness.style.display = showThickness ? 'block' : 'none';
+        }
+    }
+    
+    setShapeStrokePosition(strokePosition) {
+        this.shapeStrokePosition = strokePosition;
+        document.querySelectorAll('.style-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.style === strokePosition);
+        });
+    }
+
+    setColor(color) {
+        this.currentColor = color;
+        document.querySelectorAll('.color-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.color === color);
+        });
+    }
+    
+    setFillPattern(pattern) {
+        this.fillPattern = pattern;
+        // Update pattern button states
+        document.querySelectorAll('.pattern-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.pattern === pattern);
+        });
+        
+        // Handle gradient selection
+        if (pattern === 'gradient-linear' || pattern === 'gradient-radial') {
+            this.gradientType = pattern.replace('gradient-', '');
+            this.showGradientVariants();
+        } else {
+            this.hideGradientControls();
+        }
+        
+        // Show/hide line pattern controls for lines pattern
+        const lineControls = document.getElementById('linePatternControls');
+        if (lineControls) {
+            lineControls.style.display = pattern === 'lines' ? 'block' : 'none';
+        }
+        
+        // Show/hide percentage pattern controls for percentage pattern
+        const percentageControls = document.getElementById('percentagePatternControls');
+        if (percentageControls) {
+            percentageControls.style.display = pattern === 'percentage' ? 'block' : 'none';
+            
+            // Update the button text when pattern is selected
+            if (pattern === 'percentage') {
+                const percentageBtn = document.getElementById('percentageFill');
+                if (percentageBtn) {
+                    percentageBtn.innerHTML = `▦ ${this.currentPercentage}%`;
+                    percentageBtn.setAttribute('title', `${this.currentPercentage}% Fill`);
+                }
+            }
+        }
+        
+        // Show/hide checkerboard pattern controls
+        const checkerboardControls = document.getElementById('checkerboardPatternControls');
+        if (checkerboardControls) {
+            checkerboardControls.style.display = pattern === 'checkerboard' ? 'block' : 'none';
+        }
+        
+        // Show/hide clipboard pattern controls  
+        const clipboardControls = document.getElementById('clipboardPatternControls');
+        if (clipboardControls) {
+            clipboardControls.style.display = pattern === 'clipboard' ? 'block' : 'none';
+        }
+        
+        // Show/hide dots pattern controls
+        const dotsControls = document.getElementById('dotsPatternControls');
+        if (dotsControls) {
+            dotsControls.style.display = pattern === 'dots' ? 'block' : 'none';
+        }
+        
+        // Update live preview if bucket tool is active
+        if (this.currentTool === 'bucket') {
+            // Small delay to ensure the UI has updated
+            setTimeout(() => this.updateGradientLivePreview(), 50);
+        }
+    }
+
+    showGradientVariants() {
+        const variantControls = document.getElementById('gradientVariantControls');
+        if (variantControls) {
+            variantControls.style.display = 'block';
+            // Set default to smooth if none selected
+            if (!this.gradientVariant) {
+                this.setGradientVariant('smooth');
+            } else {
+                this.updateVariantButtons();
+            }
+        }
+    }
+
+    hideGradientControls() {
+        const variantControls = document.getElementById('gradientVariantControls');
+        const gradientControls = document.getElementById('gradientControls');
+        if (variantControls) variantControls.style.display = 'none';
+        if (gradientControls) gradientControls.style.display = 'none';
+        this.gradientType = null;
+        this.gradientVariant = null;
+    }
+
+    setGradientVariant(variant) {
+        this.gradientVariant = variant;
+        this.updateVariantButtons();
+        this.showGradientControls();
+        
+        // Update the actual fillPattern to match the selection
+        this.fillPattern = `gradient-${this.gradientType}${variant === 'smooth' ? '' : '-' + variant}`;
+        
+        // Update live preview
+        if (this.currentTool === 'bucket') {
+            setTimeout(() => this.updateGradientLivePreview(), 50);
+        }
+    }
+
+    updateVariantButtons() {
+        document.querySelectorAll('.variant-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.variant === this.gradientVariant);
+        });
+    }
+
+    showGradientControls() {
+        const gradientControls = document.getElementById('gradientControls');
+        const linearControls = document.getElementById('linearControls');
+        const radialControls = document.getElementById('radialControls');
+        const stippleDitherControls = document.getElementById('stippleDitherControls');
+        
+        if (gradientControls && linearControls && radialControls && stippleDitherControls) {
+            gradientControls.style.display = 'block';
+            
+            const isLinear = this.gradientType === 'linear';
+            const isRadial = this.gradientType === 'radial';
+            const isStippleDither = this.gradientVariant === 'stipple' || this.gradientVariant === 'dither';
+            
+            linearControls.style.display = isLinear ? 'block' : 'none';
+            radialControls.style.display = isRadial ? 'block' : 'none';
+            stippleDitherControls.style.display = isStippleDither ? 'block' : 'none';
+        }
+    }
+
+    toggleFillPatternsSettings() {
+        const fillPatternsDiv = document.getElementById('fillPatternsSettings');
+        const isExpanded = fillPatternsDiv.style.display !== 'none';
+        fillPatternsDiv.style.display = isExpanded ? 'none' : 'block';
+    }
+
+    setBrushShape(shape) {
+        this.brushShape = shape;
+        document.querySelectorAll('.brush-shape-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.shape === shape);
+        });
+    }
+    
+    setRectangleStyle(style) {
+        this.rectangleStyle = style;
+        document.querySelectorAll('.style-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.style === style);
+        });
+    }
+    
+    setZoom(newZoom) {
+        this.zoom = Math.max(0.5, Math.min(newZoom, 20));
+        this.setCanvasSize(this.canvasWidth, this.canvasHeight);
+        document.getElementById('zoomLevel').textContent = Math.round(this.zoom * 100) + '%';
+    }
+    
+    fitToScreen() {
+        const container = document.querySelector('.canvas-container');
+        const maxWidth = container.clientWidth - 40;
+        const maxHeight = container.clientHeight - 40;
+        
+        const scaleX = maxWidth / this.canvasWidth;
+        const scaleY = maxHeight / this.canvasHeight;
+        const scale = Math.min(scaleX, scaleY);
+        
+        this.setZoom(scale);
+    }
+    
+    fitToWindow() {
+        this.fitToScreen();
+    }
+    
+    centerView() {
+        const container = document.querySelector('.canvas-container');
+        if (container) {
+            container.scrollLeft = (container.scrollWidth - container.clientWidth) / 2;
+            container.scrollTop = (container.scrollHeight - container.clientHeight) / 2;
+        }
+    }
+    
+    toggleGrid() {
+        this.showGrid = !this.showGrid;
+        this.drawCanvas();
+        
+        // Update grid button if it exists
+        const gridBtn = document.getElementById('mobileGridBtn');
+        if (gridBtn) {
+            gridBtn.style.background = this.showGrid ? 'var(--primary-color)' : 'var(--button-bg)';
+            gridBtn.style.color = this.showGrid ? 'white' : 'var(--text-color)';
+        }
+    }
+    
+    setBrushSize(size) {
+        this.brushSize = Math.max(1, Math.min(size, 50));
+        
+        // Update desktop size display
+        const desktopSizeDisplay = document.getElementById('brushSizeDisplay');
+        if (desktopSizeDisplay) {
+            desktopSizeDisplay.textContent = this.brushSize;
+        }
+    }
+    
+    togglePixelGrid() {
+        this.showPixelGrid = document.getElementById('pixelGrid').checked;
+        this.drawPixelGrid();
+    }
+    
+    drawPixelGrid() {
+        if (!this.showPixelGrid) {
+            return;
+        }
+
+        // Draw grid only if zoom is high enough to make it visible
+        if (this.zoom < 2) {
+            return;
+        }
+        
+        // Clear overlay first to prevent stacking
+        this.overlayCtx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
+        
+        // Save context state and ensure proper compositing
+        this.overlayCtx.save();
+        this.overlayCtx.globalCompositeOperation = 'source-over';
+        this.overlayCtx.globalAlpha = 1.0;
+        
+        // Use a more visible blue for the grid 
+        this.overlayCtx.fillStyle = 'rgba(135, 206, 235, 0.25)'; // Light blue with 25% opacity for better visibility
+        
+        // Draw light blue checkerboard pattern
+        for (let x = 0; x < this.canvasWidth; x++) {
+            for (let y = 0; y < this.canvasHeight; y++) {
+                // Create checkerboard pattern
+                if ((x + y) % 2 === 0) {
+                    this.overlayCtx.fillRect(x, y, 1, 1);
+                }
+            }
+        }        
+        // Restore context state
+        this.overlayCtx.restore();
+    }
+    
+    // Helper method to clear overlay and redraw base layers (grid, selection)
+    clearOverlayAndRedrawBase() {
+        // Clear the entire overlay
+        this.overlayCtx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
+        
+        // Redraw base layers in correct order
+        // 1. Grid (bottom layer) - only if not already being handled by preview method
+        if (this.showPixelGrid && this.zoom >= 2) {
+            this.overlayCtx.save();
+            this.overlayCtx.fillStyle = 'rgba(135, 206, 235, 0.25)'; // Increased opacity to 25% for better visibility
+            
+            for (let x = 0; x < this.canvasWidth; x++) {
+                for (let y = 0; y < this.canvasHeight; y++) {
+                    if ((x + y) % 2 === 0) {
+                        this.overlayCtx.fillRect(x, y, 1, 1);
+                    }
+                }
+            }
+            this.overlayCtx.restore();
+        }
+        
+        // 2. Selection overlay (middle layer)
+        if (this.selection && this.selection.active) {
+            this.drawSelectionOverlay();
+        }
+    }
+    
+    redrawCanvas() {
+        // Safety check - ensure we have proper context
+        if (!this.drawingCtx) return;
+        
+        // Clear the drawing canvas - leave it transparent for onion skin to show through
+        this.drawingCtx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
+        
+        // If onion skin is OFF, we need to draw the current frame on the drawing canvas
+        const onionSkinElement = document.getElementById('onionSkin');
+        if (!onionSkinElement || !onionSkinElement.checked) {
+            // Draw current frame on drawing canvas when onion skin is disabled
+            if (this.frames && Array.isArray(this.frames) && this.frames[this.currentFrameIndex]) {
+                this.drawingCtx.drawImage(this.frames[this.currentFrameIndex], 0, 0);
+            }
+        }
+        
+        // Only call updateOnionSkin if frames are properly initialized
+        if (this.frames && Array.isArray(this.frames)) {
+            this.updateOnionSkin();
+        }
+        
+        // Draw pixel grid if enabled
+        this.drawPixelGrid();
+    }
+    
+    updateOnionSkin() {
+        // Clear onion canvas completely
+        this.onionCtx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
+        
+        const onionSkinToggle = document.getElementById('onionSkinToggle');
+        const opacityContainer = document.getElementById('onionOpacityContainer');
+        if (!onionSkinToggle || !onionSkinToggle.classList.contains('active') || !opacityContainer || opacityContainer.style.display === 'none') {
+            return;
+        }
+        
+        // If there's only one frame, still draw it so the user can see what they're drawing
+        if (!this.frames || this.frames.length < 1) {
+            return;
+        }
+        
+        if (this.frames.length === 1) {
+            // With only one frame, just draw the current frame at full opacity
+            this.onionCtx.save();
+            this.onionCtx.globalAlpha = 1.0;
+            this.onionCtx.globalCompositeOperation = 'source-over';
+            this.onionCtx.drawImage(this.frames[this.currentFrameIndex], 0, 0);
+            this.onionCtx.restore();
+            return;
+        }
+        
+        const opacity = parseInt(document.getElementById('onionOpacity').value) / 100;
+        
+        // Get the drawing mode (Black on White or White on Black)
+        const isBlackOnWhite = document.getElementById('onionModeBlackOnWhite').classList.contains('active');
+        
+        // Save the current state
+        this.onionCtx.save();
+        
+        // 1. Draw the current frame at full opacity first
+        this.onionCtx.globalAlpha = 1.0;
+        this.onionCtx.globalCompositeOperation = 'source-over';
+        this.onionCtx.drawImage(this.frames[this.currentFrameIndex], 0, 0);
+        
+        // 2. Draw previous frame with color mapping
+        if (this.currentFrameIndex > 0) {
+            this.drawOnionFrame(this.frames[this.currentFrameIndex - 1], 'red', opacity * 0.8, isBlackOnWhite);
+        }
+        
+        // 3. Draw next frame with color mapping  
+        if (this.currentFrameIndex < this.frames.length - 1) {
+            this.drawOnionFrame(this.frames[this.currentFrameIndex + 1], 'blue', opacity * 0.6, isBlackOnWhite);
+        }
+        
+        this.onionCtx.restore();
+    }
+
+    drawOnionFrame(frame, color, opacity, isBlackOnWhite) {
+        // Create a temporary canvas to process the frame
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = this.canvasWidth;
+        tempCanvas.height = this.canvasHeight;
+        const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
+        
+        // Draw the frame to temp canvas
+        tempCtx.drawImage(frame, 0, 0);
+        
+        // Get image data to process pixels
+        const imageData = tempCtx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
+        const data = imageData.data;
+        
+        // Define target colors based on the drawing mode
+        const targetColor = isBlackOnWhite ? [0, 0, 0, 255] : [255, 255, 255, 255]; // Black or White
+        const redColor = [255, 80, 80, Math.floor(opacity * 255)];   // Red tint
+        const blueColor = [80, 80, 255, Math.floor(opacity * 255)];  // Blue tint
+        
+        const tintColor = color === 'red' ? redColor : blueColor;
+        
+        // Process each pixel
+        for (let i = 0; i < data.length; i += 4) {
+            const r = data[i];
+            const g = data[i + 1]; 
+            const b = data[i + 2];
+            const a = data[i + 3];
+            
+            // Skip transparent pixels
+            if (a === 0) continue;
+            
+            // Check if this pixel matches our target color (with some tolerance)
+            const isTargetColor = Math.abs(r - targetColor[0]) < 50 && 
+                                 Math.abs(g - targetColor[1]) < 50 && 
+                                 Math.abs(b - targetColor[2]) < 50;
+            
+            if (isTargetColor) {
+                // Replace target color with tinted color
+                data[i] = tintColor[0];     // R
+                data[i + 1] = tintColor[1]; // G
+                data[i + 2] = tintColor[2]; // B
+                data[i + 3] = tintColor[3]; // A (opacity)
+            } else {
+                // Make non-target colors more transparent
+                data[i + 3] = Math.floor(a * opacity * 0.3);
+            }
+        }
+        
+        // Put the processed image data back
+        tempCtx.putImageData(imageData, 0, 0);
+        
+        // Draw the processed frame to the onion canvas
+        this.onionCtx.globalAlpha = 1.0; // Alpha is already handled in the pixel data
+        this.onionCtx.globalCompositeOperation = 'source-over';
+        this.onionCtx.drawImage(tempCanvas, 0, 0);
+    }
+    
+    updateMousePosition(pos) {
+        document.getElementById('mousePos').textContent = `${pos.x}, ${pos.y}`;
+    }
+    
+    updateCanvasInfo() {
+        document.getElementById('canvasInfo').textContent = `${this.canvasWidth}×${this.canvasHeight}`;
+    }
+    
+    updateUI() {
+        document.getElementById('currentFrame').textContent = this.currentFrameIndex + 1;
+        document.getElementById('totalFrames').textContent = this.frames.length;
+        
+        document.getElementById('prevFrame').disabled = this.currentFrameIndex === 0;
+        document.getElementById('nextFrame').disabled = this.currentFrameIndex === this.frames.length - 1;
+        document.getElementById('deleteFrame').disabled = this.frames.length === 1;
+        
+        // Update frame thumbnails
+        this.updateFrameList();
+    }
+    
+    toggleAnimationSettings() {
+        const animationSettings = document.getElementById('animationSettings');
+        const toggleBtn = document.getElementById('animationToggle');
+        
+        if (animationSettings && toggleBtn) {
+            const isVisible = animationSettings.style.display !== 'none';
+            animationSettings.style.display = isVisible ? 'none' : 'block';
+            
+            // Toggle button active state
+            if (isVisible) {
+                toggleBtn.classList.remove('active');
+            } else {
+                toggleBtn.classList.add('active');
+            }
+        }
+        
+        // Auto-update code output when animation mode changes
+        this.generateCode();
+    }
+    
+    toggleMirrorTransformSettings() {
+        const mirrorTransformSettings = document.getElementById('mirrorTransformSettings');
+        const toggleBtn = document.getElementById('mirrorTransformToggle');
+        
+        if (mirrorTransformSettings && toggleBtn) {
+            const isVisible = mirrorTransformSettings.style.display !== 'none';
+            mirrorTransformSettings.style.display = isVisible ? 'none' : 'block';
+            
+            // Toggle button active state
+            if (isVisible) {
+                toggleBtn.classList.remove('active');
+            } else {
+                toggleBtn.classList.add('active');
+            }
+        }
+    }
+
+    toggleMirrorHorizontal() {
+        this.mirrorHorizontal = !this.mirrorHorizontal;
+        this.mirrorBoth = this.mirrorHorizontal && this.mirrorVertical;
+        
+        const btn = document.getElementById('mirrorHorizontal');
+        if (this.mirrorHorizontal) {
+            btn.classList.add('active');
+        } else {
+            btn.classList.remove('active');
+        }
+    }
+
+    toggleMirrorVertical() {
+        this.mirrorVertical = !this.mirrorVertical;
+        this.mirrorBoth = this.mirrorHorizontal && this.mirrorVertical;
+        
+        const btn = document.getElementById('mirrorVertical');
+        if (this.mirrorVertical) {
+            btn.classList.add('active');
+        } else {
+            btn.classList.remove('active');
+        }
+    }
+
+    toggleOnionSkin() {
+        const opacityContainer = document.getElementById('onionOpacityContainer');
+        const toggleBtn = document.getElementById('onionSkinToggle');
+        
+        if (opacityContainer && toggleBtn) {
+            const isVisible = opacityContainer.style.display !== 'none';
+            opacityContainer.style.display = isVisible ? 'none' : 'block';
+            
+            // Toggle button active state
+            if (isVisible) {
+                toggleBtn.classList.remove('active');
+            } else {
+                toggleBtn.classList.add('active');
+            }
+        }
+        this.redrawCanvas(); // Redraw everything when onion skin is toggled
+    }
+
+    setOnionMode(mode) {
+        // Update active button states
+        document.getElementById('onionModeBlackOnWhite').classList.remove('active');
+        document.getElementById('onionModeWhiteOnBlack').classList.remove('active');
+        
+        if (mode === 'blackOnWhite') {
+            document.getElementById('onionModeBlackOnWhite').classList.add('active');
+        } else {
+            document.getElementById('onionModeWhiteOnBlack').classList.add('active');
+        }
+        
+        this.updateOnionSkin();
+    }
+    
+    
+    clearCurrentFrame() {
+        // Capture canvas state before clearing for undo system
+        const frame = this.frames[this.currentFrameIndex];
+        const ctx = frame.getContext('2d', { willReadFrequently: true });
+        const canvasSnapshot = ctx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
+        
+        // Create and execute clear command
+        const command = new ClearCanvasCommand(this, canvasSnapshot);
+        command.execute();
+        
+        // Add to undo system
+        this.undoStack.push(command);
+        this.redoStack = [];
+        
+        // Limit undo stack size
+        if (this.undoStack.length > this.maxUndoStackSize) {
+            this.undoStack.shift();
+        }
+        
+        // Mark as unsaved if canvas wasn't already blank
+        if (!this.checkIfBlank()) {
+            this.isBlankCanvas = true; // Canvas is now blank
+            this.hasUnsavedChanges = false; // Clearing to blank doesn't count as unsaved
+            this.updateWindowTitle();
+        }
+        
+        this.updateUndoRedoUI();
+        this.generateThumbnail(this.currentFrameIndex);
+        this.generateCode();
+    }
+
+    // Frame management methods will be added in the next part
+    addFrame() {
+        const newFrame = this.createEmptyFrame();
+        this.frames.splice(this.currentFrameIndex + 1, 0, newFrame);
+        this.currentFrameIndex++;
+        this.updateUI();
+        this.redrawCanvas();
+        this.generateThumbnail(this.currentFrameIndex);
+        this.generateCode(); // Update code when frames change
+    }
+    
+    deleteFrame() {
+        if (this.frames.length === 1) return;
+        
+        this.frames.splice(this.currentFrameIndex, 1);
+        if (this.currentFrameIndex >= this.frames.length) {
+            this.currentFrameIndex = this.frames.length - 1;
+        }
+        this.updateUI();
+        this.redrawCanvas();
+        this.generateCode(); // Update code when frames change
+    }
+    
+    previousFrame() {
+        if (this.currentFrameIndex > 0) {
+            this.currentFrameIndex--;
+            this.updateUI();
+            this.redrawCanvas();
+        }
+    }
+    
+    nextFrame() {
+        if (this.currentFrameIndex < this.frames.length - 1) {
+            this.currentFrameIndex++;
+            this.updateUI();
+            this.redrawCanvas();
+        }
+    }
+    
+    toggleAnimation() {
+        const playBtn = document.getElementById('playBtn');
+        
+        if (this.isPlaying) {
+            clearInterval(this.animationInterval);
+            this.isPlaying = false;
+            playBtn.textContent = '▶️ Play';
+        } else {
+            const fps = parseFloat(document.getElementById('frameRate').value);
+            this.animationInterval = setInterval(() => {
+                this.advanceFrame();
+                this.updateUI();
+                this.redrawCanvas();
+            }, 1000 / fps);
+            this.isPlaying = true;
+            playBtn.textContent = '⏸️ Pause';
+        }
+    }
+    
+    advanceFrame() {
+        if (this.animationMode === 'cycle') {
+            // Simple cycle through frames
+            this.currentFrameIndex = (this.currentFrameIndex + 1) % this.frames.length;
+        } else if (this.animationMode === 'boomerang') {
+            // Bounce back and forth
+            this.currentFrameIndex += this.animationDirection;
+            
+            // Check bounds and reverse direction
+            if (this.currentFrameIndex >= this.frames.length - 1) {
+                this.currentFrameIndex = this.frames.length - 1;
+                this.animationDirection = -1;
+            } else if (this.currentFrameIndex <= 0) {
+                this.currentFrameIndex = 0;
+                this.animationDirection = 1;
+            }
+        }
+    }
+    
+    setAnimationMode(mode) {
+        this.animationMode = mode;
+        this.animationDirection = 1; // Reset direction
+        
+        // Update button states
+        document.querySelectorAll('.mode-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.mode === mode);
+        });
+    }
+    
+    generateThumbnail(frameIndex) {
+        const thumbCanvas = document.querySelectorAll('.thumb-canvas')[frameIndex];
+        if (!thumbCanvas) return;
+        
+        const ctx = thumbCanvas.getContext('2d', { willReadFrequently: true });
+        ctx.imageSmoothingEnabled = false;
+        ctx.clearRect(0, 0, 64, 64);
+        ctx.drawImage(this.frames[frameIndex], 0, 0, 64, 64);
+    }
+    
+    updateFrameList() {
+        const frameList = document.getElementById('frameList');
+        frameList.innerHTML = '';
+        
+        this.frames.forEach((frame, index) => {
+            const thumbDiv = document.createElement('div');
+            thumbDiv.className = `frame-thumb ${index === this.currentFrameIndex ? 'active' : ''}`;
+            thumbDiv.dataset.frame = index;
+            
+            const canvas = document.createElement('canvas');
+            canvas.className = 'thumb-canvas';
+            canvas.width = 64;
+            canvas.height = 64;
+            
+            const label = document.createElement('span');
+            label.className = 'frame-label';
+            label.textContent = `Frame ${index + 1}`;
+            
+            thumbDiv.appendChild(canvas);
+            thumbDiv.appendChild(label);
+            frameList.appendChild(thumbDiv);
+            
+            // Generate thumbnail
+            const ctx = canvas.getContext('2d', { willReadFrequently: true });
+            ctx.imageSmoothingEnabled = false;
+            ctx.drawImage(frame, 0, 0, 64, 64);
+            
+            // Click handler
+            thumbDiv.addEventListener('click', () => {
+                this.currentFrameIndex = index;
+                this.updateUI();
+                this.redrawCanvas();
+            });
+        });
+    }
+
+    updateAssetNameDefault(format) {
+        const assetNameInput = document.getElementById('assetName');
+        // Only update if the current value is still a default value
+        if (assetNameInput.value === 'my_image' || assetNameInput.value === 'my_animation') {
+            assetNameInput.value = format === 'animation' ? 'my_animation' : 'my_image';
+        }
+    }
+
+    validateAssetName(input) {
+        const warning = document.getElementById('nameWarning');
+        const value = input.value;
+        
+        // Check for any characters that are not letters, numbers, or underscores
+        // Also check if it starts with a number (invalid in C++)
+        const hasInvalidChars = /[^a-zA-Z0-9_]/.test(value);
+        const startsWithNumber = /^[0-9]/.test(value);
+        
+        if (hasInvalidChars || startsWithNumber) {
+            warning.style.display = 'block';
+        } else {
+            warning.style.display = 'none';
+        }
+    }
+
+    cleanAssetName(name) {
+        // Replace any non-alphanumeric characters (except underscores) with underscores
+        let cleaned = name.replace(/[^a-zA-Z0-9_]/g, '_');
+        
+        // If the name starts with a number, prefix with an underscore
+        if (/^[0-9]/.test(cleaned)) {
+            cleaned = '_' + cleaned;
+        }
+        
+        // If the name is empty or only underscores, use a default
+        if (!cleaned || /^_*$/.test(cleaned)) {
+            cleaned = 'my_asset';
+        }
+        
+        return cleaned;
+    }
+
+    // Helper function to clamp coordinates to canvas bounds and find intersection point
+    clampLineToCanvas(x1, y1, x2, y2) {
+        // If both points are within bounds, no clamping needed
+        if (x1 >= 0 && x1 < this.canvasWidth && y1 >= 0 && y1 < this.canvasHeight &&
+            x2 >= 0 && x2 < this.canvasWidth && y2 >= 0 && y2 < this.canvasHeight) {
+            return { x1, y1, x2, y2 };
+        }
+
+        // Calculate line intersection with canvas boundaries
+        const minX = 0;
+        const maxX = this.canvasWidth - 1;
+        const minY = 0;
+        const maxY = this.canvasHeight - 1;
+
+        // Line equation: (x2-x1)*(y-y1) = (y2-y1)*(x-x1)
+        const dx = x2 - x1;
+        const dy = y2 - y1;
+
+        let clampedX1 = x1, clampedY1 = y1;
+        let clampedX2 = x2, clampedY2 = y2;
+
+        // Clamp start point if outside bounds
+        if (x1 < minX || x1 > maxX || y1 < minY || y1 > maxY) {
+            // Find intersection with canvas boundary
+            if (dx !== 0) {
+                if (x1 < minX) {
+                    clampedX1 = minX;
+                    clampedY1 = y1 + dy * (minX - x1) / dx;
+                } else if (x1 > maxX) {
+                    clampedX1 = maxX;
+                    clampedY1 = y1 + dy * (maxX - x1) / dx;
+                }
+            }
+            if (dy !== 0) {
+                if (y1 < minY) {
+                    clampedY1 = minY;
+                    clampedX1 = x1 + dx * (minY - y1) / dy;
+                } else if (y1 > maxY) {
+                    clampedY1 = maxY;
+                    clampedX1 = x1 + dx * (maxY - y1) / dy;
+                }
+            }
+        }
+
+        // Clamp end point if outside bounds
+        if (x2 < minX || x2 > maxX || y2 < minY || y2 > maxY) {
+            // Find intersection with canvas boundary
+            if (dx !== 0) {
+                if (x2 < minX) {
+                    clampedX2 = minX;
+                    clampedY2 = y1 + dy * (minX - x1) / dx;
+                } else if (x2 > maxX) {
+                    clampedX2 = maxX;
+                    clampedY2 = y1 + dy * (maxX - x1) / dx;
+                }
+            }
+            if (dy !== 0) {
+                if (y2 < minY) {
+                    clampedY2 = minY;
+                    clampedX2 = x1 + dx * (minY - y1) / dy;
+                } else if (y2 > maxY) {
+                    clampedY2 = maxY;
+                    clampedX2 = x1 + dx * (maxY - y1) / dy;
+                }
+            }
+        }
+
+        // Ensure clamped coordinates are within bounds
+        clampedX1 = Math.max(minX, Math.min(maxX, Math.round(clampedX1)));
+        clampedY1 = Math.max(minY, Math.min(maxY, Math.round(clampedY1)));
+        clampedX2 = Math.max(minX, Math.min(maxX, Math.round(clampedX2)));
+        clampedY2 = Math.max(minY, Math.min(maxY, Math.round(clampedY2)));
+
+        return { 
+            x1: clampedX1, 
+            y1: clampedY1, 
+            x2: clampedX2, 
+            y2: clampedY2 
+        };
+    }
+
+    generateCode() {
+        // Auto-detect format based on animation settings
+        const animationEnabled = document.getElementById('animationEnabled')?.checked;
+        const hasMultipleFrames = this.frames && this.frames.length > 1;
+        
+        let format;
+        if (animationEnabled && hasMultipleFrames) {
+            format = 'animation';
+            // Update the dropdown to reflect auto-selection
+            document.getElementById('exportFormat').value = 'animation';
+        } else {
+            format = document.getElementById('exportFormat').value;
+            // If single frame but animation format selected, use single frame
+            if (format === 'animation' && !hasMultipleFrames) {
+                format = 'hpp';
+                document.getElementById('exportFormat').value = 'hpp';
+            }
+        }
+        
+        let code = '';
+        
+        if (format === 'hpp') {
+            code = this.generateSingleFrameHPP();
+        } else if (format === 'animation') {
+            code = this.generateAnimationHPP();
+        }
+        
+        document.getElementById('codeOutput').value = code;
+    }
+    
+    generateSingleFrameHPP() {
+        const frame = this.frames[this.currentFrameIndex];
+        const ctx = frame.getContext('2d');
+        const imageData = ctx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
+        const data = imageData.data;
+        
+        // Get the asset name from the input and clean it
+        const rawAssetName = document.getElementById('assetName').value || 'my_image';
+        const assetName = this.cleanAssetName(rawAssetName);
+        
+        let code = `// Generated bitmap data for ${this.canvasWidth}x${this.canvasHeight} image\n`;
+        code += `// Created with Kywy Drawing Editor\n\n`;
+        code += `uint8_t ${assetName}_data[${Math.ceil((this.canvasWidth * this.canvasHeight) / 8)}] = {\n`;
+        
+        const bytes = [];
+        for (let byte = 0; byte < Math.ceil((this.canvasWidth * this.canvasHeight) / 8); byte++) {
+            let byteValue = 0;
+            for (let bit = 0; bit < 8; bit++) {
+                const pixelIndex = byte * 8 + bit;
+                if (pixelIndex < this.canvasWidth * this.canvasHeight) {
+                    const dataIndex = pixelIndex * 4;
+                    const isWhite = data[dataIndex] >= 128; // R value >= 128 = white
+                    if (isWhite) {
+                        byteValue |= (1 << (7 - bit));
+                    }
+                }
+            }
+            bytes.push(`0x${byteValue.toString(16).padStart(2, '0').toUpperCase()}`);
+        }
+        
+        // Format bytes with proper line breaks
+        for (let i = 0; i < bytes.length; i += 12) {
+            code += '    ' + bytes.slice(i, i + 12).join(', ');
+            if (i + 12 < bytes.length) code += ',';
+            code += '\n';
+        }
+        
+        code += `};\n\n`;
+        code += `// Bitmap Constants\n`;
+        code += `#define ${assetName.toUpperCase()}_WIDTH ${this.canvasWidth}\n`;
+        code += `#define ${assetName.toUpperCase()}_HEIGHT ${this.canvasHeight}\n`;
+        
+        return code;
+    }
+    
+    generateAnimationHPP() {
+        if (this.frames.length === 1) {
+            return this.generateSingleFrameHPP();
+        }
+        
+        // Get the asset name from the input and clean it
+        const rawAssetName = document.getElementById('assetName').value || 'my_animation';
+        const assetName = this.cleanAssetName(rawAssetName);
+        
+        let code = `// Generated animation data for ${this.canvasWidth}x${this.canvasHeight} animation\n`;
+        code += `// ${this.frames.length} frames - Created with Kywy Drawing Editor\n\n`;
+        
+        // Generate frame data
+        const frameDataArrays = [];
+        this.frames.forEach((frame, index) => {
+            const ctx = frame.getContext('2d');
+            const imageData = ctx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
+            const data = imageData.data;
+            
+            const bytes = [];
+            for (let byte = 0; byte < Math.ceil((this.canvasWidth * this.canvasHeight) / 8); byte++) {
+                let byteValue = 0;
+                for (let bit = 0; bit < 8; bit++) {
+                    const pixelIndex = byte * 8 + bit;
+                    if (pixelIndex < this.canvasWidth * this.canvasHeight) {
+                        const dataIndex = pixelIndex * 4;
+                        const isWhite = data[dataIndex] >= 128;
+                        if (isWhite) {
+                            byteValue |= (1 << (7 - bit));
+                        }
+                    }
+                }
+                bytes.push(`0x${byteValue.toString(16).padStart(2, '0').toUpperCase()}`);
+            }
+            
+            frameDataArrays.push(bytes);
+        });
+        
+        // Output individual frame arrays
+        frameDataArrays.forEach((bytes, index) => {
+            code += `uint8_t ${assetName}_frame_${index + 1}[${bytes.length}] = {\n`;
+            for (let i = 0; i < bytes.length; i += 12) {
+                code += '    ' + bytes.slice(i, i + 12).join(', ');
+                if (i + 12 < bytes.length) code += ',';
+                code += '\n';
+            }
+            code += `};\n\n`;
+        });
+        
+        // Output frame pointer array
+        code += `const uint8_t* ${assetName}_frames[${this.frames.length}] = {\n`;
+        for (let i = 0; i < this.frames.length; i++) {
+            code += `    ${assetName}_frame_${i + 1}`;
+            if (i < this.frames.length - 1) code += ',';
+            code += '\n';
+        }
+        code += `};\n\n`;
+        
+        // Output sprite setup
+        code += `// Animation Constants\n`;
+        code += `#define ${assetName.toUpperCase()}_FRAME_COUNT ${this.frames.length}\n`;
+        code += `#define ${assetName.toUpperCase()}_WIDTH ${this.canvasWidth}\n`;
+        code += `#define ${assetName.toUpperCase()}_HEIGHT ${this.canvasHeight}\n`;
+        code += `#define ${assetName.toUpperCase()}_SPEED 200  // milliseconds per frame\n`;
+        
+        return code;
+    }
+    
+    // File operations with selection support
+    copy() {
+        if (this.selection && this.selection.active) {
+            this.copySelection();
+        } else {
+            // Copy the entire current frame
+            const frameCanvas = this.frames[this.currentFrameIndex].cloneNode();
+            this.clipboard = {
+                data: frameCanvas,
+                isSelection: false,
+                width: this.canvasWidth,
+                height: this.canvasHeight
+            };
+            document.getElementById('pasteBtn').disabled = false;
+        }
+    }
+    
+    copySelection() {
+        if (!this.selection || !this.selection.active) return;
+        
+        const { startX, startY, endX, endY } = this.selection;
+        const minX = Math.min(startX, endX);
+        const minY = Math.min(startY, endY);
+        const width = Math.abs(endX - startX);
+        const height = Math.abs(endY - startY);
+        
+        // Don't copy zero-sized selections
+        if (width <= 0 || height <= 0) {
+            return;
+        }
+        
+        // Create a canvas for the selection
+        const selectionCanvas = document.createElement('canvas');
+        selectionCanvas.width = width;
+        selectionCanvas.height = height;
+        const selectionCtx = selectionCanvas.getContext('2d', { willReadFrequently: true });
+        
+        // Copy the selected area from the current frame
+        const currentFrame = this.frames[this.currentFrameIndex];
+        selectionCtx.drawImage(currentFrame, minX, minY, width, height, 0, 0, width, height);
+        
+        this.clipboard = {
+            data: selectionCanvas,
+            isSelection: true,
+            width: width,
+            height: height
+        };
+        
+        document.getElementById('pasteBtn').disabled = false;
+    }
+    
+    paste() {
+        if (!this.clipboard) return;
+        
+        const ctx = this.getCurrentFrameContext();
+        
+        if (this.clipboard.isSelection) {
+            // Paste at selection location or center if no selection
+            let pasteX = 0;
+            let pasteY = 0;
+            
+            if (this.selection && this.selection.active) {
+                const { startX, startY } = this.selection;
+                pasteX = Math.min(startX, this.selection.endX);
+                pasteY = Math.min(startY, this.selection.endY);
+            }
+            
+            ctx.drawImage(this.clipboard.data, pasteX, pasteY);
+        } else {
+            // Paste entire frame
+            ctx.drawImage(this.clipboard.data, 0, 0);
+        }
+        
+        this.redrawCanvas();
+        this.generateThumbnail(this.currentFrameIndex);
+        this.generateCode();
+    }
+    
+    cut() {
+        if (!this.selection || !this.selection.active) return;
+        
+        // Store the cut content for dragging
+        const { startX, startY, endX, endY } = this.selection;
+        const minX = Math.min(startX, endX);
+        const minY = Math.min(startY, endY);
+        const width = Math.abs(endX - startX);
+        const height = Math.abs(endY - startY);
+        
+        const ctx = this.getCurrentFrameContext();
+        const imageData = ctx.getImageData(minX, minY, width, height);
+        
+        // Create a canvas to hold the cut content
+        const cutCanvas = document.createElement('canvas');
+        cutCanvas.width = width;
+        cutCanvas.height = height;
+        const cutCtx = cutCanvas.getContext('2d', { willReadFrequently: true });
+        cutCtx.putImageData(imageData, 0, 0);
+        
+        // Store in selection for dragging
+        this.selection.cutContent = cutCanvas;
+        
+        // Copy to clipboard
+        this.clipboard = cutCanvas;
+        document.getElementById('pasteBtn').disabled = false;
+        
+        // Clear the original area
+        this.clearSelection();
+        
+        // Keep selection active for dragging
+        this.drawSelectionOverlay();
+    }
+    
+    clear() {
+        if (this.selection && this.selection.active) {
+            this.clearSelection();
+        } else {
+            // Clear entire canvas with pixel tracking
+            const ctx = this.getCurrentFrameContext();
+            
+            // Capture canvas state before clearing
+            const beforeImageData = ctx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
+            
+            // Clear the canvas
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
+            
+            // Capture canvas state after clearing
+            const afterImageData = ctx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
+            
+            // Find exactly which pixels changed
+            const pixelData = this.compareImageData(beforeImageData, afterImageData);
+            
+            // Create and add clear command to undo system if pixels changed
+            if (pixelData.length > 0) {
+                const command = new ClearCanvasCommand(this, beforeImageData, this.currentFrameIndex);
+                this.undoStack.push(command);
+                this.redoStack = [];
+                
+                // Limit undo stack size
+                if (this.undoStack.length > this.maxUndoStackSize) {
+                    this.undoStack.shift();
+                }
+                
+                // Mark as unsaved
+                this.markAsUnsaved();
+                this.updateUndoRedoUI();
+            }
+            
+            this.redrawCanvas();
+            this.generateThumbnail(this.currentFrameIndex);
+            this.generateCode();
+        }
+        // No tool switching - just clear and stay on current tool
+    }
+    
+    clearSelection() {
+        if (!this.selection || !this.selection.active) return;
+        
+        const { startX, startY, endX, endY } = this.selection;
+        const minX = Math.min(startX, endX);
+        const minY = Math.min(startY, endY);
+        const width = Math.abs(endX - startX);
+        const height = Math.abs(endY - startY);
+        
+        const ctx = this.getCurrentFrameContext();
+        ctx.fillStyle = 'white';
+        ctx.fillRect(minX, minY, width, height);
+        
+        this.redrawCanvas();
+        this.drawSelectionOverlay(); // Update selection overlay
+        this.generateThumbnail(this.currentFrameIndex);
+        this.generateCode();
+    }
+    
+    newDrawing() {
+        if (confirm('Create a new drawing? This will clear your current work.')) {
+            this.frames = [this.createEmptyFrame()];
+            this.currentFrameIndex = 0;
+            this.updateUI();
+            this.redrawCanvas();
+            this.generateCode();
+        }
+    }
+    
+    save() {
+        const data = {
+            width: this.canvasWidth,
+            height: this.canvasHeight,
+            frames: this.frames.map(frame => frame.toDataURL())
+        };
+        
+        const assetName = document.getElementById('assetName').value || 'my_image';
+        const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${assetName}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        // Mark as saved after successful save
+        this.markAsSaved();
+    }
+    
+    load() {
+        document.getElementById('fileInput').click();
+        document.getElementById('fileInput').onchange = (e) => {
+            const file = e.target.files[0];
+            if (file && file.type === 'application/json') {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    try {
+                        const data = JSON.parse(event.target.result);
+                        this.loadFromData(data);
+                    } catch (err) {
+                        alert('Error loading file: ' + err.message);
+                    }
+                };
+                reader.readAsText(file);
+            }
+        };
+    }
+    
+    loadFromData(data) {
+        this.setCanvasSize(data.width, data.height);
+        this.frames = [];
+        this.currentFrameIndex = 0;
+        
+        const loadPromises = data.frames.map(dataUrl => {
+            return new Promise(resolve => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = this.createEmptyFrame();
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0);
+                    resolve(canvas);
+                };
+                img.src = dataUrl;
+            });
+        });
+        
+        Promise.all(loadPromises).then(frames => {
+            this.frames = frames;
+            this.updateUI();
+            this.redrawCanvas();
+            this.generateCode();
+        });
+    }
+    
+    export() {
+        const format = document.getElementById('exportFormat').value;
+        
+        switch (format) {
+            case 'hpp':
+            case 'animation':
+                this.downloadCode();
+                break;
+            case 'png':
+                this.exportPNG();
+                break;
+            case 'gif':
+                this.exportGIF();
+                break;
+        }
+    }
+    
+    downloadCode() {
+        const code = document.getElementById('codeOutput').value;
+        const assetName = document.getElementById('assetName').value || 'my_image';
+        const blob = new Blob([code], {type: 'text/plain'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${assetName}.hpp`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+    
+    exportPNG() {
+        const canvas = this.frames[this.currentFrameIndex];
+        const assetName = document.getElementById('assetName').value || 'my_image';
+        const url = canvas.toDataURL('image/png');
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${assetName}.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    }
+    
+    exportGIF() {
+        if (this.frames.length === 1) {
+            alert('Only one frame detected. Use PNG export for single frame images.');
+            return;
+        }
+        
+        // Create a temporary canvas for GIF frames
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = this.canvasWidth;
+        tempCanvas.height = this.canvasHeight;
+        const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
+        tempCtx.imageSmoothingEnabled = false;
+        
+        // Create frames data
+        const frames = [];
+        const frameRate = parseInt(document.getElementById('frameRate').value);
+        const delay = Math.round(100 / frameRate); // Convert FPS to centiseconds
+        
+        for (let i = 0; i < this.frames.length; i++) {
+            // Clear and draw frame
+            tempCtx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
+            tempCtx.fillStyle = 'white';
+            tempCtx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
+            
+            const frameData = this.frames[i];
+            for (let y = 0; y < this.canvasHeight; y++) {
+                for (let x = 0; x < this.canvasWidth; x++) {
+                    const index = y * this.canvasWidth + x;
+                    if (frameData[index] === 1) {
+                        tempCtx.fillStyle = 'black';
+                        tempCtx.fillRect(x, y, 1, 1);
+                    }
+                }
+            }
+            
+            // Get image data
+            const imageData = tempCtx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
+            frames.push({
+                data: imageData.data,
+                delay: delay
+            });
+        }
+        
+        // Since we don't have a GIF encoder library, we'll create a simple animated PNG sequence
+        // For a full GIF implementation, you would need to include a library like gif.js
+        this.createAnimatedPNGSequence(frames);
+    }
+    
+    createAnimatedPNGSequence(frames) {
+        // Create a zip-like download of PNG frames
+        const frameRate = parseInt(document.getElementById('frameRate').value);
+        
+        // Create individual frame downloads
+        for (let i = 0; i < frames.length; i++) {
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = this.canvasWidth;
+            tempCanvas.height = this.canvasHeight;
+            const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
+            tempCtx.imageSmoothingEnabled = false;
+            
+            // Draw frame
+            tempCtx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
+            tempCtx.fillStyle = 'white';
+            tempCtx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
+            
+            const frameData = this.frames[i];
+            for (let y = 0; y < this.canvasHeight; y++) {
+                for (let x = 0; x < this.canvasWidth; x++) {
+                    const index = y * this.canvasWidth + x;
+                    if (frameData[index] === 1) {
+                        tempCtx.fillStyle = 'black';
+                        tempCtx.fillRect(x, y, 1, 1);
+                    }
+                }
+            }
+            
+            // Download frame
+            setTimeout(() => {
+                const assetName = document.getElementById('assetName').value || 'my_image';
+                tempCanvas.toBlob(blob => {
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `${assetName}_frame_${String(i + 1).padStart(3, '0')}.png`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                });
+            }, i * 200); // Stagger downloads
+        }
+        
+        // Also create an info file with animation details
+        setTimeout(() => {
+            const assetName = document.getElementById('assetName').value || 'my_image';
+            const info = `Animation Info:
+Frames: ${frames.length}
+Frame Rate: ${frameRate} FPS
+Dimensions: ${this.canvasWidth}x${this.canvasHeight}
+Duration: ${(frames.length / frameRate).toFixed(2)} seconds
+
+Instructions:
+1. These PNG frames can be imported into animation software
+2. Set frame rate to ${frameRate} FPS
+3. Or use the generated HPP animation code for Kywy displays`;
+            
+            const blob = new Blob([info], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${assetName}_info.txt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }, frames.length * 200 + 500);
+        
+        alert(`Downloading ${frames.length} PNG frames. Check your downloads folder.`);
+    }
+    
+    // Selection tool methods
+    startSelection(x, y) {
+        // Check if clicking on selection handles for dragging
+        if (this.selection && this.selection.active && this.selection.cutContent) {
+            const handle = this.getClickedHandle(x, y);
+            if (handle) {
+                this.startDraggingSelection(x, y, handle);
+                return;
+            }
+        }
+        
+        this.selection = {
+            startX: x,
+            startY: y,
+            endX: x,
+            endY: y,
+            active: true,
+            cutContent: null,
+            isDragging: false,
+            dragHandle: null
+        };
+        this.drawSelectionOverlay();
+    }
+    
+    getClickedHandle(x, y) {
+        if (!this.selection || !this.selection.active) return null;
+        
+        const { startX, startY, endX, endY } = this.selection;
+        const minX = Math.min(startX, endX);
+        const minY = Math.min(startY, endY);
+        const width = Math.abs(endX - startX);
+        const height = Math.abs(endY - startY);
+        const handleSize = 6; // Keep larger clickable area for usability
+        
+        // Check corner handles
+        if (this.isPointInHandle(x, y, minX, minY, handleSize)) return 'move';
+        if (this.isPointInHandle(x, y, minX + width, minY, handleSize)) return 'move';
+        if (this.isPointInHandle(x, y, minX, minY + height, handleSize)) return 'move';
+        if (this.isPointInHandle(x, y, minX + width, minY + height, handleSize)) return 'move';
+        
+        // Check if inside selection area for moving
+        if (x >= minX && x <= minX + width && y >= minY && y <= minY + height) {
+            return 'move';
+        }
+        
+        return null;
+    }
+    
+    isPointInHandle(x, y, handleX, handleY, size) {
+        return Math.abs(x - handleX) <= size/2 && Math.abs(y - handleY) <= size/2;
+    }
+    
+    startDraggingSelection(x, y, handle) {
+        this.selection.isDragging = true;
+        this.selection.dragHandle = handle;
+        this.selection.dragStartX = x;
+        this.selection.dragStartY = y;
+        this.selection.originalStartX = this.selection.startX;
+        this.selection.originalStartY = this.selection.startY;
+        this.selection.originalEndX = this.selection.endX;
+        this.selection.originalEndY = this.selection.endY;
+    }
+    
+    updateSelection(x, y) {
+        if (!this.selection || !this.selection.active) return;
+        
+        if (this.selection.isDragging) {
+            const deltaX = x - this.selection.dragStartX;
+            const deltaY = y - this.selection.dragStartY;
+            
+            // Move the entire selection
+            this.selection.startX = this.selection.originalStartX + deltaX;
+            this.selection.startY = this.selection.originalStartY + deltaY;
+            this.selection.endX = this.selection.originalEndX + deltaX;
+            this.selection.endY = this.selection.originalEndY + deltaY;
+        } else {
+            // Normal selection resizing
+            this.selection.endX = x;
+            this.selection.endY = y;
+        }
+        
+        this.drawSelectionOverlay();
+    }
+    
+    drawSelectionOverlay() {
+        this.overlayCtx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
+        
+        // Only show selection overlay when using the selection tool
+        if (this.selection && this.selection.active && this.currentTool === 'select') {
+            const { startX, startY, endX, endY } = this.selection;
+            const minX = Math.min(startX, endX);
+            const minY = Math.min(startY, endY);
+            const width = Math.abs(endX - startX);
+            const height = Math.abs(endY - startY);
+            
+            // Don't process zero-sized selections
+            if (width <= 0 || height <= 0) {
+                return;
+            }
+            
+            // If we have cut content, draw it at the selection position
+            if (this.selection.cutContent) {
+                this.overlayCtx.drawImage(this.selection.cutContent, minX, minY);
+                
+                // Draw blue border around the draggable content
+                this.overlayCtx.strokeStyle = '#0066ff';
+                this.overlayCtx.setLineDash([2, 2]);
+                this.overlayCtx.lineWidth = 1;
+                this.overlayCtx.strokeRect(minX, minY, width, height);
+                this.overlayCtx.setLineDash([]);
+            } else {
+                // Normal selection - draw pixel-perfect red overlay
+                const currentFrame = this.frames[this.currentFrameIndex];
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = this.canvasWidth;
+                tempCanvas.height = this.canvasHeight;
+                const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
+                tempCtx.drawImage(currentFrame, 0, 0);
+                
+                const imageData = tempCtx.getImageData(minX, minY, width, height);
+                
+                for (let y = 0; y < height; y++) {
+                    for (let x = 0; x < width; x++) {
+                        const pixelIndex = (y * width + x) * 4;
+                        const r = imageData.data[pixelIndex];
+                        const g = imageData.data[pixelIndex + 1];
+                        const b = imageData.data[pixelIndex + 2];
+                        
+                        // Determine if pixel is closer to black or white
+                        const brightness = (r + g + b) / 3;
+                        
+                        if (brightness < 128) {
+                            // Darker pixel - use lighter red
+                            this.overlayCtx.fillStyle = '#ff6666';
+                        } else {
+                            // Lighter pixel - use darker red
+                            this.overlayCtx.fillStyle = '#cc0000';
+                        }
+                        
+                        this.overlayCtx.fillRect(minX + x, minY + y, 1, 1);
+                    }
+                }
+            }
+            
+            // Draw corner handles - pixel perfect 2x2
+            const handleSize = 2;
+            this.overlayCtx.fillStyle = '#0066ff';
+            this.overlayCtx.strokeStyle = '#ffffff';
+            this.overlayCtx.lineWidth = 1;
+            
+            // Corner handles
+            this.drawHandle(minX, minY, handleSize);
+            this.drawHandle(minX + width, minY, handleSize);
+            this.drawHandle(minX, minY + height, handleSize);
+            this.drawHandle(minX + width, minY + height, handleSize);
+            
+            // Edge handles for dragging
+            this.drawHandle(minX + width/2, minY, handleSize);
+            this.drawHandle(minX + width/2, minY + height, handleSize);
+            this.drawHandle(minX, minY + height/2, handleSize);
+            this.drawHandle(minX + width, minY + height/2, handleSize);
+        }
+    }
+    
+    drawHandle(x, y, size) {
+        // Draw filled blue square with white border
+        this.overlayCtx.fillRect(x - size/2, y - size/2, size, size);
+        this.overlayCtx.strokeRect(x - size/2, y - size/2, size, size);
+    }
+    
+    copyCode() {
+        const codeOutput = document.getElementById('codeOutput');
+        codeOutput.select();
+        document.execCommand('copy');
+        
+        const btn = document.getElementById('copyCodeBtn');
+        const originalText = btn.textContent;
+        btn.textContent = '✓ Copied!';
+        setTimeout(() => {
+            btn.textContent = originalText;
+        }, 2000);
+    }
+    
+    showHelp() {
+        document.getElementById('helpModal').style.display = 'block';
+    }
+    
+    hideHelp() {
+        document.getElementById('helpModal').style.display = 'none';
+    }
+    
+    rotateSelectionByAngle(degrees) {
+        if (!this.selection || !this.selection.active) return;
+        
+        const { startX, startY, endX, endY } = this.selection;
+        const minX = Math.min(startX, endX);
+        const minY = Math.min(startY, endY);
+        const width = Math.abs(endX - startX);
+        const height = Math.abs(endY - startY);
+        
+        if (width === 0 || height === 0) return;
+        
+        // Get the selected area
+        const currentCtx = this.frames[this.currentFrameIndex].getContext('2d');
+        const imageData = currentCtx.getImageData(minX, minY, width, height);
+        
+        // Calculate rotation
+        const angleRad = degrees * Math.PI / 180;
+        const cos = Math.cos(angleRad);
+        const sin = Math.sin(angleRad);
+        
+        // Calculate new dimensions after rotation
+        const newWidth = Math.abs(width * cos) + Math.abs(height * sin);
+        const newHeight = Math.abs(width * sin) + Math.abs(height * cos);
+        
+        // Create rotated canvas
+        const rotatedCanvas = document.createElement('canvas');
+        rotatedCanvas.width = Math.ceil(newWidth);
+        rotatedCanvas.height = Math.ceil(newHeight);
+        const rotatedCtx = rotatedCanvas.getContext('2d');
+        rotatedCtx.imageSmoothingEnabled = false;
+        
+        // Fill with white background
+        rotatedCtx.fillStyle = '#ffffff';
+        rotatedCtx.fillRect(0, 0, rotatedCanvas.width, rotatedCanvas.height);
+        
+        // Create temp canvas for the original selection
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = width;
+        tempCanvas.height = height;
+        const tempCtx = tempCanvas.getContext('2d');
+        tempCtx.putImageData(imageData, 0, 0);
+        
+        // Rotate around center
+        rotatedCtx.translate(rotatedCanvas.width / 2, rotatedCanvas.height / 2);
+        rotatedCtx.rotate(angleRad);
+        rotatedCtx.drawImage(tempCanvas, -width / 2, -height / 2);
+        
+        // Clear the original selection area
+        currentCtx.fillStyle = '#ffffff';
+        currentCtx.fillRect(minX, minY, width, height);
+        
+        // Place the rotated selection (if it fits)
+        const newMinX = minX - (rotatedCanvas.width - width) / 2;
+        const newMinY = minY - (rotatedCanvas.height - height) / 2;
+        
+        if (newMinX >= 0 && newMinY >= 0 && 
+            newMinX + rotatedCanvas.width <= this.canvasWidth && 
+            newMinY + rotatedCanvas.height <= this.canvasHeight) {
+            
+            currentCtx.drawImage(rotatedCanvas, newMinX, newMinY);
+            
+            // Update selection bounds
+            this.selection.startX = newMinX;
+            this.selection.startY = newMinY;
+            this.selection.endX = newMinX + rotatedCanvas.width;
+            this.selection.endY = newMinY + rotatedCanvas.height;
+        } else {
+            // If rotation doesn't fit, place as much as possible
+            currentCtx.drawImage(rotatedCanvas, minX, minY);
+        }
+        
+        this.redrawCanvas();
+        this.drawSelectionOverlay();
+    }
+
+    // Helper method to update color button states
+    updateColorButtons() {
+        document.querySelectorAll('.color-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        document.getElementById(this.currentColor + 'Color').classList.add('active');
+    }
+
+    // Image Import Functionality
+    showImageImportModal() {
+        document.getElementById('imageImportModal').style.display = 'block';
+    }
+
+    setupImageImporter() {
+        this.importedImageData = null;
+        
+        // Event listeners for import controls
+        const importImageInput = document.getElementById('importImageInput');
+        const importResizeSelect = document.getElementById('importResize');
+        const importContrastRange = document.getElementById('importContrast');
+        const importBrightnessRange = document.getElementById('importBrightness');
+        const importThresholdRange = document.getElementById('importThreshold');
+        const importToCanvasBtn = document.getElementById('importToCanvas');
+
+        importImageInput.addEventListener('change', (e) => this.handleImportImageUpload(e));
+        importToCanvasBtn.addEventListener('click', () => this.importToCanvas());
+        
+        // Settings change handlers
+        importResizeSelect.addEventListener('change', (e) => {
+            const customDiv = document.getElementById('importCustomSize');
+            customDiv.style.display = e.target.value === 'custom' ? 'block' : 'none';
+            this.updateImportPreview();
+        });
+
+        document.getElementById('importCustomWidth').addEventListener('input', () => this.updateImportPreview());
+        document.getElementById('importCustomHeight').addEventListener('input', () => this.updateImportPreview());
+        
+        // Real-time value updates and preview
+        importContrastRange.addEventListener('input', (e) => {
+            document.getElementById('importContrastValue').textContent = e.target.value;
+            this.updateImportPreview();
+        });
+        
+        importBrightnessRange.addEventListener('input', (e) => {
+            document.getElementById('importBrightnessValue').textContent = e.target.value;
+            this.updateImportPreview();
+        });
+        
+        importThresholdRange.addEventListener('input', (e) => {
+            document.getElementById('importThresholdValue').textContent = e.target.value;
+            this.updateImportPreview();
+        });
+
+        // Other setting change handlers
+        document.getElementById('importInvert').addEventListener('change', () => this.updateImportPreview());
+        document.getElementById('importEdgeDetection').addEventListener('change', () => this.updateImportPreview());
+        document.getElementById('importDithering').addEventListener('change', () => this.updateImportPreview());
+    }
+
+    handleImportImageUpload(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const img = new Image();
+            img.onload = () => {
+                this.originalImportImage = img;
+                this.displayImportOriginalImage(img);
+                this.updateImportPreview();
+                document.getElementById('importToCanvas').disabled = false;
+            };
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    }
+
+    displayImportOriginalImage(img) {
+        const container = document.getElementById('importOriginalImage');
+        container.innerHTML = '';
+        
+        // Create a canvas to show the original image
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Scale down for display if too large
+        const maxDisplaySize = 200;
+        let displayWidth = img.width;
+        let displayHeight = img.height;
+        
+        if (img.width > maxDisplaySize || img.height > maxDisplaySize) {
+            const scale = Math.min(maxDisplaySize / img.width, maxDisplaySize / img.height);
+            displayWidth = img.width * scale;
+            displayHeight = img.height * scale;
+        }
+        
+        canvas.width = displayWidth;
+        canvas.height = displayHeight;
+        ctx.drawImage(img, 0, 0, displayWidth, displayHeight);
+        
+        container.appendChild(canvas);
+        
+        const info = document.createElement('p');
+        info.textContent = `Original: ${img.width} x ${img.height}`;
+        info.style.color = 'var(--text-color)';
+        info.style.fontSize = '12px';
+        info.style.marginTop = '5px';
+        container.appendChild(info);
+    }
+
+    getImportTargetDimensions() {
+        const resizeValue = document.getElementById('importResize').value;
+        
+        if (!resizeValue) {
+            return { width: this.originalImportImage.width, height: this.originalImportImage.height };
+        }
+        
+        if (resizeValue === 'custom') {
+            const customWidth = parseInt(document.getElementById('importCustomWidth').value);
+            const customHeight = parseInt(document.getElementById('importCustomHeight').value);
+            return { 
+                width: customWidth || this.originalImportImage.width, 
+                height: customHeight || this.originalImportImage.height 
+            };
+        }
+        
+        const [width, height] = resizeValue.split('x').map(Number);
+        return { width, height };
+    }
+
+    updateImportPreview() {
+        if (!this.originalImportImage) return;
+        
+        const brightness = parseInt(document.getElementById('importBrightness').value);
+        const contrast = parseInt(document.getElementById('importContrast').value);
+        const threshold = parseInt(document.getElementById('importThreshold').value);
+        const invert = document.getElementById('importInvert').checked;
+        const edgeDetection = document.getElementById('importEdgeDetection').checked;
+        const dithering = document.getElementById('importDithering').value;
+
+        // Get target dimensions
+        const { width, height } = this.getImportTargetDimensions();
+
+        // Create canvas for processing
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = width;
+        canvas.height = height;
+
+        // Draw and resize the image
+        ctx.drawImage(this.originalImportImage, 0, 0, width, height);
+        
+        // Get image data
+        let imageData = ctx.getImageData(0, 0, width, height);
+        
+        // Apply image processing
+        imageData = this.adjustBrightnessContrast(imageData, brightness, contrast);
+        imageData = this.convertToGrayscale(imageData);
+        
+        if (edgeDetection) {
+            imageData = this.applyEdgeDetection(imageData);
+        }
+        
+        if (dithering !== 'none') {
+            imageData = this.applyDithering(imageData, dithering, threshold);
+        }
+        
+        // Convert to binary
+        const binaryData = this.convertToBinary(imageData, threshold, invert);
+        
+        // Store processed data
+        this.importedImageData = {
+            width: width,
+            height: height,
+            data: binaryData
+        };
+
+        this.displayImportProcessedImage(canvas, binaryData, width, height);
+    }
+
+    displayImportProcessedImage(canvas, binaryData, width, height) {
+        const container = document.getElementById('importProcessedImage');
+        container.innerHTML = '';
+        
+        // Create display canvas
+        const displayCanvas = document.createElement('canvas');
+        const ctx = displayCanvas.getContext('2d');
+        
+        // Scale for display
+        const scale = Math.min(200 / width, 200 / height);
+        const displayWidth = width * scale;
+        const displayHeight = height * scale;
+        
+        displayCanvas.width = displayWidth;
+        displayCanvas.height = displayHeight;
+        displayCanvas.style.imageRendering = 'pixelated';
+        
+        // Draw binary data
+        const imageData = ctx.createImageData(width, height);
+        for (let i = 0; i < binaryData.length; i++) {
+            const pixelIndex = i * 4;
+            const value = binaryData[i] === 1 ? 0 : 255;
+            imageData.data[pixelIndex] = value;     // R
+            imageData.data[pixelIndex + 1] = value; // G
+            imageData.data[pixelIndex + 2] = value; // B
+            imageData.data[pixelIndex + 3] = 255;   // A
+        }
+        
+        // Create temporary canvas at actual size
+        const tempCanvas = document.createElement('canvas');
+        const tempCtx = tempCanvas.getContext('2d');
+        tempCanvas.width = width;
+        tempCanvas.height = height;
+        tempCtx.putImageData(imageData, 0, 0);
+        
+        // Draw scaled version
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(tempCanvas, 0, 0, displayWidth, displayHeight);
+        
+        container.appendChild(displayCanvas);
+        
+        const info = document.createElement('p');
+        info.textContent = `Processed: ${width} x ${height}`;
+        info.style.color = 'var(--text-color)';
+        info.style.fontSize = '12px';
+        info.style.marginTop = '5px';
+        container.appendChild(info);
+    }
+
+    importToCanvas() {
+        if (!this.importedImageData) return;
+        
+        const { width, height, data } = this.importedImageData;
+        const position = document.getElementById('importPosition').value;
+        
+        // Calculate position on canvas
+        let startX, startY;
+        switch (position) {
+            case 'center':
+                startX = Math.floor((this.canvasWidth - width) / 2);
+                startY = Math.floor((this.canvasHeight - height) / 2);
+                break;
+            case 'top-left':
+                startX = 0;
+                startY = 0;
+                break;
+            case 'top-right':
+                startX = this.canvasWidth - width;
+                startY = 0;
+                break;
+            case 'bottom-left':
+                startX = 0;
+                startY = this.canvasHeight - height;
+                break;
+            case 'bottom-right':
+                startX = this.canvasWidth - width;
+                startY = this.canvasHeight - height;
+                break;
+        }
+        
+        // Get current frame context
+        const ctx = this.getCurrentFrameContext();
+        
+        // Draw the imported image data
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                const dataIndex = y * width + x;
+                const canvasX = startX + x;
+                const canvasY = startY + y;
+                
+                if (canvasX >= 0 && canvasX < this.canvasWidth && 
+                    canvasY >= 0 && canvasY < this.canvasHeight && 
+                    data[dataIndex] === 1) {
+                    // Set pixel to black (1 = black pixel in binary data)
+                    this.setPixelInFrame(canvasX, canvasY, ctx);
+                }
+            }
+        }
+        
+        // Update display and generate code
+        this.redrawCanvas();
+        this.generateThumbnail(this.currentFrameIndex);
+        this.generateCode();
+        
+        // Close modal
+        document.getElementById('imageImportModal').style.display = 'none';
+        
+        // Show success message
+        alert(`Image imported successfully! (${width}x${height} at ${position})`);
+    }
+
+    // Image processing methods (adapted from converter.js)
+    adjustBrightnessContrast(imageData, brightness, contrast) {
+        const data = imageData.data;
+        const factor = (259 * (contrast + 255)) / (255 * (259 - contrast));
+        
+        for (let i = 0; i < data.length; i += 4) {
+            // Apply contrast
+            data[i] = factor * (data[i] - 128) + 128;
+            data[i + 1] = factor * (data[i + 1] - 128) + 128;
+            data[i + 2] = factor * (data[i + 2] - 128) + 128;
+            
+            // Apply brightness
+            data[i] = Math.max(0, Math.min(255, data[i] + brightness));
+            data[i + 1] = Math.max(0, Math.min(255, data[i + 1] + brightness));
+            data[i + 2] = Math.max(0, Math.min(255, data[i + 2] + brightness));
+        }
+        
+        return imageData;
+    }
+
+    convertToGrayscale(imageData) {
+        const data = imageData.data;
+        for (let i = 0; i < data.length; i += 4) {
+            const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+            data[i] = gray;
+            data[i + 1] = gray;
+            data[i + 2] = gray;
+        }
+        return imageData;
+    }
+
+    applyEdgeDetection(imageData) {
+        const { width, height, data } = imageData;
+        const output = new Uint8ClampedArray(data.length);
+        
+        const sobelX = [[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]];
+        const sobelY = [[-1, -2, -1], [0, 0, 0], [1, 2, 1]];
+        
+        for (let y = 1; y < height - 1; y++) {
+            for (let x = 1; x < width - 1; x++) {
+                let gx = 0, gy = 0;
+                
+                for (let ky = -1; ky <= 1; ky++) {
+                    for (let kx = -1; kx <= 1; kx++) {
+                        const idx = ((y + ky) * width + (x + kx)) * 4;
+                        const pixel = data[idx];
+                        
+                        gx += pixel * sobelX[ky + 1][kx + 1];
+                        gy += pixel * sobelY[ky + 1][kx + 1];
+                    }
+                }
+                
+                const magnitude = Math.sqrt(gx * gx + gy * gy);
+                const edgeValue = Math.min(255, magnitude);
+                
+                const idx = (y * width + x) * 4;
+                output[idx] = edgeValue;
+                output[idx + 1] = edgeValue;
+                output[idx + 2] = edgeValue;
+                output[idx + 3] = 255;
+            }
+        }
+        
+        for (let i = 0; i < data.length; i += 4) {
+            if (output[i] === 0 && output[i + 1] === 0 && output[i + 2] === 0) {
+                output[i] = data[i];
+                output[i + 1] = data[i + 1];
+                output[i + 2] = data[i + 2];
+                output[i + 3] = 255;
+            }
+        }
+        
+        return new ImageData(output, width, height);
+    }
+
+    applyDithering(imageData, method, threshold) {
+        switch (method) {
+            case 'floyd-steinberg':
+                return this.floydSteinbergDithering(imageData, threshold);
+            case 'atkinson':
+                return this.atkinsonDithering(imageData, threshold);
+            case 'ordered':
+                return this.orderedDithering(imageData, threshold);
+            default:
+                return imageData;
+        }
+    }
+
+    floydSteinbergDithering(imageData, threshold) {
+        const { width, height, data } = imageData;
+        const newData = new Uint8ClampedArray(data);
+        
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                const idx = (y * width + x) * 4;
+                const oldPixel = newData[idx];
+                const newPixel = oldPixel > threshold ? 255 : 0;
+                const error = oldPixel - newPixel;
+                
+                newData[idx] = newData[idx + 1] = newData[idx + 2] = newPixel;
+                
+                if (x + 1 < width) {
+                    const rightIdx = (y * width + (x + 1)) * 4;
+                    newData[rightIdx] += error * 7 / 16;
+                }
+                if (y + 1 < height && x - 1 >= 0) {
+                    const bottomLeftIdx = ((y + 1) * width + (x - 1)) * 4;
+                    newData[bottomLeftIdx] += error * 3 / 16;
+                }
+                if (y + 1 < height) {
+                    const bottomIdx = ((y + 1) * width + x) * 4;
+                    newData[bottomIdx] += error * 5 / 16;
+                }
+                if (y + 1 < height && x + 1 < width) {
+                    const bottomRightIdx = ((y + 1) * width + (x + 1)) * 4;
+                    newData[bottomRightIdx] += error * 1 / 16;
+                }
+            }
+        }
+        
+        return new ImageData(newData, width, height);
+    }
+
+    atkinsonDithering(imageData, threshold) {
+        const { width, height, data } = imageData;
+        const newData = new Uint8ClampedArray(data);
+        
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                const idx = (y * width + x) * 4;
+                const oldPixel = newData[idx];
+                const newPixel = oldPixel > threshold ? 255 : 0;
+                const error = oldPixel - newPixel;
+                
+                newData[idx] = newData[idx + 1] = newData[idx + 2] = newPixel;
+                
+                const errorFraction = error / 8;
+                if (x + 1 < width) {
+                    newData[(y * width + (x + 1)) * 4] += errorFraction;
+                }
+                if (y + 1 < height) {
+                    newData[((y + 1) * width + x) * 4] += errorFraction;
+                }
+            }
+        }
+        
+        return new ImageData(newData, width, height);
+    }
+
+    orderedDithering(imageData, threshold) {
+        const { width, height, data } = imageData;
+        const newData = new Uint8ClampedArray(data);
+        
+        const bayerMatrix = [
+            [0, 8, 2, 10],
+            [12, 4, 14, 6],
+            [3, 11, 1, 9],
+            [15, 7, 13, 5]
+        ];
+        
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                const idx = (y * width + x) * 4;
+                const pixel = newData[idx];
+                const bayerValue = bayerMatrix[y % 4][x % 4];
+                const adjustedThreshold = threshold + (bayerValue - 7.5) * 8;
+                const newPixel = pixel > adjustedThreshold ? 255 : 0;
+                
+                newData[idx] = newData[idx + 1] = newData[idx + 2] = newPixel;
+            }
+        }
+        
+        return new ImageData(newData, width, height);
+    }
+
+    convertToBinary(imageData, threshold, invert) {
+        const { width, height, data } = imageData;
+        const binaryData = new Uint8Array(width * height);
+        
+        for (let i = 0; i < width * height; i++) {
+            const pixelIndex = i * 4;
+            const brightness = data[pixelIndex];
+            let isBlack = brightness < threshold;
+            
+            if (invert) {
+                isBlack = !isBlack;
+            }
+            
+            binaryData[i] = isBlack ? 1 : 0;
+        }
+        
+        return binaryData;
+    }
+    
+    // Canvas transformation functions
+    flipCanvasHorizontal() {
+        const ctx = this.getCurrentFrameContext();
+        const imageData = ctx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
+        
+        // Create a temporary canvas for transformation
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = this.canvasWidth;
+        tempCanvas.height = this.canvasHeight;
+        const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
+        
+        // Put original image data on temp canvas
+        tempCtx.putImageData(imageData, 0, 0);
+        
+        // Clear the main canvas and flip horizontally
+        ctx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
+        ctx.save();
+        ctx.scale(-1, 1);
+        ctx.drawImage(tempCanvas, -this.canvasWidth, 0);
+        ctx.restore();
+        
+        this.redrawCanvas();
+    }
+    
+    flipCanvasVertical() {
+        const ctx = this.getCurrentFrameContext();
+        const imageData = ctx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
+        
+        // Create a temporary canvas for transformation
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = this.canvasWidth;
+        tempCanvas.height = this.canvasHeight;
+        const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
+        
+        // Put original image data on temp canvas
+        tempCtx.putImageData(imageData, 0, 0);
+        
+        // Clear the main canvas and flip vertically
+        ctx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
+        ctx.save();
+        ctx.scale(1, -1);
+        ctx.drawImage(tempCanvas, 0, -this.canvasHeight);
+        ctx.restore();
+        
+        this.redrawCanvas();
+    }
+    
+    rotateCanvas(degrees) {
+        const ctx = this.getCurrentFrameContext();
+        const imageData = ctx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
+        
+        // Create a temporary canvas for transformation
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = this.canvasWidth;
+        tempCanvas.height = this.canvasHeight;
+        const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
+        
+        // Put original image data on temp canvas
+        tempCtx.putImageData(imageData, 0, 0);
+        
+        // Clear the main canvas and rotate
+        ctx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
+        ctx.save();
+        
+        // Move to center, rotate, then move back
+        ctx.translate(this.canvasWidth / 2, this.canvasHeight / 2);
+        ctx.rotate(degrees * Math.PI / 180);
+        ctx.drawImage(tempCanvas, -this.canvasWidth / 2, -this.canvasHeight / 2);
+        
+        ctx.restore();
+        this.redrawCanvas();
+    }
+
+    // Mobile menu methods
+    toggleMobileMenu(menuType) {
+        const menu = document.getElementById(`mobile-${menuType}-menu`);
+        const overlay = document.getElementById('mobileMenuOverlay');
+        
+        if (menu.classList.contains('active')) {
+            this.closeMobileMenus();
+        } else {
+            this.closeMobileMenus(); // Close any other open menus first
+            menu.classList.add('active');
+            overlay.classList.add('active');
+        }
+    }
+
+    closeMobileMenus() {
+        const menus = document.querySelectorAll('.mobile-popup');
+        const overlay = document.getElementById('mobileMenuOverlay');
+        
+        menus.forEach(menu => menu.classList.remove('active'));
+        overlay.classList.remove('active');
+    }
+
+    addMobileCloseButtons() {
+        const overlay = document.getElementById('mobileMenuOverlay');
+        const closeButtons = document.querySelectorAll('.mobile-close-btn');
+        
+        overlay.addEventListener('click', () => this.closeMobileMenus());
+        
+        closeButtons.forEach(button => {
+            button.addEventListener('click', () => this.closeMobileMenus());
+        });
+    }
+
+    handleMobileResize() {
+        const isMobile = window.innerWidth <= 768;
+        
+        if (!isMobile) {
+            this.closeMobileMenus(); // Close mobile menus on resize to desktop
+        }
+    }
+
+    // Undo/Redo System Methods
+    executeCommand(command) {
+        // Execute the command
+        command.execute();
+        
+        // Add to undo stack
+        this.undoStack.push(command);
+        
+        // Clear redo stack when new command is executed
+        this.redoStack = [];
+        
+        // Limit undo stack size
+        if (this.undoStack.length > this.maxUndoStackSize) {
+            this.undoStack.shift();
+        }
+        
+        // Mark as unsaved
+        this.markAsUnsaved();
+        
+        this.updateUndoRedoUI();
+    }
+
+    undo() {
+        if (this.undoStack.length === 0) return;
+        
+        const command = this.undoStack.pop();
+        command.undo();
+        this.redoStack.push(command);
+        
+        this.updateUndoRedoUI();
+        this.generateThumbnail(this.currentFrameIndex);
+        this.generateCode();
+    }
+
+    redo() {
+        if (this.redoStack.length === 0) return;
+        
+        const command = this.redoStack.pop();
+        command.execute();
+        this.undoStack.push(command);
+        
+        this.updateUndoRedoUI();
+        this.generateThumbnail(this.currentFrameIndex);
+        this.generateCode();
+    }
+
+    updateUndoRedoUI() {
+        // Update UI to show available undo/redo operations
+        const canUndo = this.undoStack.length > 0;
+        const canRedo = this.redoStack.length > 0;
+        
+        const undoBtn = document.getElementById('undoBtn');
+        const redoBtn = document.getElementById('redoBtn');
+        
+        if (undoBtn) {
+            undoBtn.disabled = !canUndo;
+            undoBtn.style.opacity = canUndo ? '1' : '0.5';
+        }
+        
+        if (redoBtn) {
+            redoBtn.disabled = !canRedo;
+            redoBtn.style.opacity = canRedo ? '1' : '0.5';
+        }
+    }
+
+    // Helper method for setting pixels with color (needed for undo system)
+    setPixelInFrameWithColor(x, y, color, ctx) {
+        if (x >= 0 && x < this.canvasWidth && y >= 0 && y < this.canvasHeight) {
+            const imageData = ctx.getImageData(x, y, 1, 1);
+            const data = imageData.data;
+            
+            // Set the color
+            if (color === 'white') {
+                data[0] = 255; data[1] = 255; data[2] = 255; data[3] = 255;
+            } else { // black
+                data[0] = 0; data[1] = 0; data[2] = 0; data[3] = 255;
+            }
+            
+            ctx.putImageData(imageData, x, y);
+        }
+    }
+
+    // Helper method to get pixel color as string
+    getPixelColorString(x, y, ctx) {
+        if (x < 0 || x >= this.canvasWidth || y < 0 || y >= this.canvasHeight) {
+            return 'white';
+        }
+        
+        const imageData = ctx.getImageData(x, y, 1, 1);
+        const data = imageData.data;
+        
+        // Check if pixel is black (allowing for some tolerance)
+        if (data[0] < 128 && data[1] < 128 && data[2] < 128) {
+            return 'black';
+        }
+        return 'white';
+    }
+
+    // Start a new stroke for grouping drawing operations
+    startStroke() {
+        this.currentStroke = {
+            pixels: [],
+            tool: this.currentTool,
+            brushSize: this.brushSize,
+            brushShape: this.brushShape
+        };
+    }
+
+    // Add pixel to current stroke
+    addPixelToStroke(x, y, oldColor, newColor) {
+        if (this.currentStroke) {
+            this.currentStroke.pixels.push({x, y, oldColor, newColor});
+        }
+    }
+    
+    // New pixel tracking system - captures exact changes
+    startPixelTracking() {
+        if (!this.currentStroke) return;
+        
+        // Capture current canvas state
+        const ctx = this.getCurrentFrameContext();
+        this.pixelTrackingSnapshot = ctx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
+    }
+    
+    endPixelTracking() {
+        if (!this.currentStroke || !this.pixelTrackingSnapshot) return;
+        
+        // Capture new canvas state
+        const ctx = this.getCurrentFrameContext();
+        const newImageData = ctx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
+        
+        // Compare old and new states to find changed pixels
+        const oldData = this.pixelTrackingSnapshot.data;
+        const newData = newImageData.data;
+        
+        for (let i = 0; i < oldData.length; i += 4) {
+            const pixelIndex = i / 4;
+            const x = pixelIndex % this.canvasWidth;
+            const y = Math.floor(pixelIndex / this.canvasWidth);
+            
+            // Check if pixel changed
+            const oldR = oldData[i];
+            const oldG = oldData[i + 1];
+            const oldB = oldData[i + 2];
+            const oldA = oldData[i + 3];
+            
+            const newR = newData[i];
+            const newG = newData[i + 1];
+            const newB = newData[i + 2];
+            const newA = newData[i + 3];
+            
+            if (oldR !== newR || oldG !== newG || oldB !== newB || oldA !== newA) {
+                // Pixel changed - record it
+                const oldColor = this.rgbaToColorString(oldR, oldG, oldB, oldA);
+                const newColor = this.rgbaToColorString(newR, newG, newB, newA);
+                this.addPixelToStroke(x, y, oldColor, newColor);
+            }
+        }
+        
+        // Clean up
+        this.pixelTrackingSnapshot = null;
+    }
+    
+    // Convert RGBA values to color string
+    rgbaToColorString(r, g, b, a) {
+        // Convert to black or white based on the drawing system's color logic
+        if (r === 0 && g === 0 && b === 0 && a === 255) {
+            return 'black';
+        } else if (r === 255 && g === 255 && b === 255 && a === 255) {
+            return 'white';
+        } else if (a === 0) {
+            return 'transparent';
+        } else {
+            // For any other color, determine if it's closer to black or white
+            const brightness = (r + g + b) / 3;
+            return brightness < 128 ? 'black' : 'white';
+        }
+    }
+    
+    // Compare two ImageData objects and return array of changed pixels
+    compareImageData(beforeImageData, afterImageData) {
+        const pixelData = [];
+        const beforeData = beforeImageData.data;
+        const afterData = afterImageData.data;
+        
+        for (let i = 0; i < beforeData.length; i += 4) {
+            const pixelIndex = i / 4;
+            const x = pixelIndex % this.canvasWidth;
+            const y = Math.floor(pixelIndex / this.canvasWidth);
+            
+            // Check if pixel changed
+            const oldR = beforeData[i];
+            const oldG = beforeData[i + 1];
+            const oldB = beforeData[i + 2];
+            const oldA = beforeData[i + 3];
+            
+            const newR = afterData[i];
+            const newG = afterData[i + 1];
+            const newB = afterData[i + 2];
+            const newA = afterData[i + 3];
+            
+            if (oldR !== newR || oldG !== newG || oldB !== newB || oldA !== newA) {
+                // Pixel changed - record it
+                const oldColor = this.rgbaToColorString(oldR, oldG, oldB, oldA);
+                const newColor = this.rgbaToColorString(newR, newG, newB, newA);
+                pixelData.push({
+                    x: x,
+                    y: y,
+                    oldColor: oldColor,
+                    newColor: newColor
+                });
+            }
+        }
+        
+        return pixelData;
+    }
+
+    // Finish current stroke and create command
+    finishStroke() {
+        if (this.currentStroke && this.currentStroke.pixels.length > 0) {
+            const command = new DrawStrokeCommand(this, this.currentStroke.pixels);
+            // Don't execute the command since stroke is already drawn
+            // Just add it to the undo stack for undo functionality
+            this.undoStack.push(command);
+            this.redoStack = [];
+            
+            // Limit undo stack size
+            if (this.undoStack.length > this.maxUndoStackSize) {
+                this.undoStack.shift();
+            }
+            
+            // Mark as unsaved
+            this.markAsUnsaved();
+            this.updateUndoRedoUI();
+        }
+        this.currentStroke = null;
+    }
+
+    // Get pixels that will be affected by a shape
+    getShapeAffectedPixels(startX, startY, endX, endY, shapeType) {
+        const pixels = [];
+        
+        if (shapeType === 'circle') {
+            const radius = Math.sqrt(Math.pow(endX - startX, 2) + Math.pow(endY - startY, 2));
+            const centerX = startX;
+            const centerY = startY;
+            
+            if (this.shapeFillMode === 'filled') {
+                // Filled circle
+                for (let x = -radius; x <= radius; x++) {
+                    for (let y = -radius; y <= radius; y++) {
+                        if (x * x + y * y <= radius * radius) {
+                            const pixelX = centerX + x;
+                            const pixelY = centerY + y;
+                            if (pixelX >= 0 && pixelX < this.canvasWidth && pixelY >= 0 && pixelY < this.canvasHeight) {
+                                pixels.push({x: pixelX, y: pixelY});
+                            }
+                        }
+                    }
+                }
+            } else {
+                // Circle outline - this is complex, so let's approximate
+                const thickness = this.shapeThickness;
+                const outerRadius = radius + Math.floor(thickness / 2);
+                const innerRadius = Math.max(0, radius - Math.floor(thickness / 2));
+                
+                for (let x = -outerRadius; x <= outerRadius; x++) {
+                    for (let y = -outerRadius; y <= outerRadius; y++) {
+                        const distance = Math.sqrt(x * x + y * y);
+                        if (distance <= outerRadius && distance >= innerRadius) {
+                            const pixelX = centerX + x;
+                            const pixelY = centerY + y;
+                            if (pixelX >= 0 && pixelX < this.canvasWidth && pixelY >= 0 && pixelY < this.canvasHeight) {
+                                pixels.push({x: pixelX, y: pixelY});
+                            }
+                        }
+                    }
+                }
+            }
+        } else if (shapeType === 'square') {
+            const minX = Math.min(startX, endX);
+            const maxX = Math.max(startX, endX);
+            const minY = Math.min(startY, endY);
+            const maxY = Math.max(startY, endY);
+            
+            if (this.shapeFillMode === 'filled') {
+                // Filled rectangle
+                for (let x = minX; x <= maxX; x++) {
+                    for (let y = minY; y <= maxY; y++) {
+                        if (x >= 0 && x < this.canvasWidth && y >= 0 && y < this.canvasHeight) {
+                            pixels.push({x, y});
+                        }
+                    }
+                }
+            } else {
+                // Rectangle outline - simplified version
+                const thickness = this.shapeThickness;
+                
+                for (let t = 0; t < thickness; t++) {
+                    const adjustedMinX = minX - t;
+                    const adjustedMaxX = maxX + t;
+                    const adjustedMinY = minY - t;
+                    const adjustedMaxY = maxY + t;
+                    
+                    // Top and bottom edges
+                    for (let x = adjustedMinX; x <= adjustedMaxX; x++) {
+                        if (x >= 0 && x < this.canvasWidth) {
+                            if (adjustedMinY >= 0 && adjustedMinY < this.canvasHeight) {
+                                pixels.push({x, y: adjustedMinY});
+                            }
+                            if (adjustedMaxY >= 0 && adjustedMaxY < this.canvasHeight) {
+                                pixels.push({x, y: adjustedMaxY});
+                            }
+                        }
+                    }
+                    
+                    // Left and right edges
+                    for (let y = adjustedMinY; y <= adjustedMaxY; y++) {
+                        if (y >= 0 && y < this.canvasHeight) {
+                            if (adjustedMinX >= 0 && adjustedMinX < this.canvasWidth) {
+                                pixels.push({x: adjustedMinX, y});
+                            }
+                            if (adjustedMaxX >= 0 && adjustedMaxX < this.canvasWidth) {
+                                pixels.push({x: adjustedMaxX, y});
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Add mirrored pixels if mirror mode is enabled
+        if (this.mirrorHorizontal || this.mirrorVertical) {
+            const mirroredPixels = [];
+            pixels.forEach(pixel => {
+                const mirrored = this.getMirroredPixels(pixel.x, pixel.y, 1, 'square');
+                mirroredPixels.push(...mirrored);
+            });
+            pixels.push(...mirroredPixels);
+        }
+        
+        return pixels;
+    }
+
+    // Setup unsaved changes warning
+    setupUnsavedWarning() {
+        window.addEventListener('beforeunload', (e) => {
+            if (this.hasUnsavedChanges && !this.isBlankCanvas) {
+                const message = 'You have unsaved changes. Are you sure you want to leave?';
+                e.preventDefault();
+                e.returnValue = message; // For Chrome
+                return message; // For other browsers
+            }
+        });
+    }
+
+    // Mark canvas as having unsaved changes
+    markAsUnsaved() {
+        this.hasUnsavedChanges = true;
+        this.isBlankCanvas = false;
+        this.updateWindowTitle();
+    }
+
+    // Mark canvas as saved
+    markAsSaved() {
+        this.hasUnsavedChanges = false;
+        this.updateWindowTitle();
+    }
+
+    // Check if canvas is blank (all white pixels)
+    checkIfBlank() {
+        const ctx = this.getCurrentFrameContext();
+        const imageData = ctx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
+        const data = imageData.data;
+        
+        // Check if all pixels are white (255, 255, 255, 255)
+        for (let i = 0; i < data.length; i += 4) {
+            if (data[i] !== 255 || data[i + 1] !== 255 || data[i + 2] !== 255 || data[i + 3] !== 255) {
+                return false;
+            }
+        }
+        
+        return true;
+    }
+
+    // Update window title to show unsaved changes
+    updateWindowTitle() {
+        const baseTitle = 'KOINSLOT Drawing Editor';
+        if (this.hasUnsavedChanges && !this.isBlankCanvas) {
+            document.title = `${baseTitle} - Unsaved Changes`;
+        } else {
+            document.title = baseTitle;
+        }
+    }
+
+    // Helper method to get all pixels that will be affected by a brush stroke
+    getAffectedPixels(x, y) {
+        const pixels = [];
+        
+        // Get pixels for the main brush stroke
+        const brushPixels = this.getBrushPixels(x, y, this.brushSize, this.brushShape);
+        pixels.push(...brushPixels);
+        
+        // Get pixels for mirrored strokes
+        if (this.mirrorHorizontal || this.mirrorVertical) {
+            const mirroredPixels = this.getMirroredPixels(x, y, this.brushSize, this.brushShape);
+            pixels.push(...mirroredPixels);
+        }
+        
+        return pixels;
+    }
+
+    // Get pixels for a brush stroke at given position
+    getBrushPixels(centerX, centerY, size, shape) {
+        const pixels = [];
+        const radius = Math.floor(size / 2);
+        
+        if (shape === 'circle') {
+            for (let dx = -radius; dx <= radius; dx++) {
+                for (let dy = -radius; dy <= radius; dy++) {
+                    if (dx * dx + dy * dy <= radius * radius) {
+                        const x = centerX + dx;
+                        const y = centerY + dy;
+                        if (x >= 0 && x < this.canvasWidth && y >= 0 && y < this.canvasHeight) {
+                            pixels.push({x, y});
+                        }
+                    }
+                }
+            }
+        } else { // square
+            for (let dx = -radius; dx <= radius; dx++) {
+                for (let dy = -radius; dy <= radius; dy++) {
+                    const x = centerX + dx;
+                    const y = centerY + dy;
+                    if (x >= 0 && x < this.canvasWidth && y >= 0 && y < this.canvasHeight) {
+                        pixels.push({x, y});
+                    }
+                }
+            }
+        }
+        
+        return pixels;
+    }
+
+    // Get mirrored pixels for a brush stroke
+    getMirroredPixels(x, y, size, shape) {
+        const pixels = [];
+        
+        if (this.mirrorHorizontal && !this.mirrorVertical) {
+            // Horizontal mirror only
+            let mirrorX;
+            if (this.canvasWidth % 2 === 0) {
+                const centerLine = (this.canvasWidth / 2) - 0.5;
+                mirrorX = Math.floor(2 * centerLine - x);
+            } else {
+                const center = Math.floor(this.canvasWidth / 2);
+                mirrorX = 2 * center - x;
+            }
+            
+            if (mirrorX !== x && mirrorX >= 0 && mirrorX < this.canvasWidth) {
+                const brushPixels = this.getBrushPixels(mirrorX, y, size, shape);
+                pixels.push(...brushPixels);
+            }
+        } else if (this.mirrorVertical && !this.mirrorHorizontal) {
+            // Vertical mirror only
+            let mirrorY;
+            if (this.canvasHeight % 2 === 0) {
+                const centerLine = (this.canvasHeight / 2) - 0.5;
+                mirrorY = Math.floor(2 * centerLine - y);
+            } else {
+                const center = Math.floor(this.canvasHeight / 2);
+                mirrorY = 2 * center - y;
+            }
+            
+            if (mirrorY !== y && mirrorY >= 0 && mirrorY < this.canvasHeight) {
+                const brushPixels = this.getBrushPixels(x, mirrorY, size, shape);
+                pixels.push(...brushPixels);
+            }
+        } else if (this.mirrorHorizontal && this.mirrorVertical) {
+            // Both mirrors - create 4-way symmetry
+            let mirrorX, mirrorY;
+            
+            if (this.canvasWidth % 2 === 0) {
+                const centerLineX = (this.canvasWidth / 2) - 0.5;
+                mirrorX = Math.floor(2 * centerLineX - x);
+            } else {
+                const centerX = Math.floor(this.canvasWidth / 2);
+                mirrorX = 2 * centerX - x;
+            }
+            
+            if (this.canvasHeight % 2 === 0) {
+                const centerLineY = (this.canvasHeight / 2) - 0.5;
+                mirrorY = Math.floor(2 * centerLineY - y);
+            } else {
+                const centerY = Math.floor(this.canvasHeight / 2);
+                mirrorY = 2 * centerY - y;
+            }
+            
+            // Add mirrored positions
+            const positions = [
+                {x: mirrorX, y: y},      // Horizontal mirror
+                {x: x, y: mirrorY},      // Vertical mirror
+                {x: mirrorX, y: mirrorY} // Both mirrors
+            ];
+            
+            positions.forEach(pos => {
+                if (pos.x >= 0 && pos.x < this.canvasWidth && pos.y >= 0 && pos.y < this.canvasHeight) {
+                    const brushPixels = this.getBrushPixels(pos.x, pos.y, size, shape);
+                    pixels.push(...brushPixels);
+                }
+            });
+        }
+        
+        return pixels;
+    }
+
+    // Generate pattern data for stippling and gradients
+    generatePatterns() {
+        const patterns = {};
+        
+        // Stippling patterns (8x8 pixel patterns)
+        patterns.stipple25 = [
+            [0,0,0,1,0,0,0,1],
+            [0,0,0,0,0,0,0,0],
+            [0,0,0,1,0,0,0,1],
+            [1,0,0,0,1,0,0,0],
+            [0,0,0,1,0,0,0,1],
+            [0,0,0,0,0,0,0,0],
+            [0,0,0,1,0,0,0,1],
+            [1,0,0,0,1,0,0,0]
+        ];
+        
+        patterns.stipple50 = [
+            [1,0,1,0,1,0,1,0],
+            [0,1,0,1,0,1,0,1],
+            [1,0,1,0,1,0,1,0],
+            [0,1,0,1,0,1,0,1],
+            [1,0,1,0,1,0,1,0],
+            [0,1,0,1,0,1,0,1],
+            [1,0,1,0,1,0,1,0],
+            [0,1,0,1,0,1,0,1]
+        ];
+        
+        patterns.stipple75 = [
+            [1,1,1,0,1,1,1,0],
+            [1,1,1,1,1,1,1,1],
+            [1,1,1,0,1,1,1,0],
+            [0,1,1,1,0,1,1,1],
+            [1,1,1,0,1,1,1,0],
+            [1,1,1,1,1,1,1,1],
+            [1,1,1,0,1,1,1,0],
+            [0,1,1,1,0,1,1,1]
+        ];
+        
+        patterns.checkerboard = [
+            [1,1,0,0,1,1,0,0],
+            [1,1,0,0,1,1,0,0],
+            [0,0,1,1,0,0,1,1],
+            [0,0,1,1,0,0,1,1],
+            [1,1,0,0,1,1,0,0],
+            [1,1,0,0,1,1,0,0],
+            [0,0,1,1,0,0,1,1],
+            [0,0,1,1,0,0,1,1]
+        ];
+        
+        patterns.diagonal = [
+            [1,0,0,0,0,0,0,0],
+            [0,1,0,0,0,0,0,0],
+            [0,0,1,0,0,0,0,0],
+            [0,0,0,1,0,0,0,0],
+            [0,0,0,0,1,0,0,0],
+            [0,0,0,0,0,1,0,0],
+            [0,0,0,0,0,0,1,0],
+            [0,0,0,0,0,0,0,1]
+        ];
+        
+        patterns.crosshatch = [
+            [1,0,0,0,1,0,0,0],
+            [0,1,0,1,0,1,0,1],
+            [0,0,1,0,0,0,1,0],
+            [0,1,0,1,0,1,0,1],
+            [1,0,0,0,1,0,0,0],
+            [0,1,0,1,0,1,0,1],
+            [0,0,1,0,0,0,1,0],
+            [0,1,0,1,0,1,0,1]
+        ];
+        
+        patterns.dots = [
+            [0,0,0,0,0,0,0,0],
+            [0,0,1,0,0,0,1,0],
+            [0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0],
+            [0,0,1,0,0,0,1,0],
+            [0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0]
+        ];
+        
+        return patterns;
+    }
+
+    // Check if pixel should be filled based on pattern
+    shouldFillPixel(x, y, pattern) {
+        if (pattern === 'solid') {
+            return true; // Solid fill
+        }
+        
+        if (pattern === 'percentage') {
+            // Generate percentage pattern using ordered dithering
+            return this.shouldFillPixelPercentage(x, y, this.currentPercentage);
+        }
+        
+        if (pattern === 'lines') {
+            return this.shouldFillPixelLines(x, y);
+        }
+        
+        if (pattern === 'checkerboard') {
+            return this.shouldFillPixelCheckerboard(x, y);
+        }
+        
+        if (pattern === 'clipboard') {
+            return this.shouldFillPixelClipboard(x, y);
+        }
+        
+        if (pattern === 'dots') {
+            return this.shouldFillPixelDots(x, y);
+        }
+        
+        if (!this.patterns[pattern]) {
+            return true; // Unknown pattern defaults to solid
+        }
+        
+        const patternData = this.patterns[pattern];
+        const patternSize = patternData.length;
+        const px = x % patternSize;
+        const py = y % patternSize;
+        
+        return patternData[py][px] === 1;
+    }
+
+    // Generate checkerboard pattern with adjustable size
+    shouldFillPixelCheckerboard(x, y) {
+        const size = this.checkerboardSize;
+        const checkX = Math.floor(x / size) % 2;
+        const checkY = Math.floor(y / size) % 2;
+        const fill = (checkX + checkY) % 2 === 0;
+        return this.checkerboardInvert ? !fill : fill;
+    }
+
+    // Generate clipboard pattern with adjustable scaling
+    shouldFillPixelClipboard(x, y) {
+        // Check if we have clipboard data with valid dimensions
+        if (!this.clipboard || !this.clipboard.data || 
+            !this.clipboard.width || this.clipboard.width <= 0 ||
+            !this.clipboard.height || this.clipboard.height <= 0) {
+            return false;
+        }
+        
+        const scale = this.clipboardScale / 100;
+        const clipWidth = this.clipboard.width;
+        const clipHeight = this.clipboard.height;
+        
+        // Scale coordinates to clipboard space
+        const scaledX = Math.floor(x / scale);
+        const scaledY = Math.floor(y / scale);
+        
+        // Tile the pattern by using modulo (safe now that we've checked dimensions)
+        const tileX = scaledX % clipWidth;
+        const tileY = scaledY % clipHeight;
+        
+        // Get pixel from clipboard canvas
+        const clipCanvas = this.clipboard.data;
+        const clipCtx = clipCanvas.getContext('2d', { willReadFrequently: true });
+        
+        // Additional safety check for coordinates
+        if (tileX < 0 || tileX >= clipWidth || tileY < 0 || tileY >= clipHeight) {
+            return false;
+        }
+        
+        const imageData = clipCtx.getImageData(tileX, tileY, 1, 1);
+        const pixelData = imageData.data;
+        
+        // Consider pixel filled if it's not white (RGB < 255)
+        const isWhite = pixelData[0] === 255 && pixelData[1] === 255 && pixelData[2] === 255;
+        const fill = !isWhite;
+        return this.clipboardInvert ? !fill : fill;
+    }
+
+    // Generate dots pattern with adjustable spacing, size, and row offset
+    shouldFillPixelDots(x, y) {
+        const spacing = this.dotsSpacing;
+        const size = this.dotsSize;
+        const offset = Math.round(this.dotsOffset); // Use rounded integer offset
+        
+        // Calculate which row we're in
+        const row = Math.floor(y / spacing);
+        
+        // Apply offset to alternate rows (staggered brick pattern)
+        // Use integer offset for precise positioning
+        const offsetX = (row % 2) * Math.round(spacing * offset / 100);
+        const adjustedX = x - offsetX;
+        
+        // Find center of nearest dot grid position
+        const gridX = Math.floor(adjustedX / spacing) * spacing + Math.floor(spacing / 2);
+        const gridY = Math.floor(y / spacing) * spacing + Math.floor(spacing / 2);
+        
+        // Check if within dot radius
+        const deltaX = Math.abs(adjustedX - gridX);
+        const deltaY = Math.abs(y - gridY);
+        const maxSize = Math.floor(size / 2);
+        
+        const fill = deltaX <= maxSize && deltaY <= maxSize;
+        return this.dotsInvert ? !fill : fill;
+    }
+
+    // Generate percentage fill using ordered dithering for smooth distribution
+    shouldFillPixelPercentage(x, y, percentage) {
+        // 8x8 Bayer matrix for ordered dithering
+        const bayerMatrix = [
+            [0,  32, 8,  40, 2,  34, 10, 42],
+            [48, 16, 56, 24, 50, 18, 58, 26],
+            [12, 44, 4,  36, 14, 46, 6,  38],
+            [60, 28, 52, 20, 62, 30, 54, 22],
+            [3,  35, 11, 43, 1,  33, 9,  41],
+            [51, 19, 59, 27, 49, 17, 57, 25],
+            [15, 47, 7,  39, 13, 45, 5,  37],
+            [63, 31, 55, 23, 61, 29, 53, 21]
+        ];
+        
+        const matrixSize = 8;
+        const mx = x % matrixSize;
+        const my = y % matrixSize;
+        const threshold = bayerMatrix[my][mx];
+        
+        // Convert percentage to threshold (0-63)
+        const fillThreshold = (percentage / 100) * 64;
+        
+        return threshold < fillThreshold;
+    }
+
+
+
+    hexToRgba(hex) {
+        // Handle different hex formats
+        if (hex === 'black') hex = '#000000';
+        if (hex === 'white') hex = '#ffffff';
+        
+        // Remove # if present
+        hex = hex.replace('#', '');
+        
+        // Handle 3-character hex
+        if (hex.length === 3) {
+            hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
+        }
+        
+        const r = parseInt(hex.substr(0, 2), 16);
+        const g = parseInt(hex.substr(2, 2), 16);
+        const b = parseInt(hex.substr(4, 2), 16);
+        const a = hex.length === 8 ? parseInt(hex.substr(6, 2), 16) : 255;
+        
+        return { r, g, b, a };
+    }
+
+    rgbaToHex(r, g, b, a = 255) {
+        const toHex = (n) => {
+            const hex = Math.max(0, Math.min(255, Math.round(n))).toString(16);
+            return hex.length === 1 ? '0' + hex : hex;
+        };
+        
+        return `#${toHex(r)}${toHex(g)}${toHex(b)}${a !== 255 ? toHex(a) : ''}`;
+    }
+
+    applyDithering(x, y, intensity, baseColor, algorithm) {
+        // Adjust intensity based on center distance setting
+        intensity = Math.max(0, Math.min(1, (intensity - this.gradientCenterDistance + 0.5)));
+        
+        // Apply steepness to control transition width
+        // High steepness (5.0) = sharp cutoff, Low steepness (0.1) = gentle transition
+        const transitionCenter = 0.5; // Center of transition
+        
+        // Create a smooth transition zone around the center
+        let adjustedIntensity;
+        if (this.gradientSteepness >= 1.0) {
+            // Sharp transitions - use sigmoid function
+            const steepnessFactor = this.gradientSteepness * 10; // Scale for sharper curves
+            adjustedIntensity = 1 / (1 + Math.exp(-steepnessFactor * (intensity - transitionCenter)));
+        } else {
+            // Gentle transitions - use wider sigmoid
+            const steepnessFactor = this.gradientSteepness * 5;
+            adjustedIntensity = 1 / (1 + Math.exp(-steepnessFactor * (intensity - transitionCenter)));
+        }
+        
+        // Apply contrast adjustment to intensity
+        // High contrast (2.0) = more extreme values, Low contrast (0.1) = more mid-tones
+        const contrastCenter = 0.5;
+        const contrastAdjustedIntensity = contrastCenter + (adjustedIntensity - contrastCenter) * this.gradientContrast;
+        const finalIntensity = Math.max(0, Math.min(1, contrastAdjustedIntensity));
+        
+        if (algorithm === 'floyd-steinberg') {
+            const threshold = this.getFloydSteinbergThreshold(x, y, finalIntensity);
+            const shouldFill = finalIntensity > threshold;
+            return shouldFill ? baseColor : (baseColor === 'black' ? '#ffffff' : '#000000');
+        } else if (algorithm === 'ordered') {
+            const threshold = this.getOrderedDitherThreshold(x, y);
+            const shouldFill = finalIntensity > threshold;
+            return shouldFill ? baseColor : (baseColor === 'black' ? '#ffffff' : '#000000');
+        }
+        
+        // Fallback - pure black or white based on adjusted intensity
+        const threshold = 0.5;
+        if (baseColor === 'black') {
+            return finalIntensity > threshold ? '#000000' : '#ffffff';
+        } else {
+            return finalIntensity > threshold ? '#ffffff' : '#000000';
+        }
+    }
+
+    getFloydSteinbergThreshold(x, y, intensity) {
+        // Create a pseudo-random but consistent threshold based on position
+        // Incorporate angle into the noise calculation for directional effects
+        const angleOffset = this.gradientAngle * 0.01; // Small influence from angle
+        const noise = (Math.sin((x + angleOffset) * 12.9898 + (y + angleOffset) * 78.233) * 43758.5453) % 1;
+        const smoothedNoise = Math.abs(noise); // Ensure positive
+        
+        // Add some structure to avoid pure randomness
+        // Include center distance in the structured component
+        const structureOffset = this.gradientCenterDistance * 0.2;
+        const structuredNoise = (smoothedNoise * 0.7) + (((x + y) % 4) / 4) * 0.3 + structureOffset;
+        
+        // Apply contrast to the threshold range
+        // High contrast = wider threshold range (more variation)
+        // Low contrast = narrower threshold range (less variation)
+        const baseThreshold = 0.5;
+        const thresholdRange = 0.3 * this.gradientContrast; // Contrast affects threshold spread
+        const finalThreshold = baseThreshold + (structuredNoise - 0.5) * thresholdRange;
+        
+        return Math.max(0.1, Math.min(0.9, finalThreshold));
+    }
+
+    getOrderedDitherThreshold(x, y) {
+        // 4x4 Bayer dithering matrix
+        const bayerMatrix = [
+            [0,  8,  2, 10],
+            [12, 4, 14,  6],
+            [3, 11,  1,  9],
+            [15, 7, 13,  5]
+        ];
+        
+        // Apply angle rotation to the matrix coordinates
+        let matrixX = x;
+        let matrixY = y;
+        
+        if (this.gradientAngle !== 0) {
+            const angleRad = (this.gradientAngle * Math.PI) / 180;
+            const rotatedX = Math.round(x * Math.cos(angleRad) - y * Math.sin(angleRad));
+            const rotatedY = Math.round(x * Math.sin(angleRad) + y * Math.cos(angleRad));
+            matrixX = Math.abs(rotatedX);
+            matrixY = Math.abs(rotatedY);
+        }
+        
+        const finalX = matrixX % 4;
+        const finalY = matrixY % 4;
+        const baseThreshold = bayerMatrix[finalY][finalX] / 16;
+        
+        // Adjust threshold based on center distance
+        const centerAdjustment = (this.gradientCenterDistance - 0.5) * 0.2;
+        
+        // Apply contrast to the threshold
+        // High contrast = more extreme threshold values
+        // Low contrast = threshold values closer to 0.5
+        const contrastCenter = 0.5;
+        const contrastAdjustedThreshold = contrastCenter + (baseThreshold - contrastCenter) * this.gradientContrast;
+        
+        return Math.max(0, Math.min(1, contrastAdjustedThreshold + centerAdjustment));
+    }
+
+    // Custom line pattern function with adjustable angle, spacing, and width
+    // Custom line pattern function with adjustable angle, spacing, width, and phase
+    shouldFillPixelLines(x, y) {
+        const angleRad = (this.lineAngle * Math.PI) / 180;
+        const cosAngle = Math.cos(angleRad);
+        const sinAngle = Math.sin(angleRad);
+        
+        // Apply rotation to coordinates
+        const rotatedX = x * cosAngle + y * sinAngle;
+        const rotatedY = -x * sinAngle + y * cosAngle;
+        
+        // Add phase offset to shift the pattern
+        const phasedY = rotatedY + this.linePhase;
+        
+        // Calculate distance from line centers
+        const lineCenter = Math.floor(phasedY / this.lineSpacing) * this.lineSpacing;
+        const distanceFromCenter = Math.abs(phasedY - lineCenter);
+        
+        // Use half-width for consistent thickness across all angles
+        // Add 0.5 to ensure diagonal lines maintain consistent appearance
+        const effectiveHalfWidth = this.lineWidth * 0.5 + 0.5;
+        
+        // Return true if within line width
+        return distanceFromCenter < effectiveHalfWidth;
+    }
+
+    getGradientColor(x, y, gradientType, baseColor) {
+        let intensity = 0;
+        
+        // Calculate base intensity based on gradient type
+        switch (gradientType) {
+            case 'gradient-linear':
+            case 'gradient-linear-stipple':
+            case 'gradient-linear-dither':
+                // Linear gradient with angle, steepness, and position
+                const linearAngleRad = (this.gradientAngle * Math.PI) / 180;
+                const cosAngle = Math.cos(linearAngleRad);
+                const sinAngle = Math.sin(linearAngleRad);
+                
+                // Transform coordinates based on gradient center position
+                const centerX = this.gradientPositionX * this.canvasWidth;
+                const centerY = this.gradientPositionY * this.canvasHeight;
+                const relativeX = x - centerX;
+                const relativeY = y - centerY;
+                
+                // Project point onto gradient axis
+                const projection = (relativeX * cosAngle + relativeY * sinAngle);
+                
+                // Calculate gradient span based on canvas dimensions
+                const maxSpan = Math.max(this.canvasWidth, this.canvasHeight);
+                
+                // Apply steepness and normalize
+                intensity = 0.5 + (projection * this.gradientSteepness) / maxSpan;
+                intensity = Math.max(0, Math.min(1, intensity));
+                break;
+                
+            case 'gradient-radial':
+            case 'gradient-radial-stipple':
+            case 'gradient-radial-dither':
+                // Radial gradient with center position and radius
+                const radialCenterX = this.radialPositionX * this.canvasWidth;
+                const radialCenterY = this.radialPositionY * this.canvasHeight;
+                
+                const deltaX = x - radialCenterX;
+                const deltaY = y - radialCenterY;
+                const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+                
+                // Calculate max radius based on canvas size and user radius setting
+                const maxRadius = Math.max(this.canvasWidth, this.canvasHeight) * this.radialRadius * 0.5;
+                
+                intensity = 1 - Math.min(1, distance / maxRadius);
+                break;
+                
+            default:
+                intensity = 0.5; // Default to middle intensity
+                break;
+        }
+        
+        // Handle stipple and dither variants
+        if (gradientType.includes('stipple')) {
+            return this.applyDithering(x, y, intensity, baseColor, 'ordered');
+        } else if (gradientType.includes('dither')) {
+            return this.applyDithering(x, y, intensity, baseColor, 'floyd-steinberg');
+        }
+        
+        // Apply steepness curve for smooth gradients
+        let adjustedIntensity;
+        if (this.gradientSteepness >= 1.0) {
+            // Sharp transitions - use power function
+            adjustedIntensity = Math.pow(intensity, 1.0 / this.gradientSteepness);
+        } else {
+            // Gentle transitions - use root function
+            adjustedIntensity = Math.pow(intensity, this.gradientSteepness);
+        }
+        
+        // Return black or white based on threshold
+        if (baseColor === 'black') {
+            return adjustedIntensity > 0.5 ? '#000000' : '#ffffff';
+        } else {
+            return adjustedIntensity > 0.5 ? '#ffffff' : '#000000';
+        }
+    }
+}
+
+// Mobile Interface Management
+class MobileInterface {
+    constructor(editor) {
+        this.editor = editor;
+        this.toolSettingsVisible = false;
+        this.initializeDropdowns();
+        this.initializeBottomToolbar();
+        this.initializeToolSettings();
+    }
+    
+    initializeDropdowns() {
+        // Tool Settings dropdown
+        const toolSettingsBtn = document.getElementById('mobileToolSettingsDropdown');
+        const toolSettingsMenu = document.getElementById('mobileToolSettingsMenu');
+        
+        // Menu dropdown
+        const menuBtn = document.getElementById('mobileMenuDropdown');
+        const menuMenu = document.getElementById('mobileMainMenu');
+        
+        // Toggle dropdowns
+        toolSettingsBtn?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            
+            // Update tool settings content before showing
+            this.updateToolSettingsContent();
+            
+            toolSettingsMenu?.classList.toggle('active');
+            toolSettingsBtn?.classList.toggle('active');
+            // Close other dropdown
+            menuMenu?.classList.remove('active');
+            menuBtn?.classList.remove('active');
+        });
+        
+        menuBtn?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            menuMenu?.classList.toggle('active');
+            menuBtn?.classList.toggle('active');
+            // Close other dropdown
+            toolSettingsMenu?.classList.remove('active');
+            toolSettingsBtn?.classList.remove('active');
+        });
+        
+        // Close dropdowns when clicking outside
+        document.addEventListener('click', () => {
+            toolSettingsMenu?.classList.remove('active');
+            menuMenu?.classList.remove('active');
+            toolSettingsBtn?.classList.remove('active');
+            menuBtn?.classList.remove('active');
+        });
+        
+        // Menu dropdown actions
+        document.getElementById('mobileBackToMenu')?.addEventListener('click', () => {
+            window.location.href = 'menu.html';
+        });
+        document.getElementById('mobileHelpBtn')?.addEventListener('click', () => document.getElementById('helpBtn')?.click());
+        document.getElementById('mobileImportBtn')?.addEventListener('click', () => document.getElementById('importImageBtn')?.click());
+        document.getElementById('mobileClearBtn')?.addEventListener('click', () => document.getElementById('clearCanvas')?.click());
+        document.getElementById('mobileUndoBtn')?.addEventListener('click', () => document.getElementById('undoBtn')?.click());
+        document.getElementById('mobileRedoBtn')?.addEventListener('click', () => document.getElementById('redoBtn')?.click());
+        document.getElementById('mobileNewBtn')?.addEventListener('click', () => document.getElementById('newBtn')?.click());
+        document.getElementById('mobileSaveBtn')?.addEventListener('click', () => document.getElementById('saveBtn')?.click());
+        document.getElementById('mobileLoadBtn')?.addEventListener('click', () => document.getElementById('loadBtn')?.click());
+    }
+    
+    initializeBottomToolbar() {
+        // Zoom controls
+        document.getElementById('mobileZoomOut')?.addEventListener('click', () => {
+            this.editor.setZoom(this.editor.zoom * 0.8);
+            this.updateZoomDisplay();
+        });
+        
+        document.getElementById('mobileZoomIn')?.addEventListener('click', () => {
+            this.editor.setZoom(this.editor.zoom * 1.25);
+            this.updateZoomDisplay();
+        });
+        
+        // View controls
+        document.getElementById('mobileFitBtn')?.addEventListener('click', () => {
+            this.editor.fitToWindow();
+            this.updateZoomDisplay();
+        });
+        
+        document.getElementById('mobileCenterBtn')?.addEventListener('click', () => {
+            this.editor.centerView();
+        });
+        
+        document.getElementById('mobileGridBtn')?.addEventListener('click', () => {
+            this.editor.toggleGrid();
+        });
+        
+        // Tool selection buttons
+        const toolButtons = document.querySelectorAll('.mobile-tool-btn[data-tool]');
+        toolButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const tool = btn.dataset.tool;
+                this.selectTool(tool);
+            });
+        });
+        
+        // Color picker
+        const colorPicker = document.getElementById('mobileColorPicker');
+        colorPicker?.addEventListener('change', (e) => {
+            this.editor.setCurrentColor(e.target.value);
+        });
+        
+        // Initial state
+        this.updateZoomDisplay();
+    }
+    
+    initializeToolSettings() {
+        const closeBtn = document.getElementById('closeToolSettings');
+        closeBtn?.addEventListener('click', () => {
+            this.hideToolSettings();
+        });
+        
+        // Close tool settings when clicking outside
+        document.addEventListener('click', (e) => {
+            const popup = document.getElementById('toolSettingsPopup');
+            if (popup && !popup.contains(e.target) && this.toolSettingsVisible) {
+                this.hideToolSettings();
+            }
+        });
+    }
+    
+    showToolSettings() {
+        const popup = document.getElementById('toolSettingsPopup');
+        const content = document.getElementById('toolSettingsContent');
+        
+        if (!popup || !content) return;
+        
+        // Generate settings content based on current tool
+        content.innerHTML = this.generateToolSettingsContent();
+        
+        popup.style.display = 'block';
+        this.toolSettingsVisible = true;
+        
+        // Close dropdowns
+        this.closeDropdowns();
+    }
+    
+    hideToolSettings() {
+        const popup = document.getElementById('toolSettingsPopup');
+        if (popup) {
+            popup.style.display = 'none';
+            this.toolSettingsVisible = false;
+        }
+    }
+    
+    generateToolSettingsContent() {
+        const tool = this.editor.currentTool;
+        
+        switch (tool) {
+            case 'pen':
+                return `
+                    <div class="mobile-tool-settings">
+                        <h4>Brush Settings</h4>
+                        <div class="setting-group">
+                            <label>Size: <span id="mobileBrushSizeDisplay">${this.editor.brushSize || 1}</span>px</label>
+                            <input type="range" id="mobileBrushSize" min="1" max="50" value="${this.editor.brushSize || 1}">
+                        </div>
+                        
+                        <div class="setting-group">
+                            <label>Shape:</label>
+                            <div class="brush-shape-mobile">
+                                <button class="mobile-brush-shape-btn ${(!this.editor.brushShape || this.editor.brushShape === 'square') ? 'active' : ''}" data-shape="square">⬜ Square</button>
+                                <button class="mobile-brush-shape-btn ${this.editor.brushShape === 'circle' ? 'active' : ''}" data-shape="circle">⭕ Circle</button>
+                            </div>
+                        </div>
+                        
+                        <div class="setting-group">
+                            <label>Color:</label>
+                            <div class="mobile-color-picker">
+                                <button class="mobile-color-btn ${this.editor.currentColor === 'black' ? 'active' : ''}" data-color="black">⬛ Black</button>
+                                <button class="mobile-color-btn ${this.editor.currentColor === 'white' ? 'active' : ''}" data-color="white">⬜ White</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+            case 'circle':
+            case 'square':
+                return `
+                    <div class="mobile-tool-settings">
+                        <h4>Shape Settings</h4>
+                        <div class="setting-group">
+                            <label>Color:</label>
+                            <div class="mobile-color-picker">
+                                <button class="mobile-color-btn ${(!this.editor.shapeColor || this.editor.shapeColor === 'black') ? 'active' : ''}" data-color="black">⬛ Black</button>
+                                <button class="mobile-color-btn ${this.editor.shapeColor === 'white' ? 'active' : ''}" data-color="white">⬜ White</button>
+                            </div>
+                        </div>
+                        
+                        <div class="setting-group">
+                            <label>Fill Style:</label>
+                            <div class="mobile-fill-style">
+                                <button class="mobile-fill-btn ${(!this.editor.shapeFillStyle || this.editor.shapeFillStyle === 'outline') ? 'active' : ''}" data-fill="outline">⬜ Outline</button>
+                                <button class="mobile-fill-btn ${this.editor.shapeFillStyle === 'filled' ? 'active' : ''}" data-fill="filled">⬛ Filled</button>
+                            </div>
+                        </div>
+                        
+                        <div class="setting-group">
+                            <label>Stroke Width: <span id="mobileShapeThicknessDisplay">${this.editor.shapeThickness || 1}</span>px</label>
+                            <input type="range" id="mobileShapeThickness" min="1" max="50" value="${this.editor.shapeThickness || 1}">
+                        </div>
+                        
+                        <div class="setting-group">
+                            <label>Position:</label>
+                            <div class="mobile-thickness-style">
+                                <button class="mobile-style-btn ${(!this.editor.shapeThicknessStyle || this.editor.shapeThicknessStyle === 'outside') ? 'active' : ''}" data-style="outside">⊡ Outside</button>
+                                <button class="mobile-style-btn ${this.editor.shapeThicknessStyle === 'inside' ? 'active' : ''}" data-style="inside">⊞ Inside</button>
+                                <button class="mobile-style-btn ${this.editor.shapeThicknessStyle === 'centered' ? 'active' : ''}" data-style="centered">⊟ Centered</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+            case 'bucket':
+                return `
+                    <div class="mobile-tool-settings">
+                        <h4>Fill Settings</h4>
+                        <div class="setting-group">
+                            <label>Color:</label>
+                            <div class="mobile-color-picker">
+                                <button class="mobile-color-btn ${(!this.editor.fillColor || this.editor.fillColor === 'black') ? 'active' : ''}" data-color="black">⬛ Black</button>
+                                <button class="mobile-color-btn ${this.editor.fillColor === 'white' ? 'active' : ''}" data-color="white">⬜ White</button>
+                            </div>
+                        </div>
+                        
+                        <div class="setting-group">
+                            <label>Basic Patterns:</label>
+                            <div class="mobile-pattern-grid">
+                                <button class="mobile-pattern-btn ${(!this.editor.fillPattern || this.editor.fillPattern === 'solid') ? 'active' : ''}" data-pattern="solid">⬛ Solid</button>
+                                <button class="mobile-pattern-btn ${this.editor.fillPattern === 'percentage' ? 'active' : ''}" data-pattern="percentage">▦ %</button>
+                                <button class="mobile-pattern-btn ${this.editor.fillPattern === 'checkerboard' ? 'active' : ''}" data-pattern="checkerboard">▞ Check</button>
+                                <button class="mobile-pattern-btn ${this.editor.fillPattern === 'lines' ? 'active' : ''}" data-pattern="lines">≡ Lines</button>
+                                <button class="mobile-pattern-btn ${this.editor.fillPattern === 'clipboard' ? 'active' : ''}" data-pattern="clipboard">📋 Clip</button>
+                                <button class="mobile-pattern-btn ${this.editor.fillPattern === 'dots' ? 'active' : ''}" data-pattern="dots">⋅ Dots</button>
+                            </div>
+                        </div>
+                        
+                        <div class="setting-group">
+                            <label>Gradients:</label>
+                            <div class="mobile-pattern-grid" style="grid-template-columns: 1fr 1fr;">
+                                <button class="mobile-pattern-btn ${this.editor.fillPattern === 'gradient-linear' ? 'active' : ''}" data-pattern="gradient-linear">═ Linear</button>
+                                <button class="mobile-pattern-btn ${this.editor.fillPattern === 'gradient-radial' ? 'active' : ''}" data-pattern="gradient-radial">◉ Radial</button>
+                            </div>
+                        </div>
+                        
+                        ${this.editor.fillPattern === 'percentage' ? `
+                        <div class="setting-group">
+                            <label>Fill Amount: <span id="mobilePercentageDisplay">${this.editor.percentageFill || 50}</span>%</label>
+                            <input type="range" id="mobilePercentageFill" min="5" max="95" value="${this.editor.percentageFill || 50}" step="5">
+                        </div>
+                        ` : ''}
+                        
+                        ${this.editor.fillPattern === 'checkerboard' ? `
+                        <div class="setting-group">
+                            <label>Size: <span id="mobileCheckerboardSizeDisplay">${this.editor.checkerboardSize || 2}</span>px</label>
+                            <input type="range" id="mobileCheckerboardSize" min="1" max="8" value="${this.editor.checkerboardSize || 2}" step="1">
+                            <div class="mobile-checkbox">
+                                <input type="checkbox" id="mobileCheckerboardInvert" ${this.editor.checkerboardInvert ? 'checked' : ''}>
+                                <label for="mobileCheckerboardInvert">Invert Pattern</label>
+                            </div>
+                        </div>
+                        ` : ''}
+                        
+                        ${this.editor.fillPattern === 'lines' ? `
+                        <div class="setting-group">
+                            <label>Angle: <span id="mobileLineAngleDisplay">${this.editor.lineAngle || 0}</span>°</label>
+                            <input type="range" id="mobileLineAngle" min="0" max="180" value="${this.editor.lineAngle || 0}" step="15">
+                            <label>Spacing: <span id="mobileLineSpacingDisplay">${this.editor.lineSpacing || 6}</span>px</label>
+                            <input type="range" id="mobileLineSpacing" min="2" max="20" value="${this.editor.lineSpacing || 6}" step="1">
+                        </div>
+                        ` : ''}
+                        
+                        ${this.editor.fillPattern === 'dots' ? `
+                        <div class="setting-group">
+                            <label>Spacing: <span id="mobileDotsSpacingDisplay">${this.editor.dotsSpacing || 4}</span>px</label>
+                            <input type="range" id="mobileDotsSpacing" min="2" max="16" value="${this.editor.dotsSpacing || 4}" step="1">
+                            <label>Size: <span id="mobileDotsDisplay">${this.editor.dotsSize || 1}</span>px</label>
+                            <input type="range" id="mobileDotsSize" min="1" max="4" value="${this.editor.dotsSize || 1}" step="1">
+                        </div>
+                        ` : ''}
+                        
+                        ${this.editor.fillPattern && this.editor.fillPattern.includes('gradient') ? `
+                        <div class="setting-group">
+                            <label>Style:</label>
+                            <div class="mobile-pattern-grid">
+                                <button class="mobile-pattern-btn ${(!this.editor.gradientVariant || this.editor.gradientVariant === 'smooth') ? 'active' : ''}" data-variant="smooth">⬜ Smooth</button>
+                                <button class="mobile-pattern-btn ${this.editor.gradientVariant === 'stipple' ? 'active' : ''}" data-variant="stipple">⋅ Stipple</button>
+                                <button class="mobile-pattern-btn ${this.editor.gradientVariant === 'dither' ? 'active' : ''}" data-variant="dither">▦ Dither</button>
+                            </div>
+                        </div>
+                        ` : ''}
+                    </div>
+                `;
+                
+            case 'select':
+                return `
+                    <div class="mobile-tool-settings">
+                        <h4>Edit Tools</h4>
+                        <div class="setting-group">
+                            <div class="mobile-edit-buttons">
+                                <button class="mobile-edit-btn" id="mobileCopyBtn">📋 Copy</button>
+                                <button class="mobile-edit-btn" id="mobilePasteBtn" ${!this.editor.clipboard ? 'disabled' : ''}>📋 Paste</button>
+                                <button class="mobile-edit-btn" id="mobileCutBtn">✂️ Cut</button>
+                                <button class="mobile-edit-btn" id="mobileClearSelectionBtn">🗑️ Clear</button>
+                            </div>
+                        </div>
+                        
+                        <div class="setting-group">
+                            <label>Rotation: <span id="mobileRotationAngleDisplay">0</span>°</label>
+                            <input type="range" id="mobileRotationAngle" min="-180" max="180" value="0" step="15">
+                            <div class="mobile-edit-buttons">
+                                <button class="mobile-edit-btn" id="mobileRotateBtn">🔄 Rotate</button>
+                                <button class="mobile-edit-btn" id="mobileResetRotationBtn">↺ Reset</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+            default:
+                return `
+                    <div class="mobile-tool-settings">
+                        <p>No settings available for ${tool} tool.</p>
+                    </div>
+                `;
+        }
+    }
+    
+    selectTool(tool) {
+        this.editor.setTool(tool);
+        this.updateToolButtons();
+        this.closeDropdowns();
+    }
+    
+    closeDropdowns() {
+        document.querySelectorAll('.mobile-dropdown-content').forEach(menu => {
+            menu.classList.remove('active');
+        });
+        document.querySelectorAll('.mobile-dropdown-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+    }
+
+    updateToolSettingsContent() {
+        const content = document.getElementById('mobileToolSettingsContent');
+        if (!content) return;
+
+        // Generate settings content based on current tool
+        content.innerHTML = this.generateToolSettingsContent();
+        
+        // Add event listeners for the settings controls
+        this.attachToolSettingsListeners();
+    }
+
+    attachToolSettingsListeners() {
+        // Brush Settings (Pen Tool)
+        const mobileBrushSize = document.getElementById('mobileBrushSize');
+        if (mobileBrushSize) {
+            mobileBrushSize.addEventListener('input', (e) => {
+                this.editor.brushSize = parseInt(e.target.value);
+                const display = document.getElementById('mobileBrushSizeDisplay');
+                if (display) display.textContent = e.target.value;
+                // Sync with desktop
+                const desktopBrushSize = document.getElementById('brushSize');
+                const desktopDisplay = document.getElementById('brushSizeDisplay');
+                if (desktopBrushSize) desktopBrushSize.value = e.target.value;
+                if (desktopDisplay) desktopDisplay.textContent = e.target.value;
+            });
+        }
+
+        // Brush Shape (Pen Tool)
+        document.querySelectorAll('.mobile-brush-shape-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.mobile-brush-shape-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                this.editor.brushShape = btn.dataset.shape;
+                // Sync with desktop
+                document.querySelectorAll('.brush-shape-btn').forEach(b => b.classList.remove('active'));
+                document.querySelector(`[data-shape="${btn.dataset.shape}"]`)?.classList.add('active');
+            });
+        });
+
+        // Color Picker (All Tools)
+        document.querySelectorAll('.mobile-color-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const tool = this.editor.currentTool;
+                document.querySelectorAll('.mobile-color-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                
+                if (tool === 'pen') {
+                    this.editor.currentColor = btn.dataset.color;
+                    // Sync with desktop
+                    document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('active'));
+                    document.querySelector(`[data-color="${btn.dataset.color}"]`)?.classList.add('active');
+                } else if (tool === 'bucket') {
+                    this.editor.fillColor = btn.dataset.color;
+                    // Sync with desktop
+                    document.querySelectorAll('#bucketSettings .color-btn').forEach(b => b.classList.remove('active'));
+                    document.querySelector(`#bucket${btn.dataset.color.charAt(0).toUpperCase() + btn.dataset.color.slice(1)}Color`)?.classList.add('active');
+                } else if (tool === 'circle' || tool === 'square') {
+                    this.editor.shapeColor = btn.dataset.color;
+                    // Sync with desktop
+                    document.querySelectorAll('#shapeSettings .color-btn').forEach(b => b.classList.remove('active'));
+                    document.querySelector(`#shape${btn.dataset.color.charAt(0).toUpperCase() + btn.dataset.color.slice(1)}Color`)?.classList.add('active');
+                }
+            });
+        });
+
+        // Shape Fill Style
+        document.querySelectorAll('.mobile-fill-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.mobile-fill-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                this.editor.shapeFillStyle = btn.dataset.fill;
+                // Sync with desktop
+                document.querySelectorAll('.fill-btn').forEach(b => b.classList.remove('active'));
+                document.querySelector(`[data-fill="${btn.dataset.fill}"]`)?.classList.add('active');
+            });
+        });
+
+        // Shape Thickness
+        const mobileShapeThickness = document.getElementById('mobileShapeThickness');
+        if (mobileShapeThickness) {
+            mobileShapeThickness.addEventListener('input', (e) => {
+                this.editor.shapeThickness = parseInt(e.target.value);
+                const display = document.getElementById('mobileShapeThicknessDisplay');
+                if (display) display.textContent = e.target.value;
+                // Sync with desktop
+                const desktopSlider = document.getElementById('shapeThicknessSlider');
+                const desktopDisplay = document.getElementById('shapeThicknessDisplay');
+                if (desktopSlider) desktopSlider.value = e.target.value;
+                if (desktopDisplay) desktopDisplay.textContent = e.target.value;
+            });
+        }
+
+        // Shape Thickness Style
+        document.querySelectorAll('.mobile-style-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.mobile-style-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                this.editor.shapeThicknessStyle = btn.dataset.style;
+                // Sync with desktop
+                document.querySelectorAll('.style-btn').forEach(b => b.classList.remove('active'));
+                document.querySelector(`[data-style="${btn.dataset.style}"]`)?.classList.add('active');
+            });
+        });
+
+        // Fill Patterns (Bucket Tool)
+        document.querySelectorAll('.mobile-pattern-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.mobile-pattern-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                this.editor.fillPattern = btn.dataset.pattern;
+                // Sync with desktop
+                document.querySelectorAll('.pattern-btn').forEach(b => b.classList.remove('active'));
+                document.querySelector(`[data-pattern="${btn.dataset.pattern}"]`)?.classList.add('active');
+            });
+        });
+
+        // Edit Actions (Select Tool)
+        document.getElementById('mobileCopyBtn')?.addEventListener('click', () => {
+            document.getElementById('copyBtn')?.click();
+        });
+        
+        document.getElementById('mobilePasteBtn')?.addEventListener('click', () => {
+            document.getElementById('pasteBtn')?.click();
+        });
+        
+        document.getElementById('mobileCutBtn')?.addEventListener('click', () => {
+            document.getElementById('cutBtn')?.click();
+        });
+        
+        document.getElementById('mobileClearSelectionBtn')?.addEventListener('click', () => {
+            document.getElementById('clearBtn')?.click();
+        });
+
+        // Rotation
+        const mobileRotationAngle = document.getElementById('mobileRotationAngle');
+        if (mobileRotationAngle) {
+            mobileRotationAngle.addEventListener('input', (e) => {
+                const display = document.getElementById('mobileRotationAngleDisplay');
+                if (display) display.textContent = e.target.value;
+                // Sync with desktop
+                const desktopRotation = document.getElementById('rotationAngle');
+                const desktopDisplay = document.getElementById('rotationAngleDisplay');
+                if (desktopRotation) desktopRotation.value = e.target.value;
+                if (desktopDisplay) desktopDisplay.textContent = e.target.value;
+            });
+        }
+
+        document.getElementById('mobileRotateBtn')?.addEventListener('click', () => {
+            document.getElementById('rotateBtn')?.click();
+        });
+
+        document.getElementById('mobileResetRotationBtn')?.addEventListener('click', () => {
+            document.getElementById('resetRotationBtn')?.click();
+            // Update display
+            const display = document.getElementById('mobileRotationAngleDisplay');
+            const slider = document.getElementById('mobileRotationAngle');
+            if (display) display.textContent = '0';
+            if (slider) slider.value = '0';
+        });
+
+        // Fill Pattern Controls (Bucket Tool)
+        
+        // Gradient variants
+        document.querySelectorAll('[data-variant]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('[data-variant]').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                this.editor.gradientVariant = btn.dataset.variant;
+            });
+        });
+
+        // Percentage Fill
+        const mobilePercentageFill = document.getElementById('mobilePercentageFill');
+        if (mobilePercentageFill) {
+            mobilePercentageFill.addEventListener('input', (e) => {
+                this.editor.percentageFill = parseInt(e.target.value);
+                const display = document.getElementById('mobilePercentageDisplay');
+                if (display) display.textContent = e.target.value;
+                // Sync with desktop
+                const desktopSlider = document.getElementById('percentageFillSlider');
+                const desktopDisplay = document.getElementById('percentageDisplay');
+                if (desktopSlider) desktopSlider.value = e.target.value;
+                if (desktopDisplay) desktopDisplay.textContent = e.target.value;
+            });
+        }
+
+        // Checkerboard
+        const mobileCheckerboardSize = document.getElementById('mobileCheckerboardSize');
+        if (mobileCheckerboardSize) {
+            mobileCheckerboardSize.addEventListener('input', (e) => {
+                this.editor.checkerboardSize = parseInt(e.target.value);
+                const display = document.getElementById('mobileCheckerboardSizeDisplay');
+                if (display) display.textContent = e.target.value;
+                // Sync with desktop
+                const desktopSlider = document.getElementById('checkerboardSize');
+                const desktopDisplay = document.getElementById('checkerboardSizeDisplay');
+                if (desktopSlider) desktopSlider.value = e.target.value;
+                if (desktopDisplay) desktopDisplay.textContent = e.target.value;
+            });
+        }
+
+        const mobileCheckerboardInvert = document.getElementById('mobileCheckerboardInvert');
+        if (mobileCheckerboardInvert) {
+            mobileCheckerboardInvert.addEventListener('change', (e) => {
+                this.editor.checkerboardInvert = e.target.checked;
+                // Sync with desktop
+                const desktopCheckbox = document.getElementById('checkerboardInvert');
+                if (desktopCheckbox) desktopCheckbox.checked = e.target.checked;
+            });
+        }
+
+        // Line Pattern
+        const mobileLineAngle = document.getElementById('mobileLineAngle');
+        if (mobileLineAngle) {
+            mobileLineAngle.addEventListener('input', (e) => {
+                this.editor.lineAngle = parseInt(e.target.value);
+                const display = document.getElementById('mobileLineAngleDisplay');
+                if (display) display.textContent = e.target.value;
+                // Sync with desktop
+                const desktopSlider = document.getElementById('lineAngle');
+                const desktopDisplay = document.getElementById('lineAngleDisplay');
+                if (desktopSlider) desktopSlider.value = e.target.value;
+                if (desktopDisplay) desktopDisplay.textContent = e.target.value + '°';
+            });
+        }
+
+        const mobileLineSpacing = document.getElementById('mobileLineSpacing');
+        if (mobileLineSpacing) {
+            mobileLineSpacing.addEventListener('input', (e) => {
+                this.editor.lineSpacing = parseInt(e.target.value);
+                const display = document.getElementById('mobileLineSpacingDisplay');
+                if (display) display.textContent = e.target.value;
+                // Sync with desktop
+                const desktopSlider = document.getElementById('lineSpacing');
+                const desktopDisplay = document.getElementById('lineSpacingDisplay');
+                if (desktopSlider) desktopSlider.value = e.target.value;
+                if (desktopDisplay) desktopDisplay.textContent = e.target.value + 'px';
+            });
+        }
+
+        // Dots Pattern
+        const mobileDotsSpacing = document.getElementById('mobileDotsSpacing');
+        if (mobileDotsSpacing) {
+            mobileDotsSpacing.addEventListener('input', (e) => {
+                this.editor.dotsSpacing = parseInt(e.target.value);
+                const display = document.getElementById('mobileDotsSpacingDisplay');
+                if (display) display.textContent = e.target.value;
+                // Sync with desktop
+                const desktopSlider = document.getElementById('dotsSpacing');
+                const desktopDisplay = document.getElementById('dotsSpacingDisplay');
+                if (desktopSlider) desktopSlider.value = e.target.value;
+                if (desktopDisplay) desktopDisplay.textContent = e.target.value + 'px';
+            });
+        }
+
+        const mobileDotsSize = document.getElementById('mobileDotsSize');
+        if (mobileDotsSize) {
+            mobileDotsSize.addEventListener('input', (e) => {
+                this.editor.dotsSize = parseInt(e.target.value);
+                const display = document.getElementById('mobileDotsDisplay');
+                if (display) display.textContent = e.target.value;
+                // Sync with desktop
+                const desktopSlider = document.getElementById('dotsSize');
+                const desktopDisplay = document.getElementById('dotsSizeDisplay');
+                if (desktopSlider) desktopSlider.value = e.target.value;
+                if (desktopDisplay) desktopDisplay.textContent = e.target.value + 'px';
+            });
+        }
+    }
+    
+    updateToolButtons() {
+        const toolButtons = document.querySelectorAll('.mobile-tool-btn[data-tool]');
+        toolButtons.forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.tool === this.editor.currentTool);
+        });
+    }
+    
+    updateZoomDisplay() {
+        const zoomDisplay = document.getElementById('mobileZoomDisplay');
+        if (zoomDisplay) {
+            zoomDisplay.textContent = Math.round(this.editor.zoom * 100) + '%';
+        }
+    }
+}
+
+// Initialize the drawing editor when the page loads
+document.addEventListener('DOMContentLoaded', () => {
+    const editor = new DrawingEditor();
+    
+    // Initialize mobile interface if on mobile
+    if (window.innerWidth <= 768) {
+        new MobileInterface(editor);
+    }
+});

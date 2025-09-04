@@ -1,0 +1,468 @@
+/* AMIGA Theme - Workbench-inspired blue and orange style */
+
+/* Exclude functional elements from theme styling */
+.resize-handle, .splitter, .resize-grip, [data-resize], 
+.panel-resizer, .draggable-handle, .sortable-handle {
+    all: revert !important;
+}
+
+/* Override font family for Topaz-inspired look */
+body, input, button, select, textarea {
+    font-family: "MS Sans Serif", "Arial", sans-serif !important;
+    font-size: 11px !important;
+}
+
+/* AMIGA Workbench color scheme - classic dark blue desktop */
+body:not(.menu-page) {
+    background-color: #005577 !important;
+    color: #ffffff !important;
+    background-image: 
+        repeating-linear-gradient(45deg, 
+            #005577 0px, #005577 2px, 
+            #004466 2px, #004466 4px) !important;
+}
+
+/* AMIGA button styling - classic Workbench style */
+button, .back-button, .nav-btn, input[type="button"], input[type="submit"] {
+    background: linear-gradient(to bottom, #bbbbbb 0%, #aaaaaa 50%, #999999 100%) !important;
+    border: 2px outset #bbbbbb !important;
+    color: #000000 !important;
+    padding: 4px 8px !important;
+    border-radius: 0 !important;
+    font-family: "MS Sans Serif", "Arial", sans-serif !important;
+    font-size: 11px !important;
+    font-weight: normal !important;
+    box-shadow: 1px 1px 2px rgba(0,0,0,0.3) !important;
+}
+
+/* Ensure back to menu text is visible */
+.back-button, .back-button:link, .back-button:visited {
+    color: #000000 !important;
+    text-decoration: none !important;
+}
+
+.back-button:hover, .nav-btn:hover {
+    background: linear-gradient(to bottom, #cccccc 0%, #bbbbbb 50%, #aaaaaa 100%) !important;
+}
+
+button:hover {
+    background: linear-gradient(to bottom, #cccccc 0%, #bbbbbb 50%, #aaaaaa 100%) !important;
+}
+
+button:active, .back-button:active, .nav-btn:active {
+    background: linear-gradient(to bottom, #999999 0%, #aaaaaa 50%, #bbbbbb 100%) !important;
+    border: 2px inset #bbbbbb !important;
+}
+
+button:disabled, .nav-btn:disabled {
+    color: #666666 !important;
+    background: linear-gradient(to bottom, #999999 0%, #888888 50%, #777777 100%) !important;
+    border: 2px outset #888888 !important;
+}
+
+/* Active/pressed button states - AMIGA orange */
+button.active, .nav-btn.active, button[data-active="true"], 
+.tool-btn.active, .mirror-btn.active, button.pressed {
+    background: linear-gradient(to bottom, #ff9933 0%, #ff8800 50%, #ee7700 100%) !important;
+    border: 2px inset #ff8800 !important;
+    color: #000000 !important;
+}
+
+.tool-button.selected, .tool-btn.selected, input[type="checkbox"]:checked + label,
+.toggle-button.on, .mirror-x.active, .mirror-y.active {
+    background: linear-gradient(to bottom, #ff9933 0%, #ff8800 50%, #ee7700 100%) !important;
+    border: 2px inset #ff8800 !important;
+    color: #000000 !important;
+}
+
+.tool-section .active, .brush-tool.active, .eraser-tool.active, 
+.line-tool.active, .rect-tool.active, .circle-tool.active {
+    background: linear-gradient(to bottom, #ff9933 0%, #ff8800 50%, #ee7700 100%) !important;
+    border: 2px inset #ff8800 !important;
+    color: #000000 !important;
+}
+
+/* Canvas controls (zoom/fit/center) styling */
+.canvas-controls, .zoom-controls, .grid-controls {
+    background: linear-gradient(to bottom, #dddddd 0%, #cccccc 100%) !important;
+    border: 2px outset #cccccc !important;
+    border-radius: 0 !important;
+    padding: 8px !important;
+    margin: 6px !important;
+    box-shadow: 1px 1px 2px rgba(0,0,0,0.3) !important;
+    border-left: 4px solid #005577 !important;
+}
+
+.zoom-controls button, .grid-controls button {
+    background: linear-gradient(to bottom, #bbbbbb 0%, #aaaaaa 50%, #999999 100%) !important;
+    border: 2px outset #bbbbbb !important;
+    color: #003366 !important;
+    padding: 4px 8px !important;
+    border-radius: 0 !important;
+    margin: 2px !important;
+    font-family: "MS Sans Serif", "Arial", sans-serif !important;
+    font-size: 11px !important;
+    box-shadow: 1px 1px 2px rgba(0,0,0,0.3) !important;
+}
+
+.zoom-controls button:hover, .grid-controls button:hover {
+    background: linear-gradient(to bottom, #cccccc 0%, #bbbbbb 50%, #aaaaaa 100%) !important;
+}
+
+.zoom-controls button:active, .grid-controls button:active {
+    background: linear-gradient(to bottom, #999999 0%, #aaaaaa 50%, #bbbbbb 100%) !important;
+    border: 2px inset #bbbbbb !important;
+}
+
+#zoomLevel {
+    color: #003366 !important;
+    font-family: "MS Sans Serif", "Arial", sans-serif !important;
+    font-size: 11px !important;
+    font-weight: normal !important;
+    padding: 4px 8px !important;
+    background: linear-gradient(to bottom, #ffffff 0%, #f8f8f8 100%) !important;
+    border: 1px inset #cccccc !important;
+    border-radius: 0 !important;
+}
+
+/* AMIGA input styling - Workbench text fields */
+input[type="text"], input[type="number"], input[type="email"], input[type="password"] {
+    border: 2px inset #cccccc !important;
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    border-radius: 0 !important;
+    padding: 2px 4px !important;
+    font-family: "MS Sans Serif", "Arial", sans-serif !important;
+    font-size: 11px !important;
+}
+
+input[type="text"]:focus, input[type="number"]:focus, 
+input[type="email"]:focus, input[type="password"]:focus {
+    border: 2px inset #0055aa !important;
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    outline: none !important;
+    box-shadow: inset 1px 1px 2px rgba(0,85,170,0.3) !important;
+}
+
+select {
+    border: 2px outset #cccccc !important;
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    border-radius: 0 !important;
+    padding: 2px 4px !important;
+    font-family: "MS Sans Serif", "Arial", sans-serif !important;
+    font-size: 11px !important;
+}
+
+select:focus {
+    border: 2px outset #0055aa !important;
+    outline: none !important;
+}
+
+textarea {
+    border: 2px inset #cccccc !important;
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    border-radius: 0 !important;
+    font-family: "MS Sans Serif", "Arial", sans-serif !important;
+    font-size: 11px !important;
+}
+
+textarea:focus {
+    border: 2px inset #0055aa !important;
+    outline: none !important;
+    box-shadow: inset 1px 1px 2px rgba(0,85,170,0.3) !important;
+}
+
+input[type="file"] {
+    background-color: #ffffff !important;
+    border: 2px outset #cccccc !important;
+    color: #000000 !important;
+    border-radius: 0 !important;
+}
+
+/* AMIGA range slider - Workbench style */
+input[type="range"] {
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    background: #cccccc !important;
+    height: 6px !important;
+    border: 1px inset #cccccc !important;
+    border-radius: 0 !important;
+    outline: none !important;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    width: 16px !important;
+    height: 16px !important;
+    background: linear-gradient(to bottom, #dddddd 0%, #cccccc 50%, #bbbbbb 100%) !important;
+    border: 1px outset #cccccc !important;
+    border-radius: 0 !important;
+    cursor: pointer !important;
+}
+
+/* AMIGA checkbox - classic Workbench style */
+input[type="checkbox"] {
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    width: 14px !important;
+    height: 14px !important;
+    border: 1px inset #cccccc !important;
+    background-color: #ffffff !important;
+    border-radius: 0 !important;
+}
+
+input[type="checkbox"]:checked {
+    background-color: #ffffff !important;
+}
+
+input[type="checkbox"]:checked::after {
+    content: "✓" !important;
+    position: absolute !important;
+    left: 2px !important;
+    top: -2px !important;
+    color: #000000 !important;
+    font-size: 10px !important;
+    font-weight: bold !important;
+}
+
+/* AMIGA containers - Workbench window style */
+.window, .container {
+    background: linear-gradient(to bottom, #cccccc 0%, #bbbbbb 100%) !important;
+    border: 2px outset #cccccc !important;
+    border-radius: 0 !important;
+}
+
+.window-body {
+    background: linear-gradient(to bottom, #cccccc 0%, #bbbbbb 100%) !important;
+}
+
+section, .section, .tool-section {
+    background: linear-gradient(to bottom, #dddddd 0%, #cccccc 100%) !important;
+    border: 2px outset #cccccc !important;
+    border-radius: 0 !important;
+    padding: 8px !important;
+    margin-bottom: 8px !important;
+    box-shadow: 1px 1px 2px rgba(0,0,0,0.3) !important;
+    border-left: 4px solid #005577 !important;
+}
+
+header {
+    background: linear-gradient(to bottom, #dddddd 0%, #cccccc 100%) !important;
+    border: 2px outset #cccccc !important;
+    border-radius: 0 !important;
+    box-shadow: 1px 1px 2px rgba(0,0,0,0.3) !important;
+    border-left: 4px solid #005577 !important;
+}
+
+.nav-bar {
+    background: linear-gradient(to bottom, #dddddd 0%, #cccccc 100%) !important;
+    border: 2px outset #cccccc !important;
+    border-radius: 0 !important;
+    border-left: 4px solid #005577 !important;
+}
+
+.tools-panel, .import-panel, .export-panel {
+    background: linear-gradient(to bottom, #dddddd 0%, #cccccc 100%) !important;
+    border: 2px outset #cccccc !important;
+    border-radius: 0 !important;
+    box-shadow: 1px 1px 2px rgba(0,0,0,0.3) !important;
+    border-left: 4px solid #005577 !important;
+}
+
+.canvas-container {
+    background: #005577 !important;
+    border: 2px outset #cccccc !important;
+    border-radius: 0 !important;
+    padding: 12px !important;
+    box-shadow: 2px 2px 4px rgba(0,0,0,0.4) !important;
+}
+
+.main-content, .canvas-workspace {
+    background: linear-gradient(to bottom, #dddddd 0%, #cccccc 100%) !important;
+    border: 2px outset #cccccc !important;
+    border-radius: 0 !important;
+}
+
+#originalImage, #processedImage, #binaryPreview {
+    background-color: #ffffff !important;
+    border: 2px inset #cccccc !important;
+    border-radius: 0 !important;
+}
+
+.usage-example {
+    background-color: #ffffff !important;
+    border: 2px inset #cccccc !important;
+    border-radius: 0 !important;
+}
+
+.import-zone {
+    border: 2px dashed #0055aa !important;
+    background: linear-gradient(to bottom, #eeeeee 0%, #dddddd 100%) !important;
+    color: #000000 !important;
+    border-radius: 0 !important;
+}
+
+.import-zone:hover {
+    border-color: #ff8800 !important;
+    background: linear-gradient(to bottom, #ffeecc 0%, #ffddaa 100%) !important;
+}
+
+.frame {
+    border: 2px outset #cccccc !important;
+    background: linear-gradient(to bottom, #dddddd 0%, #cccccc 100%) !important;
+    border-radius: 0 !important;
+    box-shadow: 1px 1px 2px rgba(0,0,0,0.3) !important;
+}
+
+.frame.selected {
+    border: 2px inset #ff8800 !important;
+    background: linear-gradient(to bottom, #ffddaa 0%, #ffcc88 100%) !important;
+}
+
+.size-warning {
+    background: linear-gradient(to bottom, #ffaaaa 0%, #ff8888 100%) !important;
+    border: 2px outset #ffaaaa !important;
+    color: #000000 !important;
+    border-radius: 0 !important;
+}
+
+pre, code {
+    background-color: #ffffff !important;
+    border: 2px inset #cccccc !important;
+    color: #000000 !important;
+    border-radius: 0 !important;
+    font-family: "Courier New", monospace !important;
+    font-size: 10px !important;
+}
+
+/* AMIGA text colors - dark blue on gray backgrounds */
+h1, h2, h3, h4, h5, h6, p, span, label {
+    color: #003366 !important;
+    font-family: "MS Sans Serif", "Arial", sans-serif !important;
+    font-size: 11px !important;
+    font-weight: normal !important;
+}
+
+h1 {
+    font-size: 14px !important;
+    font-weight: bold !important;
+    color: #003366 !important;
+}
+
+h2 {
+    font-size: 12px !important;
+    font-weight: bold !important;
+    color: #003366 !important;
+}
+
+/* AMIGA links - darker blue like Workbench */
+a {
+    color: #003366 !important;
+    text-decoration: underline !important;
+}
+
+a:visited {
+    color: #002244 !important;
+}
+
+a:hover {
+    color: #005577 !important;
+}
+
+/* AMIGA menu page styling - classic dark blue Workbench desktop */
+.menu-page .desktop {
+    background: #005577 !important;
+    background-image: 
+        repeating-linear-gradient(45deg, 
+            #005577 0px, #005577 2px, 
+            #004466 2px, #004466 4px) !important;
+}
+
+.menu-page .desktop-icon .icon-label {
+    color: #ffffff !important;
+    text-shadow: 1px 1px 2px #000000 !important;
+    font-family: "MS Sans Serif", "Arial", sans-serif !important;
+    font-size: 11px !important;
+}
+
+.menu-page .taskbar {
+    background: linear-gradient(to bottom, #dddddd 0%, #cccccc 100%) !important;
+    border-top: 2px outset #cccccc !important;
+}
+
+.menu-page .start-button {
+    background: linear-gradient(to bottom, #bbbbbb 0%, #aaaaaa 50%, #999999 100%) !important;
+    border: 2px outset #bbbbbb !important;
+    color: #000000 !important;
+}
+
+.menu-page .start-button:hover {
+    background: linear-gradient(to bottom, #cccccc 0%, #bbbbbb 50%, #aaaaaa 100%) !important;
+}
+
+.menu-page .taskbar-info {
+    color: #003366 !important;
+}
+
+.menu-page .taskbar-info a {
+    color: #003366 !important;
+}
+
+.menu-page .taskbar-theme button {
+    background: linear-gradient(to bottom, #bbbbbb 0%, #aaaaaa 50%, #999999 100%) !important;
+    border: 2px outset #bbbbbb !important;
+    color: #000000 !important;
+}
+
+.menu-page .taskbar-theme button:hover {
+    background: linear-gradient(to bottom, #cccccc 0%, #bbbbbb 50%, #aaaaaa 100%) !important;
+}
+
+/* Remove setting group borders */
+.setting-group, .setting-item, .import-options label, .tool-group {
+    border: none !important;
+    background: transparent !important;
+}
+
+/* AMIGA scrollbar - Workbench style */
+::-webkit-scrollbar {
+    width: 16px !important;
+}
+
+::-webkit-scrollbar-track {
+    background: linear-gradient(to right, #dddddd 0%, #cccccc 100%) !important;
+    border: 1px inset #cccccc !important;
+}
+
+::-webkit-scrollbar-thumb {
+    background: linear-gradient(to right, #bbbbbb 0%, #aaaaaa 50%, #999999 100%) !important;
+    border: 1px outset #bbbbbb !important;
+}
+
+::-webkit-scrollbar-button {
+    background: linear-gradient(to bottom, #bbbbbb 0%, #aaaaaa 50%, #999999 100%) !important;
+    border: 1px outset #bbbbbb !important;
+}
+
+/* AMIGA titlebar styling */
+.window-title {
+    background: linear-gradient(to right, #0055aa 0%, #003388 100%) !important;
+    color: #ffffff !important;
+    border: 1px outset #0055aa !important;
+    padding: 2px 8px !important;
+    font-weight: bold !important;
+}
+
+/* Text on main blue background should be white */
+body:not(.menu-page) h1, 
+body:not(.menu-page) h2, 
+body:not(.menu-page) h3, 
+body:not(.menu-page) h4, 
+body:not(.menu-page) h5, 
+body:not(.menu-page) h6 {
+    color: #ffffff !important;
+}

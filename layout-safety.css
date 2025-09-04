@@ -1,0 +1,38 @@
+/* CSS Safety Rules - Prevent layout collapse from theme conflicts */
+
+/* Only apply to body when themes might break layout, but preserve existing layout systems */
+html {
+    height: 100% !important;
+}
+
+body {
+    margin: 0 !important;
+    padding: 0 !important;
+    min-height: 100vh !important;
+}
+
+/* Only fix container if it's actually broken, preserve existing CSS */
+.container:not([style*="height"]):not(.has-custom-height) {
+    min-height: 100vh !important;
+}
+
+/* Only apply safety rules to prevent collapse, don't override working layouts */
+.main-content:not([style*="width"]):not(.has-custom-width) {
+    min-width: 200px !important;
+}
+
+/* Prevent canvas from disappearing but don't break existing sizing */
+.canvas-container:not([style*="width"]):not(.has-custom-width) {
+    min-width: 300px !important;
+}
+
+.canvas-container:not([style*="height"]):not(.has-custom-height) {
+    min-height: 300px !important;
+}
+
+/* Only prevent tool panels from collapsing */
+.tools-panel:not([style*="width"]):not(.has-custom-width),
+.import-panel:not([style*="width"]):not(.has-custom-width), 
+.export-panel:not([style*="width"]):not(.has-custom-width) {
+    min-width: 200px !important;
+}

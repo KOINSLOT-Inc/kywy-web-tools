@@ -1,0 +1,446 @@
+/* Windows 95 Cosmetic Theme - Additive styles only */
+
+/* Override font family for Windows 95 look */
+body, input, button, select, textarea {
+    font-family: "MS Sans Serif", "Microsoft Sans Serif", sans-serif !important;
+}
+
+/* Windows 95 color scheme for backgrounds - but preserve menu background */
+body:not(.menu-page) {
+    background-color: #e0e0e0 !important;
+}
+
+/* Windows 95 styling for menu page taskbar */
+.menu-page .taskbar {
+    background: #c0c0c0 !important;
+    border-top: 2px outset #c0c0c0 !important;
+}
+
+.menu-page .start-button {
+    background: #c0c0c0 !important;
+    border: 2px outset #c0c0c0 !important;
+    color: #000000 !important;
+}
+
+.menu-page .start-button:hover {
+    background: #dfdfdf !important;
+}
+
+.menu-page .start-button:active {
+    border: 2px inset #c0c0c0 !important;
+}
+
+.menu-page .taskbar-info {
+    color: #000000 !important;
+}
+
+.menu-page .taskbar-theme button {
+    background: #c0c0c0 !important;
+    border: 2px outset #c0c0c0 !important;
+    color: #000000 !important;
+}
+
+.menu-page .taskbar-theme button:hover {
+    background: #dfdfdf !important;
+}
+
+.menu-page .taskbar-theme button:active {
+    border: 2px inset #c0c0c0 !important;
+}
+
+/* Windows 95 Cosmetic Theme - Enhanced Visual Styling */
+
+/* Exclude functional elements from theme styling */
+.resize-handle, .splitter, .resize-grip, [data-resize], 
+.panel-resizer, .draggable-handle, .sortable-handle {
+    all: revert !important;
+}
+
+/* Windows 95 button styling - 3D raised effect */
+button, .back-button, .nav-btn, input[type="button"], input[type="submit"] {
+    background-color: #d4d0c8 !important;
+    border: 2px outset #d4d0c8 !important;
+    color: #000000 !important;
+    font-weight: normal !important;
+    padding: 4px 8px !important;
+    border-radius: 0 !important;
+}
+
+/* Ensure back to menu text is always black */
+.back-button, .back-button:link, .back-button:visited, .back-button:hover {
+    color: #000000 !important;
+    text-decoration: none !important;
+}
+
+button:hover, .back-button:hover, .nav-btn:hover {
+    background-color: #e6e2da !important;
+}
+
+button:active, .back-button:active, .nav-btn:active {
+    border: 2px inset #d4d0c8 !important;
+}
+
+button:disabled, .nav-btn:disabled {
+    color: #808080 !important;
+    background-color: #d4d0c8 !important;
+    border: 2px outset #d4d0c8 !important;
+}
+
+/* Active/pressed button states - Kywy green for mirror buttons and other toggles */
+button.active, .nav-btn.active, button[data-active="true"], 
+.tool-btn.active, .mirror-btn.active, button.pressed {
+    background-color: #4CAF50 !important;
+    border: 2px inset #4CAF50 !important;
+    color: #ffffff !important;
+}
+
+button.active:hover, .nav-btn.active:hover, button[data-active="true"]:hover,
+.tool-btn.active:hover, .mirror-btn.active:hover, button.pressed:hover {
+    background-color: #45a049 !important;
+}
+
+/* Selected tool buttons and toggle states - Kywy green */
+.tool-button.selected, .tool-btn.selected, input[type="checkbox"]:checked + label,
+.toggle-button.on, .mirror-x.active, .mirror-y.active {
+    background-color: #4CAF50 !important;
+    border: 2px inset #4CAF50 !important;
+    color: #ffffff !important;
+}
+
+/* Tool selection indicators - Kywy green */
+.tool-section .active, .brush-tool.active, .eraser-tool.active, 
+.line-tool.active, .rect-tool.active, .circle-tool.active {
+    background-color: #4CAF50 !important;
+    border: 2px inset #4CAF50 !important;
+    color: #ffffff !important;
+}
+
+/* Windows 95 input styling */
+input[type="text"], input[type="number"], input[type="email"], input[type="password"] {
+    border: 1px inset #c0c0c0 !important;
+    background-color: white !important;
+    color: #000000 !important;
+    border-radius: 0 !important;
+    padding: 2px 4px !important;
+}
+
+input[type="text"]:focus, input[type="number"]:focus, 
+input[type="email"]:focus, input[type="password"]:focus {
+    border: 1px inset #c0c0c0 !important;
+    background-color: #316ac5 !important;
+    color: white !important;
+}
+
+/* Windows 95 select styling */
+select {
+    border: 1px inset #c0c0c0 !important;
+    background-color: white !important;
+    color: #000000 !important;
+    border-radius: 0 !important;
+    padding: 2px 4px !important;
+}
+
+select:focus {
+    border: 1px inset #c0c0c0 !important;
+    background-color: #316ac5 !important;
+    color: white !important;
+}
+
+/* Windows 95 textarea styling */
+textarea {
+    border: 1px inset #c0c0c0 !important;
+    background-color: white !important;
+    color: #000000 !important;
+    border-radius: 0 !important;
+    font-family: "Courier New", monospace !important;
+}
+
+textarea:focus {
+    border: 1px inset #c0c0c0 !important;
+}
+
+/* Windows 95 file input styling */
+input[type="file"] {
+    background-color: #c0c0c0 !important;
+    border: 2px inset #c0c0c0 !important;
+    color: #000000 !important;
+    border-radius: 0 !important;
+}
+
+/* Windows 95 range slider styling */
+input[type="range"] {
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    background: #d4d0c8 !important;
+    height: 20px !important;
+    border: 1px inset #c0c0c0 !important;
+    border-radius: 0 !important;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    width: 20px !important;
+    height: 18px !important;
+    background: #d4d0c8 !important;
+    border: 2px outset #d4d0c8 !important;
+    cursor: pointer !important;
+    border-radius: 0 !important;
+}
+
+input[type="range"]::-moz-range-thumb {
+    width: 20px !important;
+    height: 18px !important;
+    background: #d4d0c8 !important;
+    border: 2px outset #d4d0c8 !important;
+    cursor: pointer !important;
+    border-radius: 0 !important;
+}
+
+/* Windows 95 checkbox styling */
+input[type="checkbox"] {
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    width: 13px !important;
+    height: 13px !important;
+    border: 2px inset #c0c0c0 !important;
+    background-color: white !important;
+    border-radius: 0 !important;
+    position: relative !important;
+}
+
+input[type="checkbox"]:checked {
+    background-color: white !important;
+}
+
+input[type="checkbox"]:checked::after {
+    content: "✓" !important;
+    position: absolute !important;
+    left: 0px !important;
+    top: -2px !important;
+    color: #000000 !important;
+    font-size: 11px !important;
+    font-weight: bold !important;
+}
+
+/* Remove excessive borders from containers and sections */
+.window, .container {
+    background-color: #e0e0e0 !important;
+    border: none !important;
+    border-radius: 0 !important;
+}
+
+.window-body {
+    background-color: #e0e0e0 !important;
+}
+
+/* Remove ugly boxes around settings */
+.setting-group {
+    border: none !important;
+    background: transparent !important;
+    margin-bottom: 8px !important;
+}
+
+/* Remove borders from most sections and divs */
+section {
+    background-color: transparent !important;
+    border: none !important;
+    border-radius: 0 !important;
+}
+
+/* Remove borders from sections and tool sections */
+.section, .tool-section {
+    background-color: #e0e0e0 !important;
+    border: none !important;
+    border-radius: 0 !important;
+}
+
+/* Remove borders from individual setting items and divs */
+.setting-item, .import-options label, .tool-group, div {
+    border: none !important;
+    background: transparent !important;
+}
+
+/* Windows 95 header styling - remove heavy borders */
+header {
+    background-color: #e0e0e0 !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+}
+
+/* Windows 95 navigation bar styling - remove border */
+.nav-bar {
+    background-color: #e0e0e0 !important;
+    border: none !important;
+    border-radius: 0 !important;
+}
+
+/* Windows 95 panel styling - remove borders */
+.tools-panel, .import-panel, .export-panel {
+    background-color: #e0e0e0 !important;
+    border: none !important;
+    border-radius: 0 !important;
+}
+
+/* Ensure panels and toolbars have no boxes */
+.frames-container, .timeline-container {
+    background-color: #e0e0e0 !important;
+    border: none !important;
+    border-radius: 0 !important;
+}
+
+/* Canvas elements - NO styling applied, preserve original functionality */
+/* canvas {
+    Do not style canvas elements at all to preserve drawing functionality
+} */
+
+/* Canvas containers can have styling but not the canvas itself */
+.canvas-container {
+    background-color: #d0d0d0 !important;
+    border: 2px inset #c0c0c0 !important;
+    border-radius: 0 !important;
+    padding: 10px !important;
+}
+
+/* Canvas workspace styling but NOT the canvas element */
+.main-content, .canvas-workspace {
+    background-color: #d0d0d0 !important;
+    border: 1px solid #c0c0c0 !important;
+    border-radius: 0 !important;
+}
+
+/* Drawing and art preview areas - only non-canvas elements */
+#originalImage, #processedImage, #binaryPreview {
+    background-color: #f8f8f8 !important;
+    border: 2px inset #c0c0c0 !important;
+    border-radius: 0 !important;
+}
+
+/* Canvas workspace in drawing editor - gray background for canvas area */
+.main-content, .canvas-workspace {
+    background-color: #d0d0d0 !important;
+    border: 1px solid #c0c0c0 !important;
+    border-radius: 0 !important;
+}
+
+/* Canvas sheets/frames - make them distinct */
+.canvas-sheet, .frame-sheet, .layer {
+    background-color: #ffffff !important;
+    border: 1px solid #999999 !important;
+    border-radius: 0 !important;
+}
+
+.canvas-sheet.active, .frame-sheet.active, .layer.active {
+    border: 2px solid #0000ff !important;
+    background-color: #ffffff !important;
+}
+
+/* Usage examples and code areas */
+.usage-example {
+    background-color: white !important;
+    border: 1px inset #c0c0c0 !important;
+    border-radius: 0 !important;
+}
+
+/* Windows 95 drag and drop areas */
+.import-zone {
+    border: 2px dashed #808080 !important;
+    background-color: white !important;
+    border-radius: 0 !important;
+}
+
+.import-zone:hover {
+    border-color: #000000 !important;
+    background-color: #f0f0f0 !important;
+}
+
+.import-zone.drag-over {
+    border-color: #0000ff !important;
+    background-color: #e0e0ff !important;
+}
+
+/* Windows 95 frame styling - match button colors */
+.frame {
+    border: 1px outset #d4d0c8 !important;
+    background-color: white !important;
+    border-radius: 0 !important;
+}
+
+.frame.selected {
+    border: 2px solid #0000ff !important;
+}
+
+/* Windows 95 warning styling - subtle border */
+.size-warning {
+    background-color: #ffff99 !important;
+    border: 1px solid #ffcc00 !important;
+    border-radius: 0 !important;
+}
+
+/* Windows 95 code blocks - subtle inset borders */
+pre, code {
+    background-color: white !important;
+    border: 1px inset #c0c0c0 !important;
+    color: #000000 !important;
+    border-radius: 0 !important;
+    font-family: "Courier New", monospace !important;
+}
+
+/* Remove modern shadows and rounded corners - EXCEPT canvas elements */
+*:not(canvas):not(canvas *) {
+    box-shadow: none !important;
+    border-radius: 0 !important;
+}
+
+/* Do not apply any styling to canvas elements at all */
+/* canvas styling is completely removed to preserve drawing functionality */
+
+/* Windows 95 text colors */
+h1, h2, h3, h4, h5, h6, p, span, label {
+    color: #000000 !important;
+}
+
+/* Windows 95 link styling */
+a {
+    color: #0000ff !important;
+}
+
+a:visited {
+    color: #800080 !important;
+}
+
+/* Windows 95 scrollbar styling (webkit browsers only) - match button colors */
+::-webkit-scrollbar {
+    width: 16px !important;
+    height: 16px !important;
+}
+
+::-webkit-scrollbar-track {
+    background-color: #e0e0e0 !important;
+    border: 1px inset #c0c0c0 !important;
+}
+
+::-webkit-scrollbar-thumb {
+    background-color: #d4d0c8 !important;
+    border: 2px outset #d4d0c8 !important;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background-color: #e6e2da !important;
+}
+
+::-webkit-scrollbar-button {
+    background-color: #d4d0c8 !important;
+    border: 2px outset #d4d0c8 !important;
+    height: 16px !important;
+    width: 16px !important;
+}
+
+::-webkit-scrollbar-button:hover {
+    background-color: #e6e2da !important;
+}
+
+::-webkit-scrollbar-button:active {
+    border: 2px inset #d4d0c8 !important;
+}

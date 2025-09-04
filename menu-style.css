@@ -1,0 +1,336 @@
+/* Windows 95 Desktop Style for Kywy Image Tools Suite */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'MS Sans Serif', sans-serif;
+    font-size: 11px;
+    line-height: 1.2;
+    color: #000000;
+    background: #008080;
+    min-height: 100vh;
+    position: relative;
+    overflow: hidden;
+}
+
+.desktop {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+}
+
+.desktop-icons {
+    flex: 1;
+    padding: 20px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, 120px);
+    grid-template-rows: repeat(auto-fit, 100px);
+    gap: 20px;
+    justify-content: start;
+    align-content: start;
+    padding-top: 20px;
+}
+
+.desktop-icon {
+    width: 120px;
+    height: 100px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 8px;
+    border: 2px solid transparent;
+    transition: none;
+    /* Prevent flash of unstyled content */
+    opacity: 1;
+}
+
+.desktop-icon:hover {
+    background: rgba(0, 0, 128, 0.3);
+    border: 2px dotted #ffffff;
+}
+
+.desktop-icon:active {
+    background: rgba(0, 0, 128, 0.5);
+}
+
+.icon-image {
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 48px;
+    margin-bottom: 8px;
+    /* Prevent font loading flash */
+    font-display: swap;
+    /* Ensure consistent size during load */
+    min-width: 48px;
+    min-height: 48px;
+}
+
+.icon-image img {
+    filter: none;
+}
+
+.icon-label {
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: normal;
+    text-align: center;
+    text-shadow: 1px 1px 0px #000000;
+    line-height: 1.2;
+    word-wrap: break-word;
+}
+
+.taskbar {
+    height: 32px;
+    background: #c0c0c0;
+    border-top: 2px outset #c0c0c0;
+    display: flex;
+    align-items: center;
+    padding: 0 4px;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+}
+
+.start-button {
+    height: 28px;
+    background: #c0c0c0;
+    border: 2px outset #c0c0c0;
+    padding: 0 12px;
+    display: flex;
+    align-items: center;
+    font-size: 11px;
+    font-weight: bold;
+    cursor: pointer;
+    margin-right: 8px;
+}
+
+.start-button:hover {
+    background: #c0c0c0;
+    border: 2px outset #c0c0c0;
+}
+
+.start-button:active {
+    border: 2px inset #c0c0c0;
+}
+
+.taskbar-info {
+    flex: 1;
+    font-size: 10px;
+    color: #000000;
+    padding-left: 8px;
+}
+
+.taskbar-info a {
+    color: #0000ff;
+    text-decoration: underline;
+    font-weight: normal;
+}
+
+.taskbar-info a:hover {
+    color: #0000ff;
+    text-decoration: underline;
+}
+
+.taskbar-info a:visited {
+    color: #800080;
+}
+
+/* Theme button in taskbar */
+.taskbar-theme {
+    margin-left: auto;
+    margin-right: 4px;
+}
+
+.taskbar-theme button {
+    height: 26px;
+    background: #c0c0c0;
+    border: 2px outset #c0c0c0;
+    padding: 0 8px;
+    font-size: 10px;
+    font-weight: normal;
+    cursor: pointer;
+    color: #000000;
+    font-family: 'MS Sans Serif', sans-serif;
+}
+
+.taskbar-theme button:hover {
+    background: #dfdfdf;
+}
+
+.taskbar-theme button:active {
+    border: 2px inset #c0c0c0;
+}
+
+/* Fix icon loading flash by predefining styles */
+.icon-image {
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 48px;
+    margin-bottom: 8px;
+    /* Prevent font loading flash */
+    font-display: swap;
+    /* Ensure consistent size during load */
+    min-width: 48px;
+    min-height: 48px;
+}
+
+/* Prevent layout shift during font loading */
+.desktop-icon {
+    width: 120px;
+    height: 100px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 8px;
+    border: 2px solid transparent;
+    transition: none;
+    /* Prevent flash of unstyled content */
+    visibility: visible;
+}
+@media (max-width: 768px) {
+    .desktop-header {
+        margin: 8px;
+        padding: 12px;
+    }
+    
+    .desktop-header h1 {
+        font-size: 16px;
+        flex-direction: column;
+        gap: 4px;
+    }
+    
+    .desktop-header h1 img {
+        height: 16px !important;
+        margin-right: 0 !important;
+    }
+    
+    .desktop-header p {
+        font-size: 10px;
+    }
+    
+    .desktop-icons {
+        grid-template-columns: repeat(2, 100px);
+        gap: 30px;
+        padding: 20px;
+    }
+    
+    .desktop-icon {
+        width: 100px;
+        height: 80px;
+    }
+    
+    .icon-image {
+        width: 40px;
+        height: 40px;
+        font-size: 40px;
+    }
+    
+    .icon-image img {
+        height: 40px !important;
+        width: 40px !important;
+    }
+    
+    .icon-label {
+        font-size: 10px;
+    }
+    
+    .taskbar {
+        height: 28px;
+    }
+    
+    .start-button {
+        height: 24px;
+        padding: 0 8px;
+        font-size: 10px;
+    }
+    
+    .start-button img {
+        height: 12px !important;
+    }
+    
+    .taskbar-info {
+        font-size: 9px;
+    }
+}
+
+@media (max-width: 480px) {
+    .desktop-icons {
+        grid-template-columns: 1fr;
+        justify-items: center;
+    }
+    
+    .desktop-header {
+        margin: 4px;
+        padding: 8px;
+    }
+    
+    .taskbar-info {
+        display: none;
+    }
+}
+
+/* Windows 95 style scrollbar (webkit browsers) */
+::-webkit-scrollbar {
+    width: 16px;
+}
+
+::-webkit-scrollbar-track {
+    background: #c0c0c0;
+    border: 1px inset #c0c0c0;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #c0c0c0;
+    border: 1px outset #c0c0c0;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #c0c0c0;
+    border: 1px outset #c0c0c0;
+}
+
+::-webkit-scrollbar-thumb:active {
+    border: 1px inset #c0c0c0;
+}
+
+::-webkit-scrollbar-button {
+    background: #c0c0c0;
+    border: 1px outset #c0c0c0;
+    width: 16px;
+    height: 16px;
+}
+
+::-webkit-scrollbar-button:hover {
+    background: #c0c0c0;
+    border: 1px outset #c0c0c0;
+}
+
+::-webkit-scrollbar-button:active {
+    border: 1px inset #c0c0c0;
+}
+
+/* Remove flashing animation - icons load immediately */
+.desktop-icon {
+    opacity: 1;
+    /* Remove animation to prevent flash */
+}
+
+/* Remove individual delays */
+/* .desktop-icon:nth-child(1) { animation-delay: 0.1s; }
+.desktop-icon:nth-child(2) { animation-delay: 0.2s; }
+.desktop-icon:nth-child(3) { animation-delay: 0.3s; } */

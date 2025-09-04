@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Animation Generator - Kywy Image Tools</title>
+    <link rel="stylesheet" href="animation-generator-style.css">
+    <link rel="stylesheet" href="layout-safety.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="nav-bar">
+                <a href="menu.html" class="back-button">← Back to Menu</a>
+                <h1>🎞️ Animation Generator</h1>
+                <div class="nav-actions">
+                    <button id="newBtn" class="nav-btn">New</button>
+                    <button id="saveBtn" class="nav-btn">Save</button>
+                    <button id="loadBtn" class="nav-btn">Load</button>
+                </div>
+            </div>
+        </header>
+
+        <div class="generator-layout">
+            <!-- Left Panel - Import & Settings -->
+            <aside class="import-panel">
+                <div class="section">
+                    <h3>Import Images</h3>
+                    <div class="import-zone" id="importZone">
+                        <div class="import-content">
+                            <div class="import-icon">📁</div>
+                            <p>Drop images here or click to browse</p>
+                            <p class="import-hint">Supports PNG, JPG, GIF</p>
+                        </div>
+                        <input type="file" id="fileInput" multiple accept="image/*" style="display: none;">
+                    </div>
+                    
+                    <div class="import-options">
+                        <label>
+                            <input type="checkbox" id="autoResize" checked> Auto-resize to target
+                        </label>
+                        <label>
+                            <input type="checkbox" id="maintainAspect" checked> Maintain aspect ratio
+                        </label>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h3>Animation Settings</h3>
+                    <div class="setting-group">
+                        <label>Target Size:</label>
+                        <select id="targetSize">
+                            <option value="32x32">32×32</option>
+                            <option value="64x64">64×64</option>
+                            <option value="128x128">128×128</option>
+                            <option value="144x168" selected>144×168 (Kywy)</option>
+                            <option value="custom">Custom</option>
+                        </select>
+                        <div id="customSizeInputs" class="custom-inputs" style="display: none;">
+                            <input type="number" id="customWidth" placeholder="Width" min="1" max="500" value="144">
+                            <span>×</span>
+                            <input type="number" id="customHeight" placeholder="Height" min="1" max="500" value="168">
+                        </div>
+                    </div>
+                    
+                    <div class="setting-group">
+                        <label>Frame Rate: <span id="frameRateDisplay">10</span> FPS</label>
+                        <input type="range" id="frameRate" min="1" max="30" value="10">
+                    </div>
+                    
+                    <div class="setting-group">
+                        <label>Loop Mode:</label>
+                        <select id="loopMode">
+                            <option value="PERIODIC">Periodic (1→2→3→1→2→3...)</option>
+                            <option value="BOOMERANG">Boomerang (1→2→3→2→1→2...)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h3>Image Processing</h3>
+                    <div class="setting-group">
+                        <label>Brightness: <span id="brightnessDisplay">0</span></label>
+                        <input type="range" id="brightness" min="-100" max="100" value="0">
+                    </div>
+                    
+                    <div class="setting-group">
+                        <label>Contrast: <span id="contrastDisplay">0</span></label>
+                        <input type="range" id="contrast" min="-100" max="100" value="0">
+                    </div>
+                    
+                    <div class="setting-group">
+                        <label>Threshold: <span id="thresholdDisplay">128</span></label>
+                        <input type="range" id="threshold" min="0" max="255" value="128">
+                    </div>
+                    
+                    <div class="setting-group">
+                        <label>Dithering:</label>
+                        <select id="dithering">
+                            <option value="none">None</option>
+                            <option value="floyd-steinberg">Floyd-Steinberg</option>
+                            <option value="atkinson">Atkinson</option>
+                            <option value="ordered">Ordered (Bayer)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="setting-group">
+                        <label>
+                            <input type="checkbox" id="invert"> Invert colors
+                        </label>
+                        <label>
+                            <input type="checkbox" id="edgeDetection"> Edge detection
+                        </label>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h3>Auto Adjustments</h3>
+                    <button id="autoAdjustBtn" class="auto-btn">🎯 Auto Adjust All</button>
+                    <div class="auto-buttons">
+                        <button id="autoBrightnessBtn" class="mini-auto-btn">Auto Brightness</button>
+                        <button id="autoContrastBtn" class="mini-auto-btn">Auto Contrast</button>
+                        <button id="autoThresholdBtn" class="mini-auto-btn">Auto Threshold</button>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Center - Frame List & Preview -->
+            <main class="frame-area">
+                <div class="frames-header">
+                    <h3>Animation Frames (<span id="frameCount">0</span>)</h3>
+                    <div class="frame-controls">
+                        <button id="clearFramesBtn">🗑️ Clear All</button>
+                        <button id="reverseFramesBtn">🔄 Reverse</button>
+                        <button id="duplicateFrameBtn" disabled>📋 Duplicate</button>
+                        <button id="removeFrameBtn" disabled>❌ Remove</button>
+                    </div>
+                </div>
+
+                <div class="frames-container" id="framesContainer">
+                    <div class="empty-state">
+                        <div class="empty-icon">🎬</div>
+                        <p>No frames yet</p>
+                        <p class="empty-hint">Import images to get started</p>
+                    </div>
+                </div>
+
+                <div class="preview-section">
+                    <h3>Animation Preview</h3>
+                    <div class="preview-container">
+                        <canvas id="previewCanvas" class="preview-canvas"></canvas>
+                        <div class="preview-controls">
+                            <button id="playBtn" disabled>▶️ Play</button>
+                            <button id="stopBtn" disabled>⏹️ Stop</button>
+                            <div class="playback-info">
+                                <span id="playbackFrame">Frame: -/-</span>
+                                <span id="playbackSpeed">Speed: <span id="currentSpeed">10</span> FPS</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+
+            <!-- Right Panel - Export -->
+            <aside class="export-panel">
+                <div class="section">
+                    <h3>Export Options</h3>
+                    <div class="export-format">
+                        <label>Format:</label>
+                        <select id="exportFormat">
+                            <option value="sprite-hpp">Sprite HPP (Recommended)</option>
+                            <option value="spritesheet-hpp">SpriteSheet HPP</option>
+                            <option value="individual-hpp">Individual Frame HPPs</option>
+                            <option value="gif">Animated GIF</option>
+                        </select>
+                    </div>
+                    
+                    <div class="export-naming">
+                        <label>Base Name:</label>
+                        <input type="text" id="exportName" value="animation" placeholder="animation">
+                    </div>
+                    
+                    <button id="exportBtn" class="export-btn" disabled>📤 Export Animation</button>
+                    <button id="previewCodeBtn" class="export-btn" disabled>👁️ Preview Code</button>
+                </div>
+
+                <div class="section">
+                    <h3>Frame Management</h3>
+                    <div class="selected-frame" id="selectedFrameInfo">
+                        <p>No frame selected</p>
+                    </div>
+                    
+                    <div class="frame-operations">
+                        <button id="moveUpBtn" disabled>⬆️ Move Up</button>
+                        <button id="moveDownBtn" disabled>⬇️ Move Down</button>
+                        <button id="cropToContentBtn" disabled>✂️ Crop to Content</button>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h3>Statistics</h3>
+                    <div class="stats">
+                        <div class="stat-item">
+                            <span class="stat-label">Total Frames:</span>
+                            <span class="stat-value" id="statFrames">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Duration:</span>
+                            <span class="stat-value" id="statDuration">0.0s</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Memory:</span>
+                            <span class="stat-value" id="statMemory">0 bytes</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Resolution:</span>
+                            <span class="stat-value" id="statResolution">0×0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h3>Generated Code</h3>
+                    <textarea id="codeOutput" readonly placeholder="Generated C++ code will appear here..."></textarea>
+                    <button id="copyCodeBtn" class="copy-btn" disabled>📋 Copy Code</button>
+                </div>
+            </aside>
+        </div>
+    </div>
+
+    <script src="theme-switcher.js"></script>
+    <script src="animation-generator.js"></script>
+</body>
+</html>

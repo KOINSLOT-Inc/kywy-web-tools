@@ -1,0 +1,472 @@
+/* Windows XP Theme - Luna blue with rounded corners */
+
+/* Exclude functional elements from theme styling */
+.resize-handle, .splitter, .resize-grip, [data-resize], 
+.panel-resizer, .draggable-handle, .sortable-handle {
+    all: revert !important;
+}
+
+/* Windows XP font styling */
+body, input, button, select, textarea {
+    font-family: "Segoe UI", "Tahoma", "MS Sans Serif", sans-serif !important;
+    font-size: 11px !important;
+}
+
+/* Windows XP Luna blue background - more distinct from work areas */
+body:not(.menu-page) {
+    background: linear-gradient(135deg, #4a90e2 0%, #2c5aa0 50%, #1e3a8a 100%) !important;
+    color: #000000 !important;
+    background-attachment: fixed !important;
+}
+
+/* Windows XP button styling - Luna blue gradient */
+button, .back-button, .nav-btn, input[type="button"], input[type="submit"] {
+    background: linear-gradient(to bottom, #ffffff 0%, #ddeeff 20%, #c5d9f1 80%, #759dcb 100%) !important;
+    border: 1px solid #3c7fb1 !important;
+    color: #003c74 !important;
+    padding: 4px 12px !important;
+    border-radius: 3px !important;
+    font-family: "Segoe UI", "Tahoma", sans-serif !important;
+    font-size: 11px !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2) !important;
+}
+
+/* Ensure back to menu text is visible */
+.back-button, .back-button:link, .back-button:visited {
+    color: #003c74 !important;
+    text-decoration: none !important;
+}
+
+.back-button:hover, .nav-btn:hover {
+    background: linear-gradient(to bottom, #ffffff 0%, #eef4ff 20%, #d4e4f7 80%, #8bb0d6 100%) !important;
+    border: 1px solid #2a5d8a !important;
+}
+
+button:hover {
+    background: linear-gradient(to bottom, #ffffff 0%, #eef4ff 20%, #d4e4f7 80%, #8bb0d6 100%) !important;
+    border: 1px solid #2a5d8a !important;
+}
+
+button:active, .back-button:active, .nav-btn:active {
+    background: linear-gradient(to bottom, #c5d9f1 0%, #759dcb 20%, #5a9fd4 80%, #306090 100%) !important;
+    border: 1px solid #2a5d8a !important;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.3) !important;
+}
+
+button:disabled, .nav-btn:disabled {
+    color: #999999 !important;
+    background: linear-gradient(to bottom, #f0f0f0 0%, #e0e0e0 20%, #d0d0d0 80%, #c0c0c0 100%) !important;
+    border: 1px solid #aaaaaa !important;
+}
+
+/* Active/pressed button states - XP orange */
+button.active, .nav-btn.active, button[data-active="true"], 
+.tool-btn.active, .mirror-btn.active, button.pressed {
+    background: linear-gradient(to bottom, #fff7e6 0%, #ffeaa7 20%, #fdcb6e 80%, #e17055 100%) !important;
+    border: 1px solid #d63031 !important;
+    color: #2d3436 !important;
+}
+
+.tool-button.selected, .tool-btn.selected, input[type="checkbox"]:checked + label,
+.toggle-button.on, .mirror-x.active, .mirror-y.active {
+    background: linear-gradient(to bottom, #fff7e6 0%, #ffeaa7 20%, #fdcb6e 80%, #e17055 100%) !important;
+    border: 1px solid #d63031 !important;
+    color: #2d3436 !important;
+}
+
+.tool-section .active, .brush-tool.active, .eraser-tool.active, 
+.line-tool.active, .rect-tool.active, .circle-tool.active {
+    background: linear-gradient(to bottom, #fff7e6 0%, #ffeaa7 20%, #fdcb6e 80%, #e17055 100%) !important;
+    border: 1px solid #d63031 !important;
+    color: #2d3436 !important;
+}
+
+/* Canvas controls (zoom/fit/center) styling */
+.canvas-controls, .zoom-controls, .grid-controls {
+    background: linear-gradient(to bottom, #ffffff 0%, #f8fbff 100%) !important;
+    border: 1px solid #c5d9f1 !important;
+    border-radius: 6px !important;
+    padding: 8px !important;
+    margin: 6px !important;
+    box-shadow: 1px 1px 4px rgba(0,0,0,0.1) !important;
+}
+
+.zoom-controls button, .grid-controls button {
+    background: linear-gradient(to bottom, #ffffff 0%, #ddeeff 20%, #c5d9f1 80%, #759dcb 100%) !important;
+    border: 1px solid #3c7fb1 !important;
+    color: #003c74 !important;
+    padding: 4px 12px !important;
+    border-radius: 3px !important;
+    margin: 2px !important;
+    font-family: "Segoe UI", "Tahoma", sans-serif !important;
+    font-size: 11px !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2) !important;
+}
+
+.zoom-controls button:hover, .grid-controls button:hover {
+    background: linear-gradient(to bottom, #ffffff 0%, #eef4ff 20%, #d4e4f7 80%, #8bb0d6 100%) !important;
+    border: 1px solid #2a5d8a !important;
+}
+
+.zoom-controls button:active, .grid-controls button:active {
+    background: linear-gradient(to bottom, #c5d9f1 0%, #759dcb 20%, #5a9fd4 80%, #306090 100%) !important;
+    border: 1px solid #2a5d8a !important;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.3) !important;
+}
+
+#zoomLevel {
+    color: #003c74 !important;
+    font-family: "Segoe UI", "Tahoma", sans-serif !important;
+    font-size: 11px !important;
+    font-weight: normal !important;
+    padding: 4px 8px !important;
+    background: linear-gradient(to bottom, #ffffff 0%, #f8fbff 100%) !important;
+    border: 1px solid #7ea6d1 !important;
+    border-radius: 2px !important;
+    box-shadow: inset 1px 1px 2px rgba(0,0,0,0.1) !important;
+}
+
+/* Windows XP input styling */
+input[type="text"], input[type="number"], input[type="email"], input[type="password"] {
+    border: 1px solid #7ea6d1 !important;
+    background: linear-gradient(to bottom, #ffffff 0%, #f8fbff 100%) !important;
+    color: #000000 !important;
+    border-radius: 2px !important;
+    padding: 3px 5px !important;
+    font-family: "Segoe UI", "Tahoma", sans-serif !important;
+    font-size: 11px !important;
+    box-shadow: inset 1px 1px 2px rgba(0,0,0,0.1) !important;
+}
+
+input[type="text"]:focus, input[type="number"]:focus, 
+input[type="email"]:focus, input[type="password"]:focus {
+    border: 1px solid #3c7fb1 !important;
+    background: linear-gradient(to bottom, #ffffff 0%, #f0f8ff 100%) !important;
+    outline: none !important;
+    box-shadow: inset 1px 1px 2px rgba(60,127,177,0.2), 0 0 3px rgba(60,127,177,0.3) !important;
+}
+
+select {
+    border: 1px solid #7ea6d1 !important;
+    background: linear-gradient(to bottom, #ffffff 0%, #f8fbff 100%) !important;
+    color: #000000 !important;
+    border-radius: 2px !important;
+    padding: 2px 4px !important;
+    font-family: "Segoe UI", "Tahoma", sans-serif !important;
+    font-size: 11px !important;
+    box-shadow: 1px 1px 2px rgba(0,0,0,0.1) !important;
+}
+
+select:focus {
+    border: 1px solid #3c7fb1 !important;
+    outline: none !important;
+    box-shadow: 0 0 3px rgba(60,127,177,0.3) !important;
+}
+
+textarea {
+    border: 1px solid #7ea6d1 !important;
+    background: linear-gradient(to bottom, #ffffff 0%, #f8fbff 100%) !important;
+    color: #000000 !important;
+    border-radius: 2px !important;
+    font-family: "Segoe UI", "Tahoma", sans-serif !important;
+    font-size: 11px !important;
+    box-shadow: inset 1px 1px 2px rgba(0,0,0,0.1) !important;
+}
+
+textarea:focus {
+    border: 1px solid #3c7fb1 !important;
+    outline: none !important;
+    box-shadow: inset 1px 1px 2px rgba(60,127,177,0.2), 0 0 3px rgba(60,127,177,0.3) !important;
+}
+
+input[type="file"] {
+    background: linear-gradient(to bottom, #ffffff 0%, #f8fbff 100%) !important;
+    border: 1px solid #7ea6d1 !important;
+    color: #000000 !important;
+    border-radius: 2px !important;
+}
+
+/* Windows XP range slider - Luna style */
+input[type="range"] {
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    background: linear-gradient(to right, #e0e6f8 0%, #c5d9f1 100%) !important;
+    height: 8px !important;
+    border: 1px inset #7ea6d1 !important;
+    border-radius: 4px !important;
+    outline: none !important;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    width: 18px !important;
+    height: 18px !important;
+    background: linear-gradient(to bottom, #ffffff 0%, #ddeeff 50%, #759dcb 100%) !important;
+    border: 1px solid #3c7fb1 !important;
+    border-radius: 9px !important;
+    cursor: pointer !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2) !important;
+}
+
+/* Windows XP checkbox - Luna style */
+input[type="checkbox"] {
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    width: 13px !important;
+    height: 13px !important;
+    border: 1px solid #7ea6d1 !important;
+    background: linear-gradient(to bottom, #ffffff 0%, #f8fbff 100%) !important;
+    border-radius: 2px !important;
+    box-shadow: inset 1px 1px 1px rgba(0,0,0,0.1) !important;
+}
+
+input[type="checkbox"]:checked {
+    background: linear-gradient(to bottom, #ffffff 0%, #f0f8ff 100%) !important;
+}
+
+input[type="checkbox"]:checked::after {
+    content: "✓" !important;
+    position: absolute !important;
+    left: 1px !important;
+    top: -2px !important;
+    color: #003c74 !important;
+    font-size: 11px !important;
+    font-weight: bold !important;
+}
+
+/* Windows XP containers - rounded window style */
+.window, .container {
+    background: linear-gradient(to bottom, #ffffff 0%, #f0f8ff 100%) !important;
+    border: 1px solid #7ea6d1 !important;
+    border-radius: 8px !important;
+    box-shadow: 2px 2px 8px rgba(0,0,0,0.2) !important;
+}
+
+.window-body {
+    background: linear-gradient(to bottom, #ffffff 0%, #f0f8ff 100%) !important;
+    border-radius: 7px !important;
+}
+
+section, .section, .tool-section {
+    background: linear-gradient(to bottom, #ffffff 0%, #f8fbff 100%) !important;
+    border: 1px solid #c5d9f1 !important;
+    border-radius: 6px !important;
+    padding: 12px !important;
+    margin-bottom: 10px !important;
+    box-shadow: 1px 1px 4px rgba(0,0,0,0.1) !important;
+}
+
+header {
+    background: linear-gradient(to bottom, #ffffff 0%, #e0eefa 100%) !important;
+    border: 1px solid #7ea6d1 !important;
+    border-radius: 8px 8px 0 0 !important;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.1) !important;
+}
+
+.nav-bar {
+    background: linear-gradient(to bottom, #ffffff 0%, #f0f8ff 100%) !important;
+    border: 1px solid #c5d9f1 !important;
+    border-radius: 6px !important;
+}
+
+.tools-panel, .import-panel, .export-panel {
+    background: linear-gradient(to bottom, #ffffff 0%, #f8fbff 100%) !important;
+    border: 1px solid #c5d9f1 !important;
+    border-radius: 6px !important;
+    box-shadow: 1px 1px 4px rgba(0,0,0,0.1) !important;
+}
+
+.canvas-container {
+    background: linear-gradient(to bottom, #e6f3ff 0%, #cce7ff 100%) !important;
+    border: 1px solid #7ea6d1 !important;
+    border-radius: 6px !important;
+    padding: 12px !important;
+    box-shadow: 1px 1px 4px rgba(0,0,0,0.1) !important;
+}
+
+.main-content, .canvas-workspace {
+    background: linear-gradient(to bottom, #ffffff 0%, #f8fbff 100%) !important;
+    border: 1px solid #c5d9f1 !important;
+    border-radius: 6px !important;
+}
+
+#originalImage, #processedImage, #binaryPreview {
+    background-color: #ffffff !important;
+    border: 1px solid #c5d9f1 !important;
+    border-radius: 4px !important;
+    box-shadow: inset 1px 1px 2px rgba(0,0,0,0.1) !important;
+}
+
+.usage-example {
+    background: linear-gradient(to bottom, #f8fbff 0%, #ffffff 100%) !important;
+    border: 1px solid #c5d9f1 !important;
+    border-radius: 4px !important;
+}
+
+.import-zone {
+    border: 2px dashed #7ea6d1 !important;
+    background: linear-gradient(to bottom, #f8fbff 0%, #ffffff 100%) !important;
+    color: #003c74 !important;
+    border-radius: 6px !important;
+}
+
+.import-zone:hover {
+    border-color: #3c7fb1 !important;
+    background: linear-gradient(to bottom, #e0eefa 0%, #f0f8ff 100%) !important;
+    box-shadow: inset 0 1px 4px rgba(60,127,177,0.1) !important;
+}
+
+.frame {
+    border: 1px solid #c5d9f1 !important;
+    background: linear-gradient(to bottom, #ffffff 0%, #f8fbff 100%) !important;
+    border-radius: 4px !important;
+    box-shadow: 1px 1px 2px rgba(0,0,0,0.1) !important;
+}
+
+.frame.selected {
+    border: 2px solid #fdcb6e !important;
+    background: linear-gradient(to bottom, #fff7e6 0%, #ffeaa7 100%) !important;
+    box-shadow: 0 0 5px rgba(253,203,110,0.5) !important;
+}
+
+.size-warning {
+    background: linear-gradient(to bottom, #ffe6e6 0%, #ffcccc 100%) !important;
+    border: 1px solid #ff9999 !important;
+    color: #cc0000 !important;
+    border-radius: 4px !important;
+    box-shadow: 1px 1px 2px rgba(0,0,0,0.1) !important;
+}
+
+pre, code {
+    background: linear-gradient(to bottom, #ffffff 0%, #f8f8ff 100%) !important;
+    border: 1px solid #c5d9f1 !important;
+    color: #000000 !important;
+    border-radius: 3px !important;
+    font-family: "Consolas", "Courier New", monospace !important;
+    font-size: 10px !important;
+}
+
+/* Windows XP text colors */
+h1, h2, h3, h4, h5, h6, p, span, label {
+    color: #003c74 !important;
+    font-family: "Segoe UI", "Tahoma", sans-serif !important;
+}
+
+h1 {
+    font-size: 16px !important;
+    font-weight: bold !important;
+    color: #2d3436 !important;
+}
+
+h2 {
+    font-size: 14px !important;
+    font-weight: bold !important;
+    color: #2d3436 !important;
+}
+
+/* Windows XP links - blue like classic IE */
+a {
+    color: #0066cc !important;
+    text-decoration: underline !important;
+}
+
+a:visited {
+    color: #800080 !important;
+}
+
+a:hover {
+    color: #ff6600 !important;
+}
+
+/* Windows XP menu page styling - distinct Luna blue */
+.menu-page .desktop {
+    background: linear-gradient(135deg, #4a90e2 0%, #2c5aa0 50%, #1e3a8a 100%) !important;
+    background-attachment: fixed !important;
+}
+
+.menu-page .desktop-icon .icon-label {
+    color: #ffffff !important;
+    text-shadow: 1px 1px 2px #000000 !important;
+    font-family: "Segoe UI", "Tahoma", sans-serif !important;
+    font-size: 11px !important;
+}
+
+.menu-page .taskbar {
+    background: linear-gradient(to bottom, #ffffff 0%, #e0eefa 100%) !important;
+    border-top: 1px solid #7ea6d1 !important;
+    box-shadow: 0 -1px 4px rgba(0,0,0,0.1) !important;
+}
+
+.menu-page .start-button {
+    background: linear-gradient(to bottom, #ffffff 0%, #ddeeff 20%, #c5d9f1 80%, #759dcb 100%) !important;
+    border: 1px solid #3c7fb1 !important;
+    color: #003c74 !important;
+    border-radius: 3px !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2) !important;
+}
+
+.menu-page .start-button:hover {
+    background: linear-gradient(to bottom, #ffffff 0%, #eef4ff 20%, #d4e4f7 80%, #8bb0d6 100%) !important;
+}
+
+.menu-page .taskbar-info {
+    color: #003c74 !important;
+}
+
+.menu-page .taskbar-info a {
+    color: #0066cc !important;
+}
+
+.menu-page .taskbar-theme button {
+    background: linear-gradient(to bottom, #ffffff 0%, #ddeeff 20%, #c5d9f1 80%, #759dcb 100%) !important;
+    border: 1px solid #3c7fb1 !important;
+    color: #003c74 !important;
+    border-radius: 3px !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2) !important;
+}
+
+.menu-page .taskbar-theme button:hover {
+    background: linear-gradient(to bottom, #ffffff 0%, #eef4ff 20%, #d4e4f7 80%, #8bb0d6 100%) !important;
+}
+
+/* Remove setting group borders */
+.setting-group, .setting-item, .import-options label, .tool-group {
+    border: none !important;
+    background: transparent !important;
+}
+
+/* Windows XP scrollbar - Luna style */
+::-webkit-scrollbar {
+    width: 16px !important;
+}
+
+::-webkit-scrollbar-track {
+    background: linear-gradient(to right, #f0f8ff 0%, #e0eefa 100%) !important;
+    border: 1px inset #c5d9f1 !important;
+    border-radius: 8px !important;
+}
+
+::-webkit-scrollbar-thumb {
+    background: linear-gradient(to right, #ffffff 0%, #ddeeff 50%, #759dcb 100%) !important;
+    border: 1px solid #3c7fb1 !important;
+    border-radius: 8px !important;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1) !important;
+}
+
+::-webkit-scrollbar-button {
+    background: linear-gradient(to bottom, #ffffff 0%, #ddeeff 50%, #759dcb 100%) !important;
+    border: 1px solid #3c7fb1 !important;
+    border-radius: 2px !important;
+}
+
+/* Windows XP title bar - Luna blue gradient */
+.window-title {
+    background: linear-gradient(to right, #5a9fd4 0%, #306090 100%) !important;
+    color: #ffffff !important;
+    border: 1px solid #3c7fb1 !important;
+    border-radius: 8px 8px 0 0 !important;
+    padding: 4px 12px !important;
+    font-weight: bold !important;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.3) !important;
+}

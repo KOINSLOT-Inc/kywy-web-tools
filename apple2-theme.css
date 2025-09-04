@@ -1,0 +1,519 @@
+/* Apple II Theme - Early Mac OS Black & White Interface Style */
+
+/* Exclude functional elements from theme styling */
+.resize-handle, .splitter, .resize-grip, [data-resize], 
+.panel-resizer, .draggable-handle, .sortable-handle {
+    all: revert !important;
+}
+
+/* Override font family for early Mac look */
+body, input, button, select, textarea {
+    font-family: "Chicago", "Geneva", "Monaco", "Courier New", monospace !important;
+    font-size: 12px !important;
+}
+
+/* Early Mac OS black and white scheme with dithered background */
+body:not(.menu-page) {
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    background-image: 
+        radial-gradient(circle at 1px 1px, #cccccc 1px, transparent 1px) !important;
+    background-size: 8px 8px !important;
+}
+
+/* Early Mac button styling - black border, white fill, rounded corners */
+button, .back-button, .nav-btn, input[type="button"], input[type="submit"] {
+    background-color: #ffffff !important;
+    border: 2px solid #000000 !important;
+    color: #000000 !important;
+    padding: 4px 12px !important;
+    border-radius: 8px !important;
+    font-family: "Chicago", "Geneva", monospace !important;
+    font-weight: normal !important;
+    text-transform: none !important;
+    box-shadow: 2px 2px 0px #888888 !important;
+}
+
+/* Ensure back to menu text is visible */
+.back-button, .back-button:link, .back-button:visited {
+    color: #000000 !important;
+    text-decoration: none !important;
+}
+
+.back-button:hover, .nav-btn:hover {
+    background-color: #000000 !important;
+    color: #ffffff !important;
+    box-shadow: inset 2px 2px 2px #333333 !important;
+}
+
+button:hover {
+    background-color: #000000 !important;
+    color: #ffffff !important;
+    box-shadow: inset 2px 2px 2px #333333 !important;
+}
+
+button:active, .back-button:active, .nav-btn:active {
+    background-color: #000000 !important;
+    color: #ffffff !important;
+    box-shadow: inset 2px 2px 4px #333333 !important;
+}
+
+button:disabled, .nav-btn:disabled {
+    color: #888888 !important;
+    background-color: #ffffff !important;
+    border: 2px solid #cccccc !important;
+    box-shadow: 1px 1px 0px #cccccc !important;
+}
+
+/* Active/pressed button states - inverted */
+button.active, .nav-btn.active, button[data-active="true"], 
+.tool-btn.active, .mirror-btn.active, button.pressed {
+    background-color: #000000 !important;
+    border: 2px solid #000000 !important;
+    color: #ffffff !important;
+    box-shadow: inset 2px 2px 2px #333333 !important;
+}
+
+.tool-button.selected, .tool-btn.selected, input[type="checkbox"]:checked + label,
+.toggle-button.on, .mirror-x.active, .mirror-y.active {
+    background-color: #000000 !important;
+    border: 2px solid #000000 !important;
+    color: #ffffff !important;
+    box-shadow: inset 2px 2px 2px #333333 !important;
+}
+
+.tool-section .active, .brush-tool.active, .eraser-tool.active, 
+.line-tool.active, .rect-tool.active, .circle-tool.active {
+    background-color: #000000 !important;
+    border: 2px solid #000000 !important;
+    color: #ffffff !important;
+    box-shadow: inset 2px 2px 2px #333333 !important;
+}
+
+/* Canvas controls (zoom/fit/center) styling */
+.canvas-controls, .zoom-controls, .grid-controls {
+    background-color: #ffffff !important;
+    border: 2px solid #000000 !important;
+    border-radius: 8px !important;
+    padding: 6px !important;
+    margin: 4px !important;
+    box-shadow: 2px 2px 0px #888888 !important;
+}
+
+.zoom-controls button, .grid-controls button {
+    background-color: #ffffff !important;
+    border: 2px solid #000000 !important;
+    color: #000000 !important;
+    padding: 4px 8px !important;
+    border-radius: 6px !important;
+    margin: 2px !important;
+    font-family: "Chicago", "Geneva", monospace !important;
+    box-shadow: 1px 1px 0px #888888 !important;
+}
+
+.zoom-controls button:hover, .grid-controls button:hover {
+    background-color: #000000 !important;
+    color: #ffffff !important;
+    box-shadow: inset 1px 1px 2px #333333 !important;
+}
+
+#zoomLevel {
+    color: #000000 !important;
+    font-family: "Chicago", "Geneva", monospace !important;
+    font-weight: bold !important;
+    padding: 4px 8px !important;
+    background-color: #ffffff !important;
+    border: 1px solid #000000 !important;
+    border-radius: 4px !important;
+}
+
+.back-button:hover, .nav-btn:hover {
+    background-color: #000000 !important;
+    color: #ffffff !important;
+    box-shadow: inset 2px 2px 2px #333333 !important;
+}
+
+button:hover {
+    background-color: #000000 !important;
+    color: #ffffff !important;
+    box-shadow: inset 2px 2px 2px #333333 !important;
+}
+
+button:active, .back-button:active, .nav-btn:active {
+    background-color: #000000 !important;
+    color: #ffffff !important;
+    box-shadow: inset 2px 2px 4px #333333 !important;
+}
+
+button:disabled, .nav-btn:disabled {
+    color: #888888 !important;
+    background-color: #ffffff !important;
+    border: 2px solid #cccccc !important;
+    box-shadow: 1px 1px 0px #cccccc !important;
+}
+
+/* Active/pressed button states - inverted */
+button.active, .nav-btn.active, button[data-active="true"], 
+.tool-btn.active, .mirror-btn.active, button.pressed {
+    background-color: #000000 !important;
+    border: 2px solid #000000 !important;
+    color: #ffffff !important;
+    box-shadow: inset 2px 2px 2px #333333 !important;
+}
+
+.tool-button.selected, .tool-btn.selected, input[type="checkbox"]:checked + label,
+.toggle-button.on, .mirror-x.active, .mirror-y.active {
+    background-color: #000000 !important;
+    border: 2px solid #000000 !important;
+    color: #ffffff !important;
+    box-shadow: inset 2px 2px 2px #333333 !important;
+}
+
+.tool-section .active, .brush-tool.active, .eraser-tool.active, 
+.line-tool.active, .rect-tool.active, .circle-tool.active {
+    background-color: #000000 !important;
+    border: 2px solid #000000 !important;
+    color: #ffffff !important;
+    box-shadow: inset 2px 2px 2px #333333 !important;
+}
+
+/* Early Mac input styling */
+input[type="text"], input[type="number"], input[type="email"], input[type="password"] {
+    border: 2px inset #cccccc !important;
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    border-radius: 4px !important;
+    padding: 2px 4px !important;
+    font-family: "Geneva", "Monaco", monospace !important;
+    font-size: 12px !important;
+}
+
+input[type="text"]:focus, input[type="number"]:focus, 
+input[type="email"]:focus, input[type="password"]:focus {
+    border: 2px solid #000000 !important;
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    outline: none !important;
+    box-shadow: inset 1px 1px 2px rgba(0,0,0,0.2) !important;
+}
+
+select {
+    border: 2px solid #000000 !important;
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    border-radius: 4px !important;
+    padding: 2px 4px !important;
+    font-family: "Geneva", monospace !important;
+}
+
+select:focus {
+    border: 2px solid #000000 !important;
+    outline: none !important;
+    box-shadow: 0 0 3px rgba(0,0,0,0.3) !important;
+}
+
+textarea {
+    border: 2px inset #cccccc !important;
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    border-radius: 4px !important;
+    font-family: "Monaco", monospace !important;
+}
+
+textarea:focus {
+    border: 2px solid #000000 !important;
+    outline: none !important;
+    box-shadow: inset 1px 1px 2px rgba(0,0,0,0.2) !important;
+}
+
+input[type="file"] {
+    background-color: #ffffff !important;
+    border: 2px solid #000000 !important;
+    color: #000000 !important;
+    border-radius: 4px !important;
+}
+
+/* Early Mac range slider */
+input[type="range"] {
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    background: #ffffff !important;
+    height: 6px !important;
+    border: 1px inset #cccccc !important;
+    border-radius: 3px !important;
+    outline: none !important;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    width: 16px !important;
+    height: 16px !important;
+    background: #ffffff !important;
+    border: 2px solid #000000 !important;
+    border-radius: 8px !important;
+    cursor: pointer !important;
+    box-shadow: 1px 1px 2px rgba(0,0,0,0.3) !important;
+}
+
+/* Early Mac checkbox */
+input[type="checkbox"] {
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    width: 12px !important;
+    height: 12px !important;
+    border: 1px solid #000000 !important;
+    background-color: #ffffff !important;
+    border-radius: 2px !important;
+}
+
+input[type="checkbox"]:checked {
+    background-color: #ffffff !important;
+}
+
+input[type="checkbox"]:checked::after {
+    content: "✓" !important;
+    position: absolute !important;
+    left: 1px !important;
+    top: -2px !important;
+    color: #000000 !important;
+    font-size: 10px !important;
+    font-weight: bold !important;
+}
+
+/* Early Mac containers - window styling */
+.window, .container {
+    background-color: #ffffff !important;
+    border: 2px solid #000000 !important;
+    border-radius: 8px !important;
+    box-shadow: 3px 3px 6px rgba(0,0,0,0.3) !important;
+}
+
+.window-body {
+    background-color: #ffffff !important;
+}
+
+section, .section, .tool-section {
+    background-color: #ffffff !important;
+    border: 2px solid #000000 !important;
+    border-radius: 8px !important;
+    padding: 8px !important;
+    margin-bottom: 8px !important;
+    box-shadow: 2px 2px 4px rgba(0,0,0,0.2) !important;
+}
+
+header {
+    background-color: #ffffff !important;
+    border: 2px solid #000000 !important;
+    border-radius: 8px !important;
+    box-shadow: 2px 2px 4px rgba(0,0,0,0.2) !important;
+}
+
+.nav-bar {
+    background-color: #ffffff !important;
+    border: 2px solid #000000 !important;
+    border-radius: 8px !important;
+}
+
+.tools-panel, .import-panel, .export-panel {
+    background-color: #ffffff !important;
+    border: 2px solid #000000 !important;
+    border-radius: 8px !important;
+    box-shadow: 2px 2px 4px rgba(0,0,0,0.2) !important;
+}
+
+.canvas-container {
+    background-color: #000000 !important;
+    border: 3px solid #000000 !important;
+    border-radius: 8px !important;
+    padding: 12px !important;
+    box-shadow: 3px 3px 6px rgba(0,0,0,0.5) !important;
+}
+
+.main-content, .canvas-workspace {
+    background-color: #ffffff !important;
+    border: 2px solid #000000 !important;
+    border-radius: 8px !important;
+}
+
+#originalImage, #processedImage, #binaryPreview {
+    background-color: #ffffff !important;
+    border: 2px inset #cccccc !important;
+    border-radius: 4px !important;
+}
+
+.usage-example {
+    background-color: #ffffff !important;
+    border: 2px solid #000000 !important;
+    border-radius: 4px !important;
+}
+
+.import-zone {
+    border: 2px dashed #000000 !important;
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    border-radius: 8px !important;
+    background-image: 
+        linear-gradient(45deg, #f0f0f0 25%, transparent 25%), 
+        linear-gradient(-45deg, #f0f0f0 25%, transparent 25%), 
+        linear-gradient(45deg, transparent 75%, #f0f0f0 75%), 
+        linear-gradient(-45deg, transparent 75%, #f0f0f0 75%) !important;
+    background-size: 8px 8px !important;
+    background-position: 0 0, 0 4px, 4px -4px, -4px 0px !important;
+}
+
+.import-zone:hover {
+    border-color: #000000 !important;
+    background-color: #f8f8f8 !important;
+}
+
+.frame {
+    border: 1px solid #000000 !important;
+    background-color: #ffffff !important;
+    border-radius: 4px !important;
+    box-shadow: 1px 1px 2px rgba(0,0,0,0.2) !important;
+}
+
+.frame.selected {
+    border: 2px solid #000000 !important;
+    background-color: #000000 !important;
+    color: #ffffff !important;
+}
+
+.size-warning {
+    background-color: #ffffff !important;
+    border: 2px solid #000000 !important;
+    color: #000000 !important;
+    border-radius: 4px !important;
+    background-image: repeating-linear-gradient(
+        -45deg,
+        #ffffff,
+        #ffffff 4px,
+        #cccccc 4px,
+        #cccccc 8px
+    ) !important;
+}
+
+pre, code {
+    background-color: #ffffff !important;
+    border: 2px inset #cccccc !important;
+    color: #000000 !important;
+    border-radius: 4px !important;
+    font-family: "Monaco", "Courier New", monospace !important;
+    font-size: 10px !important;
+}
+
+/* Early Mac text colors */
+h1, h2, h3, h4, h5, h6, p, span, label {
+    color: #000000 !important;
+    font-family: "Chicago", "Geneva", sans-serif !important;
+}
+
+/* Early Mac links */
+a {
+    color: #000000 !important;
+    text-decoration: underline !important;
+}
+
+a:visited {
+    color: #000000 !important;
+}
+
+a:hover {
+    color: #ffffff !important;
+    background-color: #000000 !important;
+    text-decoration: none !important;
+    padding: 1px 2px !important;
+}
+
+/* Early Mac menu page styling */
+.menu-page .desktop {
+    background: #ffffff !important;
+    background-image: 
+        radial-gradient(circle at 1px 1px, #cccccc 1px, transparent 1px) !important;
+    background-size: 8px 8px !important;
+}
+
+.menu-page .desktop-icon .icon-label {
+    color: #000000 !important;
+    text-shadow: 1px 1px 0px #ffffff !important;
+    font-family: "Chicago", "Geneva", sans-serif !important;
+    font-size: 12px !important;
+}
+
+.menu-page .taskbar {
+    background-color: #ffffff !important;
+    border-top: 2px solid #000000 !important;
+    box-shadow: 0 -2px 4px rgba(0,0,0,0.2) !important;
+}
+
+.menu-page .start-button {
+    background-color: #ffffff !important;
+    border: 2px solid #000000 !important;
+    color: #000000 !important;
+    border-radius: 8px !important;
+    box-shadow: 2px 2px 0px #888888 !important;
+}
+
+.menu-page .start-button:hover {
+    background-color: #000000 !important;
+    color: #ffffff !important;
+    box-shadow: inset 2px 2px 2px #333333 !important;
+}
+
+.menu-page .taskbar-info {
+    color: #000000 !important;
+}
+
+.menu-page .taskbar-info a {
+    color: #000000 !important;
+    text-decoration: underline !important;
+}
+
+.menu-page .taskbar-theme button {
+    background-color: #ffffff !important;
+    border: 2px solid #000000 !important;
+    color: #000000 !important;
+    border-radius: 8px !important;
+    box-shadow: 2px 2px 0px #888888 !important;
+}
+
+.menu-page .taskbar-theme button:hover {
+    background-color: #000000 !important;
+    color: #ffffff !important;
+    box-shadow: inset 2px 2px 2px #333333 !important;
+}
+
+/* Remove setting group borders */
+.setting-group, .setting-item, .import-options label, .tool-group {
+    border: none !important;
+    background: transparent !important;
+}
+
+/* Early Mac scrollbar */
+::-webkit-scrollbar {
+    width: 16px !important;
+}
+
+::-webkit-scrollbar-track {
+    background-color: #ffffff !important;
+    border: 1px solid #000000 !important;
+}
+
+::-webkit-scrollbar-thumb {
+    background-color: #ffffff !important;
+    border: 2px solid #000000 !important;
+    border-radius: 8px !important;
+    background-image: repeating-linear-gradient(
+        90deg,
+        #ffffff,
+        #ffffff 2px,
+        #cccccc 2px,
+        #cccccc 4px
+    ) !important;
+}
+
+::-webkit-scrollbar-button {
+    background-color: #ffffff !important;
+    border: 2px solid #000000 !important;
+}
