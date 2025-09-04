@@ -2,20 +2,51 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>RP2040 UF2 Uploader</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <h1>RP2040 UF2 Uploader</h1>
-    <div id="library-grid" style="display: flex; flex-wrap: wrap; gap: 16px; margin-top: 24px;"></div>
-    <div style="height: 16px;"></div>
-    <div style="margin-bottom: 8px;">
-        <label for="local-uf2">Upload local UF2:</label>
-        <input id="local-uf2" type="file" accept=".uf2">
+    <div class="container">
+        <header>
+            <div class="nav-bar">
+                <div class="header-left">
+                    <a href="menu.html" class="back-button">← Back to Menu</a>
+                    <div class="brand-section" style="display:flex;align-items:center;gap:12px;margin-left:12px;">
+                        <div class="ks-icon" style="width:32px;height:32px;background:url('KS Icon Black.png') center/contain no-repeat"></div>
+                        <div class="brand-info">
+                            <div style="font-weight:700;">KOINSLOT</div>
+                            <div style="font-size:13px;color:#666;">RP2040 UF2 Uploader</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="nav-actions desktop-nav">
+                    <button id="find-devices-btn" class="nav-btn">🔍 Find devices</button>
+                    <div id="selected-device" style="font-size:14px;color:#444;margin-left:12px;align-self:center;"></div>
+                </div>
+            </div>
+        </header>
+
+        <section>
+            <div id="devices-panel" style="margin-bottom:12px;display:none;padding:8px;border:1px solid #ddd;background:#fff;border-radius:6px;"></div>
+
+            <div id="library-grid" style="display: flex; flex-wrap: wrap; gap: 16px; margin-top: 8px;"></div>
+
+            <div style="height: 16px;"></div>
+            <div style="margin-bottom: 8px;display:flex;align-items:center;gap:12px;">
+                <label for="local-uf2" style="font-weight:600;">Upload local UF2:</label>
+                <input id="local-uf2" type="file" accept=".uf2">
+            </div>
+
+            <div style="height: 16px;"></div>
+            <div style="display:flex;gap:12px;align-items:center;">
+                <button id="upload-btn" disabled>Upload to RP2040</button>
+                <div id="status" style="color:#333;font-size:14px;"></div>
+            </div>
+        </section>
     </div>
-    <div style="height: 16px;"></div>
-    <button id="upload-btn" disabled>Upload to RP2040</button>
-    <div id="status"></div>
+
     <script src="uploader.js"></script>
 </body>
 </html>
