@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>RP2040 UF2 Uploader</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h1>RP2040 UF2 Uploader</h1>
+    <div id="library-grid" style="display: flex; flex-wrap: wrap; gap: 16px; margin-top: 24px;"></div>
+    <div style="height: 16px;"></div>
+    <div style="margin-bottom: 8px;">
+        <label for="local-uf2">Upload local UF2:</label>
+        <input id="local-uf2" type="file" accept=".uf2">
+    </div>
+    <div style="height: 16px;"></div>
+    <button id="upload-btn" disabled>Upload to RP2040</button>
+    <div id="status"></div>
+    <script src="uploader.js"></script>
+</body>
+</html>
