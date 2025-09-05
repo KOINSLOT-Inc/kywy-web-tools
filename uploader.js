@@ -497,7 +497,8 @@ function renderDetectedDevices() {
                     </button>
                 </div>
                 <div style="font-size: 11px; color: #666; margin-top: 4px;">
-                    Click "Connect KYWY Device" to grant permission for device detection
+                    Click "Connect KYWY Device" to grant browser permission for automatic device detection.<br>
+                    Once connected, your KYWY will be detected automatically when plugged in.
                 </div>
             `;
             
@@ -513,8 +514,18 @@ function renderDetectedDevices() {
                             filters: [{ usbVendorId: 0x2e8a }] // RP2040 vendor ID
                         });
                         
-                        // Refresh the device list
+                        console.log('Serial device permission granted');
+                        
+                        // Start background scanning now that we have permission
+                        startBackgroundScan();
+                        
+                        // Refresh the device list immediately
                         await scanForDevicesOnce();
+                        
+                        connectBtn.textContent = '✅ Connected';
+                        setTimeout(() => {
+                            connectBtn.style.display = 'none'; // Hide the button since we now have permission
+                        }, 1000);
                         
                     } catch (err) {
                         if (err.name === 'NotFoundError') {
@@ -1006,11 +1017,35 @@ function checkBrowserCompatibility() {
     return true;
 }
 
-// Run compatibility check
+// Run compatibility check and initial setup
 checkBrowserCompatibility();
 
-// start background scanning automatically
-startBackgroundScan();
+// Check for existing serial permissions on load
+async function checkExistingPermissions() {
+    if ('serial' in navigator) {
+        try {
+            const ports = await navigator.serial.getPorts();
+            console.log(`Found ${ports.length} previously authorized serial ports`);
+            if (ports.length > 0) {
+                console.log('Serial permissions already granted, starting background scan');
+                startBackgroundScan();
+            } else {
+                console.log('No serial permissions yet - user will need to click "Connect KYWY Device"');
+                // Still show the current devices (which will show the connect button)
+                await scanForDevicesOnce();
+            }
+        } catch (err) {
+            console.warn('Error checking serial permissions:', err);
+        }
+    } else {
+        console.log('Web Serial API not available');
+        // Still show device status
+        await scanForDevicesOnce();
+    }
+}
+
+// Initialize
+checkExistingPermissions();
 
 // wire multi-upload toggle
 if (multiUploadCheckbox) {
