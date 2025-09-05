@@ -1,7 +1,22 @@
+/**
+ * KYWY UF2 Uploader Tool
+ * 
+ * This tool is designed to work both locally (with browser downloads) and 
+ * when hosted on GitHub Pages at tools.kywy.io (with direct downloads).
+ * 
+ * Features:
+ * - Direct download from GitHub releases when hosted
+ * - Browser download fallback for local usage
+ * - File System Access API for writing to UF2 drives
+ * - Web Serial API for automatic bootloader triggering
+ * - WebUSB support for compatible devices
+ */
+
 const uploadBtn = document.getElementById('upload-btn');
 const statusDiv = document.getElementById('status');
 const libraryGrid = document.getElementById('library-grid');
 const localInput = document.getElementById('local-uf2');
+const multiUploadCheckbox = document.getElementById('multi-upload-checkbox');
 let selectedUF2 = null; // remote URL
 let selectedUF2Buffer = null; // ArrayBuffer for local file
 let selectedUF2Name = null; // filename for writing to UF2 drive
@@ -54,6 +69,34 @@ async function fetchUF2Assets() {
     return all;
 }
 
+// Helper: determine if we're running locally and need to use browser downloads
+function needsBrowserDownload() {
+    // Only use browser downloads for local file:// protocol
+    // When hosted on GitHub Pages or other HTTPS sites, direct downloads should work
+    return window.location.protocol === 'file:';
+}
+
+// Helper: trigger browser download for files that can't be fetched due to CORS
+function triggerBrowserDownload(url, filename) {
+    statusDiv.innerHTML = `
+        <strong>Starting download...</strong><br>
+        The file "${filename}" will be downloaded to your Downloads folder.<br>
+        <br>
+        <strong>After download completes:</strong><br>
+        1. Click "Choose Local UF2 File" above<br>
+        2. Select the downloaded file from your Downloads folder<br>
+        3. Click "Upload to KYWY" again
+    `;
+    
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+}
+
 function makeCard(displayName, imgSrc, highlight = false) {
     const card = document.createElement('div');
     card.className = 'uf2-card';
@@ -92,6 +135,10 @@ function makeCard(displayName, imgSrc, highlight = false) {
 
 async function loadLibrary() {
     statusDiv.textContent = '';
+    const spinner = document.getElementById('library-spinner');
+    const grid = document.getElementById('library-grid');
+    if (spinner) spinner.style.display = 'flex';
+    if (grid) grid.style.display = 'none';
     libraryGrid.innerHTML = '';
     selectedUF2 = null;
     selectedUF2Buffer = null;
@@ -117,7 +164,9 @@ async function loadLibrary() {
     }
 
     if (unique.length === 0) {
-        statusDiv.textContent = 'No UF2 files found.';
+    statusDiv.textContent = 'No UF2 files found.';
+    if (spinner) spinner.style.display = 'none';
+    if (grid) grid.style.display = 'flex';
         return;
     }
 
@@ -139,16 +188,23 @@ async function loadLibrary() {
                     });
         libraryGrid.appendChild(card);
     }
+    if (spinner) spinner.style.display = 'none';
+    if (grid) grid.style.display = 'flex';
 }
 
 // --- Device finder UI wiring ---
-const findDevicesBtn = document.getElementById('find-devices-btn');
 const devicesPanel = document.getElementById('devices-panel');
 const selectedDeviceLabel = document.getElementById('selected-device');
+const deviceStatusElem = document.getElementById('device-status');
 let discoveredSerialPorts = [];
 let chosenDevice = null; // { type: 'serial'|'mass', port/fileHandle, name }
 let autoSearchInterval = null;
 let autoSearchTimeout = null;
+let backgroundScanInterval = null;
+let detectedDevices = []; // array of { id, type, port?, dirHandle?, name }
+let deviceSelectElem = null;
+let multiUploadMode = false;
+let processedDeviceIds = new Set();
 
 async function listSerialPorts() {
     if (!('serial' in navigator)) return [];
@@ -167,7 +223,7 @@ function renderDevicesPanel(serialPorts, opts = {}) {
 
     if (opts.autoSearching) {
         const autoNote = document.createElement('div');
-        autoNote.textContent = 'Auto-searching for RP2040 devices... (will stop after a short time)';
+        autoNote.textContent = 'Auto-searching for KYWY devices... (will stop after a short time)';
         autoNote.style.fontSize = '13px';
         autoNote.style.color = '#444';
         autoNote.style.marginBottom = '8px';
@@ -192,6 +248,27 @@ function renderDevicesPanel(serialPorts, opts = {}) {
         none.style.fontSize = '13px';
         none.style.color = '#666';
         devicesPanel.appendChild(none);
+        // Offer a button to request serial port permission so the user can allow access
+        if ('serial' in navigator) {
+            const reqBtn = document.createElement('button');
+            reqBtn.textContent = 'Request serial access';
+            reqBtn.addEventListener('click', async () => {
+                try {
+                    // prefer filtered prompt
+                    await navigator.serial.requestPort({ filters: [{ usbVendorId: 0x2e8a }] });
+                } catch (err) {
+                    try { await navigator.serial.requestPort(); } catch (_) { /* user cancelled */ }
+                }
+                // re-query and re-render
+                try {
+                    const ports = await listSerialPorts();
+                    renderDevicesPanel(ports);
+                } catch (_) {
+                    renderDevicesPanel([]);
+                }
+            });
+            devicesPanel.appendChild(reqBtn);
+        }
     }
     serialPorts.forEach((p, idx) => {
         const row = document.createElement('div');
@@ -232,16 +309,63 @@ function renderDevicesPanel(serialPorts, opts = {}) {
     massSection.style.marginTop = '12px';
     massSection.textContent = 'Mass storage / UF2 drive:';
     devicesPanel.appendChild(massSection);
+    
+    const instructions = document.createElement('div');
+    instructions.style.fontSize = '13px';
+    instructions.style.color = '#666';
+    instructions.style.marginBottom = '8px';
+    instructions.textContent = 'Put your KYWY board into bootloader mode (hold BOOTSEL while connecting USB) then click below:';
+    devicesPanel.appendChild(instructions);
+    
     const pickDriveBtn = document.createElement('button');
-    pickDriveBtn.textContent = 'Pick UF2 drive now';
+    pickDriveBtn.textContent = 'Select UF2 drive';
     pickDriveBtn.addEventListener('click', async () => {
         try {
-            const dir = await window.showDirectoryPicker();
-            chosenDevice = { type: 'mass', dirHandle: dir, name: 'UF2 Drive (picked)' };
+            statusDiv.textContent = 'Please select the UF2 drive folder (usually named RPI-RP2)...';
+            const dir = await window.showDirectoryPicker({
+                mode: 'readwrite',
+                startIn: 'desktop'
+            });
+            
+            // Verify this is likely a UF2 drive
+            try {
+                const entries = [];
+                for await (const entry of dir.values()) {
+                    entries.push(entry.name.toLowerCase());
+                }
+                
+                const hasUf2Files = entries.some(name => 
+                    name.includes('info_uf2') || 
+                    name.includes('index.htm') || 
+                    name === 'current.uf2'
+                );
+                
+                if (!hasUf2Files && entries.length > 10) {
+                    const proceed = confirm(
+                        'This folder doesn\'t appear to be a UF2 drive (expected files like INFO_UF2.TXT not found). ' +
+                        'Make sure your KYWY board is in bootloader mode. Continue anyway?'
+                    );
+                    if (!proceed) {
+                        statusDiv.textContent = 'Please put your KYWY into bootloader mode and try again.';
+                        return;
+                    }
+                }
+            } catch (err) {
+                console.warn('Could not verify UF2 drive:', err);
+            }
+            
+            chosenDevice = { type: 'mass', dirHandle: dir, name: 'UF2 Drive' };
             selectedDeviceLabel.textContent = `Selected: ${chosenDevice.name}`;
+            statusDiv.textContent = 'UF2 drive selected successfully.';
             devicesPanel.style.display = 'none';
         } catch (err) {
-            selectedDeviceLabel.textContent = 'Drive pick cancelled or not available.';
+            if (err.name === 'AbortError') {
+                selectedDeviceLabel.textContent = 'Drive selection cancelled.';
+                statusDiv.textContent = '';
+            } else {
+                selectedDeviceLabel.textContent = 'Failed to select drive: ' + err.message;
+                statusDiv.textContent = 'Make sure File System Access is enabled in your browser.';
+            }
         }
     });
     devicesPanel.appendChild(pickDriveBtn);
@@ -260,10 +384,7 @@ function renderDevicesPanel(serialPorts, opts = {}) {
     devicesPanel.style.display = 'block';
 }
 
-findDevicesBtn.addEventListener('click', async () => {
-    // Start auto-search for RP2040-like devices
-    startAutoSearch();
-});
+// Find button removed; background scanning starts automatically.
 
 function startAutoSearch() {
     if (!('serial' in navigator) && !('showDirectoryPicker' in window)) {
@@ -282,7 +403,7 @@ function startAutoSearch() {
         try {
             ports = await listSerialPorts();
         } catch (_) { ports = []; }
-        // filter ports for RP2040 vendor if available
+        // filter ports for KYWY vendor if available
         // Some browsers expose vendor/product via getInfo()
         const rpPorts = ports.filter(p => {
             try {
@@ -312,26 +433,428 @@ function stopAutoSearch() {
     if (autoSearchTimeout) { clearTimeout(autoSearchTimeout); autoSearchTimeout = null; }
 }
 
-// If user picks a device elsewhere (e.g. clicking a card) we can use chosenDevice
-// when writing the UF2 drive: modify writeToPickedDirectory to accept a dirHandle if provided
-const originalWriteToPickedDirectory = writeToPickedDirectory;
-async function writeToPickedDirectory(buf, filename) {
+// --- Background scanning and auto-selection (runs without explicit search click)
+async function scanForDevicesOnce() {
+    const found = [];
+    // serial ports the site has permission for
+    if ('serial' in navigator) {
+        try {
+            const ports = await navigator.serial.getPorts();
+            for (const p of ports) {
+                try {
+                    const info = p.getInfo ? p.getInfo() : {};
+                    const isRp = (info.usbVendorId === 0x2e8a || info.vendorId === 0x2e8a || (info.usbProductId && info.usbProductId > 0));
+                    const id = `serial:${info.usbVendorId || 'u'}:${info.usbProductId || 'p'}:${p}`;
+                    found.push({ id, type: 'serial', port: p, info, name: `Serial ${info.usbProductId || ''}` });
+                } catch (_) { /* ignore */ }
+            }
+        } catch (_) {}
+    }
+    // mass storage: include chosenDevice.dirHandle if user previously picked one
     if (chosenDevice && chosenDevice.type === 'mass' && chosenDevice.dirHandle) {
-        const dirHandle = chosenDevice.dirHandle;
-        const fileHandle = await dirHandle.getFileHandle(filename, { create: true });
-        const writable = await fileHandle.createWritable();
-        await writable.write(buf);
-        await writable.close();
+        found.push({ id: 'mass:chosen', type: 'mass', dirHandle: chosenDevice.dirHandle, name: chosenDevice.name });
+    }
+
+    detectedDevices = found;
+    renderDetectedDevices();
+    return detectedDevices;
+}
+
+function startBackgroundScan() {
+    if (backgroundScanInterval) return;
+    // do an immediate scan then poll every 2s
+    scanForDevicesOnce();
+    backgroundScanInterval = setInterval(scanForDevicesOnce, 2000);
+}
+
+function stopBackgroundScan() {
+    if (!backgroundScanInterval) return;
+    clearInterval(backgroundScanInterval);
+    backgroundScanInterval = null;
+}
+
+function renderDetectedDevices() {
+    // Show simple status in the selectedDevice label area and manage selection UI
+    const container = document.createElement('div');
+    if (!detectedDevices || detectedDevices.length === 0) {
+        container.innerHTML = `
+            <div>No KYWY device found.</div>
+            <button onclick="showDeviceInstructions()" style="margin-top: 8px; padding: 4px 8px; font-size: 12px;">
+                How to connect my KYWY?
+            </button>
+        `;
+        if (deviceStatusElem) {
+            deviceStatusElem.innerHTML = '';
+            deviceStatusElem.appendChild(container);
+        }
+        selectedDeviceLabel.textContent = '';
+        uploadBtn.disabled = false; // Allow upload even without detected device - user can manually select UF2 drive
         return;
     }
-    return originalWriteToPickedDirectory(buf, filename);
+
+    if (detectedDevices.length === 1) {
+        const d = detectedDevices[0];
+        chosenDevice = d.type === 'serial' ? { type: 'serial', port: d.port, name: d.name } : { type: 'mass', dirHandle: d.dirHandle, name: d.name };
+        if (deviceStatusElem) deviceStatusElem.textContent = `Found device: ${chosenDevice.name} (${chosenDevice.type})`;
+        selectedDeviceLabel.textContent = `Selected: ${chosenDevice.name}`;
+        uploadBtn.disabled = false;
+        return;
+    }
+
+    // multiple devices: create a select box
+    const sel = document.createElement('select');
+    sel.style.minWidth = '220px';
+    detectedDevices.forEach((d, idx) => {
+        const opt = document.createElement('option');
+        opt.value = d.id;
+        opt.textContent = `${d.type === 'serial' ? 'Serial' : 'Mass'} — ${d.name || ('Device ' + (idx + 1))}`;
+        sel.appendChild(opt);
+    });
+    sel.addEventListener('change', () => {
+        const selId = sel.value;
+        const d = detectedDevices.find(x => x.id === selId);
+        if (d) {
+            chosenDevice = d.type === 'serial' ? { type: 'serial', port: d.port, name: d.name } : { type: 'mass', dirHandle: d.dirHandle, name: d.name };
+            selectedDeviceLabel.textContent = `Selected: ${chosenDevice.name}`;
+            uploadBtn.disabled = false;
+        }
+    });
+    if (deviceStatusElem) {
+        deviceStatusElem.innerHTML = '';
+        deviceStatusElem.appendChild(sel);
+    }
+    deviceSelectElem = sel;
+    uploadBtn.disabled = false;
 }
+
+// Global function to show device connection instructions
+window.showDeviceInstructions = function() {
+    const instructions = `
+KYWY Connection Instructions:
+
+1. NORMAL MODE (for serial communication):
+   - Simply connect your KYWY board via USB
+   - Make sure it's running firmware that supports serial communication
+
+2. BOOTLOADER MODE:
+You may need to manually put your KYWY into bootloader mode to upload UF2 files for the first time or if a bad program was uploaded.
+   - Turn off and unplug the Kywy
+   - Using a push pin or similar, press and hold the button on the back of the board
+   - While holding the button, connect the USB cable
+   - Release the button
+   - The board should appear as a USB drive (usually named "RPI-RP2")
+
+Once connected in bootloader mode, the KYWY will appear as a removable drive that you can write UF2 files to.
+    `;
+    
+    alert(instructions);
+};
+
+// Multi-upload loop: try to program newly detected devices continuously
+async function startMultiUploadLoop() {
+    processedDeviceIds.clear();
+    statusDiv.textContent = 'Multi-upload mode ON. Waiting for devices...';
+    multiUploadMode = true;
+    while (multiUploadMode) {
+        await scanForDevicesOnce();
+        for (const d of detectedDevices) {
+            if (processedDeviceIds.has(d.id)) continue;
+            // mark as processing to avoid duplicates
+            processedDeviceIds.add(d.id);
+            statusDiv.textContent = `Found device ${d.name}, programming...`;
+            try {
+                await uploadToDevice(d);
+                statusDiv.textContent = `Programmed ${d.name}`;
+            } catch (err) {
+                statusDiv.textContent = `Failed to program ${d.name}: ${err.message}`;
+            }
+        }
+        // small wait before scanning again
+        await new Promise(r => setTimeout(r, 1500));
+    }
+}
+
+function stopMultiUploadLoop() {
+    multiUploadMode = false;
+    statusDiv.textContent = 'Multi-upload mode OFF.';
+}
+
+async function uploadToDevice(d) {
+    // Use currently selected UF2 as sourceCandidate if available
+    if (!selectedUF2Api && !selectedUF2Browser && !selectedUF2Buffer) throw new Error('No UF2 selected');
+    // prepare sourceCandidate similarly to the upload button flow
+    let uf2ArrayBuffer = selectedUF2Buffer;
+    let sourceCandidate = null;
+    if (uf2ArrayBuffer) sourceCandidate = uf2ArrayBuffer;
+    else if (selectedUF2Api) {
+        const res = await fetch(selectedUF2Api, { headers: { Accept: 'application/octet-stream' } });
+        if (!res.ok) throw new Error('Download failed: ' + res.status);
+        sourceCandidate = res.body && typeof res.body.getReader === 'function' ? res : await res.arrayBuffer();
+    } else if (selectedUF2Browser) {
+        sourceCandidate = selectedUF2Browser;
+    }
+
+    const fileName = selectedUF2Name || 'update.uf2';
+
+    if (d.type === 'serial') {
+        // attempt to open and trigger bootloader via the specific port if possible
+        try {
+            if (d.port && d.port.open) {
+                await d.port.open({ baudRate: 1200 });
+                await d.port.close();
+            } else {
+                // request port as fallback
+                try { const p = await navigator.serial.requestPort({ filters: [{ usbVendorId: 0x2e8a }] }); await p.open({ baudRate: 1200 }); await p.close(); } catch (_) {}
+            }
+        } catch (_) {}
+        // wait a bit for UF2 drive to mount
+        await new Promise(r => setTimeout(r, 1500));
+        // prompt user to pick the drive to write (best-effort)
+        await writeToPickedDirectory(sourceCandidate, fileName);
+        return;
+    }
+    if (d.type === 'mass') {
+        // write directly to the provided dirHandle
+        if (d.dirHandle) {
+            await writeToPickedDirectoryWithHandle(d.dirHandle, sourceCandidate, fileName);
+        } else {
+            await writeToPickedDirectory(sourceCandidate, fileName);
+        }
+        return;
+    }
+}
+
+// If user picks a device elsewhere (e.g. clicking a card) we can use chosenDevice
+// when writing the UF2 drive: modify writeToPickedDirectory to accept a dirHandle if provided
+// Helper function to write directly to a provided directory handle
+async function writeToPickedDirectoryWithHandle(dirHandle, source, filename) {
+    statusDiv.textContent = 'Writing to UF2 drive...';
+    
+    try {
+        const fileHandle = await dirHandle.getFileHandle(filename, { create: true });
+        const writable = await fileHandle.createWritable();
+
+        try {
+            // If source is a Response, stream its body
+            if (source && typeof source === 'object' && 'body' in source && source.body && typeof source.body.getReader === 'function') {
+                const reader = source.body.getReader();
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    await writable.write(value);
+                }
+                await writable.close();
+                return;
+            }
+
+            // If source is a URL string, fetch and stream
+            if (typeof source === 'string') {
+                const res = await fetch(source);
+                if (!res.ok) throw new Error('Download failed: ' + res.status);
+                if (!res.body || typeof res.body.getReader !== 'function') {
+                    // fallback to arrayBuffer
+                    const ab = await res.arrayBuffer();
+                    await writable.write(new Uint8Array(ab));
+                    await writable.close();
+                    return;
+                }
+                const reader = res.body.getReader();
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    await writable.write(value);
+                }
+                await writable.close();
+                return;
+            }
+
+            // Otherwise assume an ArrayBuffer/Uint8Array
+            if (source instanceof ArrayBuffer) {
+                await writable.write(new Uint8Array(source));
+                await writable.close();
+                return;
+            }
+            if (source && source.buffer && source.byteLength !== undefined) {
+                // TypedArray
+                await writable.write(source);
+                await writable.close();
+                return;
+            }
+
+            throw new Error('Unsupported source type for writeToPickedDirectoryWithHandle');
+        } catch (err) {
+            try { await writable.abort(); } catch (_) {}
+            throw err;
+        }
+    } catch (err) {
+        throw new Error(`Failed to write to UF2 drive: ${err.message}`);
+    }
+}
+
+// Top-level helper to write a UF2 file into a user-picked directory (the mounted UF2 drive)
+async function writeToPickedDirectory(source, filename) {
+    // source can be: ArrayBuffer/Uint8Array, a Response object (streamable), or a URL string
+    // If File System Access isn't available, fall back to a Save-As dialog so the user can save the UF2
+    // and then copy it to the mounted UF2 drive.
+    if (!(chosenDevice && chosenDevice.type === 'mass' && chosenDevice.dirHandle) && !('showDirectoryPicker' in window)) {
+        // fallback: prompt a Save As dialog
+        await promptSaveAs(source, filename);
+        return;
+    }
+
+    let dirHandle;
+    if (chosenDevice && chosenDevice.type === 'mass' && chosenDevice.dirHandle) {
+        dirHandle = chosenDevice.dirHandle;
+    } else {
+        try {
+            statusDiv.textContent = 'Please select the UF2 drive folder...';
+            dirHandle = await window.showDirectoryPicker({
+                mode: 'readwrite',
+                startIn: 'desktop'
+            });
+            
+            // Verify this looks like a UF2 drive by checking for common files/structure
+            try {
+                const entries = [];
+                for await (const entry of dirHandle.values()) {
+                    entries.push(entry.name.toLowerCase());
+                }
+                
+                // Check if this looks like a UF2 drive (should have INFO_UF2.TXT or similar)
+                const hasUf2Indicator = entries.some(name => 
+                    name.includes('info_uf2') || 
+                    name.includes('index.htm') || 
+                    name === 'current.uf2' ||
+                    entries.length < 5 // UF2 drives typically have very few files
+                );
+                
+                if (!hasUf2Indicator && entries.length > 10) {
+                    const proceed = confirm('This folder doesn\'t appear to be a UF2 drive. Continue anyway?');
+                    if (!proceed) {
+                        statusDiv.textContent = 'Upload cancelled - please select the correct UF2 drive.';
+                        return;
+                    }
+                }
+            } catch (err) {
+                // If we can't enumerate, just proceed
+                console.warn('Could not verify UF2 drive structure:', err);
+            }
+            
+        } catch (err) {
+            if (err.name === 'AbortError') {
+                statusDiv.textContent = 'Drive selection cancelled.';
+                return;
+            }
+            throw new Error(`Failed to select drive: ${err.message}`);
+        }
+    }
+
+    return await writeToPickedDirectoryWithHandle(dirHandle, source, filename);
+}
+
+// Fallback save-as: gather the source into a Blob and trigger a browser Save dialog
+async function promptSaveAs(source, filename) {
+    statusDiv.textContent = 'Browser does not support direct drive access — opening Save dialog...';
+    let ab = null;
+    try {
+        if (source instanceof ArrayBuffer) {
+            ab = source;
+        } else if (source && source.buffer && source.byteLength !== undefined) {
+            // TypedArray
+            ab = source.buffer;
+        } else if (typeof source === 'string') {
+            const res = await fetch(source);
+            if (!res.ok) throw new Error('Download failed: ' + res.status);
+            ab = await res.arrayBuffer();
+        } else if (source && typeof source === 'object' && 'body' in source && source.body && typeof source.arrayBuffer === 'function') {
+            // Response-like
+            ab = await source.arrayBuffer();
+        } else if (source && typeof source === 'object' && 'body' in source && source.body && typeof source.body.getReader === 'function') {
+            // stream reader: collect into chunks
+            const reader = source.body.getReader();
+            const chunks = [];
+            let total = 0;
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                chunks.push(value);
+                total += value.length;
+            }
+            const merged = new Uint8Array(total);
+            let offset = 0;
+            for (const c of chunks) { merged.set(c, offset); offset += c.length; }
+            ab = merged.buffer;
+        } else {
+            throw new Error('Unable to prepare file for Save As');
+        }
+
+        const blob = new Blob([new Uint8Array(ab)], { type: 'application/octet-stream' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename || 'update.uf2';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 5000);
+        statusDiv.textContent = 'Save dialog opened — please save to the mounted UF2 drive or download folder and copy to the drive.';
+    } catch (err) {
+        statusDiv.textContent = 'Failed to prepare Save As: ' + err.message;
+        throw err;
+    }
+}
+
+// Keep a reference in case other code expects the original function name
+const originalWriteToPickedDirectory = writeToPickedDirectory;
+
+// Overlay handlers
+function showPostSaveOverlay() {
+    const overlay = document.getElementById('post-save-overlay');
+    if (!overlay) return;
+    overlay.style.display = 'flex';
+}
+
+function hidePostSaveOverlay() {
+    const overlay = document.getElementById('post-save-overlay');
+    if (!overlay) return;
+    overlay.style.display = 'none';
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const dismiss = document.getElementById('dismiss-overlay');
+    const copyBtn = document.getElementById('copy-file-btn');
+    const fileInput = document.getElementById('picked-file');
+    const overlayStatus = document.getElementById('overlay-status');
+    if (dismiss) dismiss.addEventListener('click', hidePostSaveOverlay);
+    if (copyBtn && fileInput) {
+        copyBtn.addEventListener('click', async () => {
+            overlayStatus.textContent = '';
+            const f = fileInput.files && fileInput.files[0];
+            if (!f) { overlayStatus.textContent = 'Please pick the UF2 file you saved.'; return; }
+            try {
+                // If File System Access available, ask user for the drive to copy into
+                if ('showDirectoryPicker' in window) {
+                    const dir = await window.showDirectoryPicker();
+                    const fh = await dir.getFileHandle(f.name, { create: true });
+                    const w = await fh.createWritable();
+                    await w.write(await f.arrayBuffer());
+                    await w.close();
+                    overlayStatus.textContent = `Copied ${f.name} to selected drive.`;
+                } else {
+                    overlayStatus.textContent = 'Your browser does not support direct drive writes. Please manually copy the saved UF2 file to the mounted UF2 drive.';
+                }
+            } catch (err) {
+                overlayStatus.textContent = 'Copy failed: ' + err.message;
+            }
+        });
+    }
+});
 
 // Attempt direct WebUSB upload. Returns true on success, false if the device
 // doesn't accept this transfer pattern. Throws on unexpected errors.
 async function attemptWebUSBUpload(arrayBuffer) {
     if (!('usb' in navigator)) throw new Error('WebUSB not available');
-    // Ask user to pick a device; broad filter to let user select the RP2040
+    // Ask user to pick a device; broad filter to let user select the KYWY
     // or related boards. We don't know the specific interface, so user will
     // need to pick the correct device.
     const filters = [{ vendorId: 0x2e8a }];
@@ -394,6 +917,50 @@ localInput.addEventListener('change', async (e) => {
 // initial load
 loadLibrary();
 
+// Check browser compatibility and show guidance
+function checkBrowserCompatibility() {
+    const hasFileSystemAccess = 'showDirectoryPicker' in window;
+    const hasWebSerial = 'serial' in navigator;
+    const hasWebUSB = 'usb' in navigator;
+    
+    if (!hasFileSystemAccess && !hasWebSerial) {
+        statusDiv.innerHTML = `
+            <strong>Browser Compatibility Warning:</strong><br>
+            Your browser doesn't support the File System Access API or Web Serial API required for direct KYWY programming. 
+            Please use Chrome, Edge, or another Chromium-based browser for the best experience.
+            <br><br>
+            <strong>Current browser support:</strong><br>
+            • File System Access: ${hasFileSystemAccess ? '✅ Supported' : '❌ Not supported'}<br>
+            • Web Serial: ${hasWebSerial ? '✅ Supported' : '❌ Not supported'}<br>
+            • Web USB: ${hasWebUSB ? '✅ Supported' : '❌ Not supported'}
+        `;
+        return false;
+    }
+    
+    if (!hasFileSystemAccess) {
+        statusDiv.innerHTML = `
+            <strong>Note:</strong> Your browser doesn't support the File System Access API. 
+            You'll need to manually save and copy UF2 files to your KYWY drive.
+        `;
+    }
+    
+    return true;
+}
+
+// Run compatibility check
+checkBrowserCompatibility();
+
+// start background scanning automatically
+startBackgroundScan();
+
+// wire multi-upload toggle
+if (multiUploadCheckbox) {
+    multiUploadCheckbox.addEventListener('change', () => {
+        if (multiUploadCheckbox.checked) startMultiUploadLoop();
+        else stopMultiUploadLoop();
+    });
+}
+
 uploadBtn.addEventListener('click', async () => {
     // Require either a remote selection (API or browser URL) or a local UF2 buffer
     if (!selectedUF2Api && !selectedUF2Browser && !selectedUF2Buffer) {
@@ -401,69 +968,131 @@ uploadBtn.addEventListener('click', async () => {
         return;
     }
 
+    // Check browser compatibility
+    if (!('showDirectoryPicker' in window) && !('serial' in navigator)) {
+        statusDiv.textContent = 'Your browser does not support the required File System Access or Web Serial APIs. Please use Chrome, Edge, or another Chromium-based browser.';
+        return;
+    }
+
     statusDiv.textContent = 'Preparing UF2...';
+    // Prepare a sourceCandidate that can be: ArrayBuffer | Response | URL string
     let uf2ArrayBuffer = selectedUF2Buffer;
-    if (!uf2ArrayBuffer) {
-        // Try GitHub API asset download (this uses the asset API URL and requests the binary)
-        if (selectedUF2Api) {
-            try {
-                const res = await fetch(selectedUF2Api, { headers: { Accept: 'application/octet-stream' } });
-                if (!res.ok) throw new Error('API download failed: ' + res.status);
-                uf2ArrayBuffer = await res.arrayBuffer();
-            } catch (e) {
-                // CORS or other failure — fall back to opening the browser download URL so user can save manually
-                if (selectedUF2Browser) {
-                    statusDiv.textContent = 'Automatic download blocked by CORS. Opening download link — please save the .uf2 and then use "Find devices" → pick drive to write it.';
-                    window.open(selectedUF2Browser, '_blank');
-                    return;
-                }
-                statusDiv.textContent = 'Error downloading UF2 file: ' + e.message;
+    let sourceCandidate = null;
+    
+    if (uf2ArrayBuffer) {
+        sourceCandidate = uf2ArrayBuffer;
+    } else {
+        // When running from file:// protocol, CORS blocks all external requests
+        // so we must use browser downloads instead
+        if (needsBrowserDownload()) {
+            const downloadUrl = selectedUF2Browser || selectedUF2Api;
+            if (downloadUrl) {
+                triggerBrowserDownload(downloadUrl, selectedUF2Name);
+                return;
+            } else {
+                statusDiv.textContent = 'No download URL available for this file.';
                 return;
             }
-        } else if (selectedUF2Browser) {
-            // If we only have a browser URL, open it for manual download
-            statusDiv.textContent = 'Opening download link — please save the .uf2 and then use "Find devices" → pick drive to write it.';
-            window.open(selectedUF2Browser, '_blank');
-            return;
         } else {
-            statusDiv.textContent = 'No remote UF2 selected.';
-            return;
+            // For hosted versions (like GitHub Pages), try direct download
+            try {
+                statusDiv.textContent = 'Downloading UF2 file...';
+                
+                // Try browser_download_url first (usually has better CORS support)
+                let downloadUrl = selectedUF2Browser;
+                
+                // If no browser URL, try the API URL
+                if (!downloadUrl && selectedUF2Api) {
+                    downloadUrl = selectedUF2Api;
+                }
+                
+                if (!downloadUrl) {
+                    statusDiv.textContent = 'No download URL available for this file.';
+                    return;
+                }
+                
+                const response = await fetch(downloadUrl, {
+                    method: 'GET',
+                    mode: 'cors',
+                    credentials: 'omit',
+                    headers: selectedUF2Api && downloadUrl === selectedUF2Api ? {
+                        'Accept': 'application/octet-stream'
+                    } : {}
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                uf2ArrayBuffer = await response.arrayBuffer();
+                sourceCandidate = uf2ArrayBuffer;
+                
+            } catch (e) {
+                // Fallback to browser download if fetch fails
+                const downloadUrl = selectedUF2Browser || selectedUF2Api;
+                if (downloadUrl) {
+                    statusDiv.innerHTML = `
+                        <strong>Direct download failed.</strong><br>
+                        ${e.message}<br>
+                        <br>
+                        <button id="manual-download-btn" style="margin: 8px 0; padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                            Download ${selectedUF2Name} manually
+                        </button><br>
+                        After downloading, use "Choose Local UF2 File" above to select it.
+                    `;
+                    
+                    const downloadBtn = document.getElementById('manual-download-btn');
+                    if (downloadBtn) {
+                        downloadBtn.addEventListener('click', () => {
+                            triggerBrowserDownload(downloadUrl, selectedUF2Name);
+                        });
+                    }
+                    return;
+                } else {
+                    statusDiv.textContent = 'Download failed and no fallback URL available.';
+                    return;
+                }
+            }
         }
     }
 
-        // New flow: trigger RP2040 bootloader via 1200 baud 'knock' (Web Serial),
-        // then write the UF2 file into the mounted mass-storage using the
-        // File System Access API (user selects the drive directory).
+    // New flow: trigger KYWY bootloader via 1200 baud 'knock' (Web Serial),
+    // then write the UF2 file into the mounted mass-storage using the
+    // File System Access API (user selects the drive directory).
 
-        // Helper: attempt to open serial, set 1200 baud, then close to trigger bootloader.
-        async function triggerBootloaderViaSerial() {
-            if (!('serial' in navigator)) throw new Error('Web Serial API not available in this browser');
-            // Prefer filtering by vendor id (user may still need to pick the port)
-            const filters = [{ usbVendorId: 0x2e8a }];
-            let port;
-            try {
-                port = await navigator.serial.requestPort({ filters });
-            } catch (err) {
+    // Helper: attempt to open serial, set 1200 baud, then close to trigger bootloader.
+    async function triggerBootloaderViaSerial() {
+        if (!('serial' in navigator)) throw new Error('Web Serial API not available in this browser');
+        
+        statusDiv.textContent = 'Please select your KYWY serial port...';
+        // Prefer filtering by vendor id (user may still need to pick the port)
+        const filters = [{ usbVendorId: 0x2e8a }];
+        let port;
+        try {
+            port = await navigator.serial.requestPort({ filters });
+        } catch (err) {
+            if (err.name === 'NotFoundError') {
+                throw new Error('No KYWY serial port found. Make sure your board is connected and not in bootloader mode.');
+            }
                 // try without filters as a fallback
-                port = await navigator.serial.requestPort();
+                try {
+                    port = await navigator.serial.requestPort();
+                } catch (err2) {
+                    if (err2.name === 'NotFoundError') {
+                        throw new Error('No serial ports available. Make sure your RP2040 board is connected.');
+                    }
+                    throw err2;
+                }
             }
-            await port.open({ baudRate: 1200 });
-            // Some boards require a small pause; close quickly to trigger reset
-            await port.close();
-        }
-
-        // Helper: write the UF2 ArrayBuffer into a user-picked directory (the mounted UF2 drive)
-        async function writeToPickedDirectory(buf, filename) {
-            if (!('showDirectoryPicker' in window)) {
-                throw new Error('File System Access API is not available in this browser');
+            
+            try {
+                await port.open({ baudRate: 1200 });
+                // Some boards require a small pause; close quickly to trigger reset
+                await new Promise(resolve => setTimeout(resolve, 100));
+                await port.close();
+            } catch (err) {
+                throw new Error(`Failed to trigger bootloader: ${err.message}`);
             }
-            statusDiv.textContent = 'Please choose the mounted UF2 drive folder when prompted...';
-            const dirHandle = await window.showDirectoryPicker();
-            // create or overwrite the file
-            const fileHandle = await dirHandle.getFileHandle(filename, { create: true });
-            const writable = await fileHandle.createWritable();
-            await writable.write(buf);
-            await writable.close();
         }
 
         // Prepare filename
@@ -473,38 +1102,59 @@ uploadBtn.addEventListener('click', async () => {
         // exposes a vendor/bulk interface that accepts UF2). This avoids needing
         // to mount a mass-storage drive. If it fails, fall back to the bootloader
         // knock + mass-storage write flow.
-        statusDiv.textContent = 'Attempting direct USB upload (if supported by device)...';
-        try {
-            const directOk = await attemptWebUSBUpload(uf2ArrayBuffer);
-            if (directOk) {
-                statusDiv.textContent = 'Direct upload complete! Device should reboot.';
-                return;
+        // If we have a full ArrayBuffer and WebUSB exists, try direct upload first
+        if (uf2ArrayBuffer && ('usb' in navigator)) {
+            statusDiv.textContent = 'Attempting direct USB upload (if supported by device)...';
+            try {
+                const directOk = await attemptWebUSBUpload(uf2ArrayBuffer);
+                if (directOk) {
+                    statusDiv.textContent = 'Direct upload complete! Device should reboot.';
+                    return;
+                }
+            } catch (err) {
+                if (err.name === 'NotFoundError') {
+                    statusDiv.textContent = 'No compatible USB device found — trying serial bootloader method.';
+                } else {
+                    statusDiv.textContent = 'Direct USB upload not available: ' + err.message + ' — falling back to UF2 drive method.';
+                }
             }
-            // otherwise continue to bootloader/mass-storage flow
-        } catch (err) {
-            // fall through to bootloader flow
-            statusDiv.textContent = 'Direct USB upload not available: ' + err.message + ' — falling back to UF2 drive method.';
         }
 
-        // Trigger bootloader (user will be prompted to choose serial port)
-        statusDiv.textContent = 'Triggering bootloader (opening serial at 1200 baud)...';
-        try {
-            await triggerBootloaderViaSerial();
-        } catch (err) {
-            statusDiv.textContent = 'Serial knock failed: ' + err.message + '. You can put the board into bootloader mode manually and then pick the drive.';
+        // If we have a pre-selected device, use it directly
+        if (chosenDevice && chosenDevice.type === 'mass') {
+            try {
+                await uploadToDevice(chosenDevice);
+                statusDiv.textContent = `Successfully wrote ${fileName} to the UF2 drive. The board should reboot into the new firmware.`;
+                return;
+            } catch (err) {
+                statusDiv.textContent = `Failed to write to pre-selected drive: ${err.message}`;
+                // Continue to manual selection below
+            }
         }
 
-        // Give the OS a short moment to re-enumerate and mount the UF2 drive
-        statusDiv.textContent = 'Waiting for the UF2 drive to appear (please allow a few seconds)...';
-        await new Promise(r => setTimeout(r, 1500));
+        // Try to trigger bootloader via serial if available
+        if ('serial' in navigator && (!chosenDevice || chosenDevice.type !== 'mass')) {
+            try {
+                await triggerBootloaderViaSerial();
+                // Give the OS a short moment to re-enumerate and mount the UF2 drive
+                statusDiv.textContent = 'Bootloader triggered. Waiting for UF2 drive to appear...';
+                await new Promise(r => setTimeout(r, 2000));
+            } catch (err) {
+                statusDiv.textContent = err.message + ' — Please put your board into bootloader mode manually.';
+                await new Promise(r => setTimeout(r, 1000));
+            }
+        }
 
-        // Ask user to pick the drive and write the UF2 file into it
+        // Manual drive selection
         try {
-            await writeToPickedDirectory(uf2ArrayBuffer, fileName);
-            statusDiv.textContent = `Successfully wrote ${fileName} to the selected drive. The board should reboot into the new firmware.`;
+            await writeToPickedDirectory(sourceCandidate, fileName);
+            statusDiv.textContent = `Successfully wrote ${fileName} to the UF2 drive. The board should reboot into the new firmware.`;
         } catch (err) {
-            // If File System Access isn't available or user cancels, provide fallback instructions
-            statusDiv.textContent = `Failed to write to drive: ${err.message}. If your browser doesn't support automatic drive access, manually copy ${fileName} to the mounted UF2 drive.`;
+            statusDiv.textContent = `Failed to write to drive: ${err.message}`;
+            // Show the overlay for manual save/copy as fallback
+            if (!('showDirectoryPicker' in window)) {
+                showPostSaveOverlay();
+            }
         }
 });
 

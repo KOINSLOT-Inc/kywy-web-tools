@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RP2040 UF2 Uploader</title>
+    <title>KYWY UF2 Uploader</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -16,13 +16,27 @@
                         <div class="ks-icon" style="width:32px;height:32px;background:url('KS Icon Black.png') center/contain no-repeat"></div>
                         <div class="brand-info">
                             <div style="font-weight:700;">KOINSLOT</div>
-                            <div style="font-size:13px;color:#666;">RP2040 UF2 Uploader</div>
+                            <div style="font-size:13px;color:#666;">KYWY UF2 Uploader</div>
                         </div>
                     </div>
                 </div>
 
                 <div class="nav-actions desktop-nav">
-                    <button id="find-devices-btn" class="nav-btn">🔍 Find devices</button>
+                    <!-- Beta badge -->
+                    <div style="
+                        background: linear-gradient(135deg, #ff6b6b, #ffa726);
+                        color: white;
+                        padding: 4px 12px;
+                        border-radius: 12px;
+                        font-size: 12px;
+                        font-weight: 600;
+                        text-transform: uppercase;
+                        letter-spacing: 0.5px;
+                        box-shadow: 0 2px 4px rgba(255, 107, 107, 0.3);
+                        margin-right: 12px;
+                        align-self: center;
+                    ">BETA</div>
+                    <!-- Find devices removed: automatic scanning enabled -->
                     <div id="selected-device" style="font-size:14px;color:#444;margin-left:12px;align-self:center;"></div>
                 </div>
             </div>
@@ -31,7 +45,10 @@
         <section>
             <div id="devices-panel" style="margin-bottom:12px;display:none;padding:8px;border:1px solid #ddd;background:#fff;border-radius:6px;"></div>
 
-            <div id="library-grid" style="display: flex; flex-wrap: wrap; gap: 16px; margin-top: 8px;"></div>
+            <div id="library-spinner" style="display:flex;align-items:center;justify-content:center;padding:18px;">
+                <div class="loader" style="width:28px;height:28px;border:4px solid #eee;border-top-color:#007bff;border-radius:50%;animation:spin 1s linear infinite"></div>
+            </div>
+            <div id="library-grid" style="display: flex; flex-wrap: wrap; gap: 16px; margin-top: 8px; display:none;"></div>
 
             <div style="height: 16px;"></div>
             <div style="margin-bottom: 8px;display:flex;align-items:center;gap:12px;">
@@ -40,13 +57,35 @@
             </div>
 
             <div style="height: 16px;"></div>
-            <div style="display:flex;gap:12px;align-items:center;">
-                <button id="upload-btn" disabled>Upload to RP2040</button>
-                <div id="status" style="color:#333;font-size:14px;"></div>
+            <div id="device-status" style="font-size:14px;color:#333;margin-bottom:8px;">No device found.</div>
+            <div style="display:flex;flex-direction:column;gap:8px;">
+                <label style="display:flex;align-items:center;gap:8px;">
+                    <input id="multi-upload-checkbox" type="checkbox"> <span>Multi-upload</span>
+                </label>
+                <div style="display:flex;gap:12px;align-items:center;">
+                    <button id="upload-btn" disabled>Upload to KYWY</button>
+                    <div id="status" style="color:#333;font-size:14px;"></div>
+                </div>
             </div>
+
+            <style>
+            @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+            </style>
         </section>
     </div>
 
     <script src="uploader.js"></script>
+    <div id="post-save-overlay" style="display:none;position:fixed;left:0;top:0;right:0;bottom:0;background:rgba(0,0,0,0.5);align-items:center;justify-content:center;">
+        <div style="background:#fff;padding:18px;border-radius:8px;max-width:520px;margin:0 auto;">
+            <div style="font-weight:700;margin-bottom:8px;">Saved UF2 — copy to device</div>
+            <div style="margin-bottom:8px;">If you saved the UF2 file to your Downloads folder, you can pick it here and the page will attempt to copy it to the mounted UF2 drive.</div>
+            <div style="display:flex;gap:8px;align-items:center;">
+                <input id="picked-file" type="file" accept=".uf2">
+                <button id="copy-file-btn">Copy to drive</button>
+                <button id="dismiss-overlay">Close</button>
+            </div>
+            <div id="overlay-status" style="margin-top:8px;color:#333;"></div>
+        </div>
+    </div>
 </body>
 </html>
