@@ -152,6 +152,46 @@
     "size": 235520
   },
   {
+    "repo": "KOINSLOT-Inc/kywy-rust",
+    "tag": "latest",
+    "name": "sprite_test.uf2",
+    "url": "https://tools.kywy.io/files/KOINSLOT-Inc/kywy-rust/latest/sprite_test.uf2",
+    "published_at": "2025-06-18T22:14:23Z",
+    "size": 90624
+  },
+  {
+    "repo": "KOINSLOT-Inc/kywy-rust",
+    "tag": "latest",
+    "name": "snake.uf2",
+    "url": "https://tools.kywy.io/files/KOINSLOT-Inc/kywy-rust/latest/snake.uf2",
+    "published_at": "2025-06-18T22:14:23Z",
+    "size": 92672
+  },
+  {
+    "repo": "KOINSLOT-Inc/kywy-rust",
+    "tag": "latest",
+    "name": "menu.uf2",
+    "url": "https://tools.kywy.io/files/KOINSLOT-Inc/kywy-rust/latest/menu.uf2",
+    "published_at": "2025-06-18T22:14:23Z",
+    "size": 132608
+  },
+  {
+    "repo": "KOINSLOT-Inc/kywy-rust",
+    "tag": "latest",
+    "name": "hello_world.uf2",
+    "url": "https://tools.kywy.io/files/KOINSLOT-Inc/kywy-rust/latest/hello_world.uf2",
+    "published_at": "2025-06-18T22:14:23Z",
+    "size": 71168
+  },
+  {
+    "repo": "KOINSLOT-Inc/kywy-rust",
+    "tag": "latest",
+    "name": "bricks.uf2",
+    "url": "https://tools.kywy.io/files/KOINSLOT-Inc/kywy-rust/latest/bricks.uf2",
+    "published_at": "2025-06-18T22:14:23Z",
+    "size": 119808
+  },
+  {
     "repo": "KOINSLOT-Inc/kywy",
     "tag": "v1.13.0",
     "name": "Spelunker.ino.uf2",
