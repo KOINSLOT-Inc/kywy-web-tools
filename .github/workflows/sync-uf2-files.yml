@@ -34,7 +34,7 @@ jobs:
           # List of repositories to sync (matches the repos array in uploader.js)
           REPOS=(
             "KOINSLOT-Inc/kywy"
-            # Add more repositories here as needed
+            "KOINSLOT-Inc/kywy-rust"
           )
           
           # Create metadata file
