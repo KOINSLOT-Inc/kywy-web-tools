@@ -174,6 +174,12 @@ async function loadLibrary() {
                         selectedUF2Api = file.apiUrl || null;
                         selectedUF2Browser = file.url || null;
                         selectedUF2Name = file.name; // remember filename for writing to UF2 drive
+                        
+                        // Clear local file input when library file is selected
+                        if (localInput) {
+                            localInput.value = '';
+                        }
+                        
                         uploadBtn.disabled = false;
                     });
         libraryGrid.appendChild(card);
@@ -1045,7 +1051,12 @@ localInput.addEventListener('change', async (e) => {
         statusDiv.textContent = 'Please select a .uf2 file.';
         return;
     }
+    
+    // Clear library selections when local file is selected
     selectedUF2 = null;
+    selectedUF2Api = null;
+    selectedUF2Browser = null;
+    
     selectedUF2Buffer = await f.arrayBuffer();
     selectedUF2Name = f.name;
     uploadBtn.disabled = false;
@@ -1163,9 +1174,14 @@ uploadBtn.addEventListener('click', async () => {
         const downloadUrl = selectedUF2Browser || selectedUF2Api;
         if (downloadUrl) {
             statusDiv.textContent = 'Attempting direct download from library...';
+            console.log('Attempting to fetch:', downloadUrl);
+            
             try {
                 // Try to fetch directly first
                 const response = await fetch(downloadUrl);
+                console.log('Fetch response status:', response.status, response.statusText);
+                console.log('Fetch response headers:', [...response.headers.entries()]);
+                
                 if (!response.ok) {
                     throw new Error(`Download failed: ${response.status} ${response.statusText}`);
                 }
@@ -1173,14 +1189,16 @@ uploadBtn.addEventListener('click', async () => {
                 // If fetch succeeds, we can use the response directly
                 sourceCandidate = response;
                 statusDiv.textContent = 'Direct download successful! Preparing upload...';
+                console.log('Direct fetch successful, proceeding with upload');
                 
             } catch (fetchError) {
-                console.log('Direct fetch failed due to CORS, falling back to browser download:', fetchError.message);
+                console.log('Direct fetch failed:', fetchError);
+                const hostname = new URL(downloadUrl).hostname;
                 
                 // Fall back to browser download method
                 statusDiv.innerHTML = `
                     <strong>📁 Direct download blocked by CORS</strong><br>
-                    Browser security prevents direct access to ${new URL(downloadUrl).hostname}. Using download fallback instead.<br>
+                    Browser security prevents direct access to ${hostname}. Using download fallback instead.<br>
                     <br>
                     <div style="margin: 12px 0;">
                         <button id="start-download-btn" style="padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 14px;">
