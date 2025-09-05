@@ -1172,32 +1172,15 @@ uploadBtn.addEventListener('click', async () => {
         // Try to fetch the remote file directly first, fall back to download if CORS blocks it
         const downloadUrl = selectedUF2Browser || selectedUF2Api;
         if (downloadUrl) {
-            statusDiv.textContent = 'Attempting direct download from library...';
-            console.log('Attempting to fetch:', downloadUrl);
+            // Check if we're running locally (file:// protocol) - GitHub will always block CORS for this
+            const isLocalFile = window.location.protocol === 'file:';
+            const hostname = new URL(downloadUrl).hostname;
             
-            try {
-                // Try to fetch directly first
-                const response = await fetch(downloadUrl);
-                console.log('Fetch response status:', response.status, response.statusText);
-                console.log('Fetch response headers:', [...response.headers.entries()]);
-                
-                if (!response.ok) {
-                    throw new Error(`Download failed: ${response.status} ${response.statusText}`);
-                }
-                
-                // If fetch succeeds, we can use the response directly
-                sourceCandidate = response;
-                statusDiv.textContent = 'Direct download successful! Preparing upload...';
-                console.log('Direct fetch successful, proceeding with upload');
-                
-            } catch (fetchError) {
-                console.log('Direct fetch failed:', fetchError);
-                const hostname = new URL(downloadUrl).hostname;
-                
-                // Fall back to browser download method
+            if (isLocalFile && hostname === 'github.com') {
+                console.log('Running locally with GitHub URL - skipping fetch attempt due to known CORS restrictions');
                 statusDiv.innerHTML = `
-                    <strong>📁 Direct download blocked by CORS</strong><br>
-                    Browser security prevents direct access to ${hostname}. Using download fallback instead.<br>
+                    <strong>📁 Direct download not available locally</strong><br>
+                    GitHub blocks CORS access from local files. Using download fallback instead.<br>
                     <br>
                     <div style="margin: 12px 0;">
                         <button id="start-download-btn" style="padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 14px;">
@@ -1208,25 +1191,80 @@ uploadBtn.addEventListener('click', async () => {
                         <strong>Fallback process:</strong> After download completes, use "Choose Local UF2 File" to select the downloaded file, then click "Upload to KYWY" again for direct copy.
                     </div>
                 `;
+            } else {
+                statusDiv.textContent = 'Attempting direct download from library...';
+                console.log('Attempting to fetch:', downloadUrl);
                 
-                const downloadBtn = document.getElementById('start-download-btn');
-                if (downloadBtn) {
-                    downloadBtn.addEventListener('click', () => {
-                        triggerBrowserDownload(downloadUrl, selectedUF2Name);
-                        statusDiv.innerHTML = `
-                            <strong>✅ Download started!</strong><br>
-                            The file "${selectedUF2Name}" should appear in your Downloads folder shortly.<br>
-                            <br>
-                            <strong>Complete the fallback process:</strong><br>
-                            1. Wait for the download to complete<br>
-                            2. Click "Choose Local UF2 File" above<br>
-                            3. Select the downloaded file from your Downloads folder<br>
-                            4. Click "Upload to KYWY" again (will then use direct copy)
-                        `;
-                    });
+                try {
+                    // Try to fetch directly first
+                    const response = await fetch(downloadUrl);
+                    console.log('Fetch response status:', response.status, response.statusText);
+                    console.log('Fetch response headers:', [...response.headers.entries()]);
+                    
+                    if (!response.ok) {
+                        throw new Error(`Download failed: ${response.status} ${response.statusText}`);
+                    }
+                    
+                    // If fetch succeeds, we can use the response directly
+                    sourceCandidate = response;
+                    statusDiv.textContent = 'Direct download successful! Preparing upload...';
+                    console.log('Direct fetch successful, proceeding with upload');
+                    
+                } catch (fetchError) {
+                    console.log('Direct fetch failed:', fetchError);
+                    
+                    // Fall back to browser download method
+                    statusDiv.innerHTML = `
+                        <strong>📁 Direct download blocked by CORS</strong><br>
+                        Browser security prevents direct access to ${hostname}. Using download fallback instead.<br>
+                        <br>
+                        <div style="margin: 12px 0;">
+                            <button id="start-download-btn" style="padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 14px;">
+                                📥 Download ${selectedUF2Name}
+                            </button>
+                        </div>
+                        <div style="font-size: 13px; color: #666; line-height: 1.4;">
+                            <strong>Fallback process:</strong> After download completes, use "Choose Local UF2 File" to select the downloaded file, then click "Upload to KYWY" again for direct copy.
+                        </div>
+                    `;
+                    
+                    const downloadBtn = document.getElementById('start-download-btn');
+                    if (downloadBtn) {
+                        downloadBtn.addEventListener('click', () => {
+                            triggerBrowserDownload(downloadUrl, selectedUF2Name);
+                            statusDiv.innerHTML = `
+                                <strong>✅ Download started!</strong><br>
+                                The file "${selectedUF2Name}" should appear in your Downloads folder shortly.<br>
+                                <br>
+                                <strong>Complete the fallback process:</strong><br>
+                                1. Wait for the download to complete<br>
+                                2. Click "Choose Local UF2 File" above<br>
+                                3. Select the downloaded file from your Downloads folder<br>
+                                4. Click "Upload to KYWY" again (will then use direct copy)
+                            `;
+                        });
+                    }
+                    return;
                 }
-                return;
             }
+            
+            const downloadBtn = document.getElementById('start-download-btn');
+            if (downloadBtn) {
+                downloadBtn.addEventListener('click', () => {
+                    triggerBrowserDownload(downloadUrl, selectedUF2Name);
+                    statusDiv.innerHTML = `
+                        <strong>✅ Download started!</strong><br>
+                        The file "${selectedUF2Name}" should appear in your Downloads folder shortly.<br>
+                        <br>
+                        <strong>Complete the fallback process:</strong><br>
+                        1. Wait for the download to complete<br>
+                        2. Click "Choose Local UF2 File" above<br>
+                        3. Select the downloaded file from your Downloads folder<br>
+                        4. Click "Upload to KYWY" again (will then use direct copy)
+                    `;
+                });
+            }
+            return;
         } else {
             statusDiv.textContent = 'No download URL available for this file.';
             return;
