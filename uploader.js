@@ -266,18 +266,63 @@ function renderDevicesPanel(serialPorts, opts = {}) {
         row.style.gap = '8px';
         row.style.alignItems = 'center';
         row.style.marginBottom = '6px';
-        const name = document.createElement('div');
-        name.textContent = p.getInfo ? `Port ${idx + 1}` : `Serial port ${idx + 1}`;
-        name.style.flex = '1';
+        row.style.padding = '8px';
+        row.style.border = '1px solid #ddd';
+        row.style.borderRadius = '4px';
+        row.style.background = '#f9f9f9';
+        
+        const info = p.getInfo ? p.getInfo() : {};
+        let deviceName = `Serial Port ${idx + 1}`;
+        let deviceDetails = '';
+        
+        // Create detailed device name and info
+        if (info.usbVendorId === 0x2e8a || info.vendorId === 0x2e8a) {
+            // Raspberry Pi Foundation devices
+            if (info.usbProductId === 0x0003) {
+                deviceName = 'Raspberry Pi Pico';
+            } else if (info.usbProductId === 0x000a) {
+                deviceName = 'Raspberry Pi Pico W';
+            } else if (info.usbProductId === 0x000f) {
+                deviceName = 'Raspberry Pi Pico 2';
+            } else {
+                deviceName = 'RP2040 Device';
+            }
+            deviceDetails = `VID:${info.usbVendorId.toString(16).toUpperCase().padStart(4, '0')} PID:${info.usbProductId.toString(16).toUpperCase().padStart(4, '0')}`;
+        } else if (info.usbVendorId && info.usbProductId) {
+            deviceName = 'Serial Device';
+            deviceDetails = `VID:${info.usbVendorId.toString(16).toUpperCase().padStart(4, '0')} PID:${info.usbProductId.toString(16).toUpperCase().padStart(4, '0')}`;
+        } else {
+            deviceDetails = 'USB info not available';
+        }
+        
+        const nameContainer = document.createElement('div');
+        nameContainer.style.flex = '1';
+        
+        const nameDiv = document.createElement('div');
+        nameDiv.textContent = deviceName;
+        nameDiv.style.fontWeight = 'bold';
+        nameDiv.style.fontSize = '14px';
+        nameContainer.appendChild(nameDiv);
+        
+        const detailsDiv = document.createElement('div');
+        detailsDiv.textContent = deviceDetails;
+        detailsDiv.style.fontSize = '12px';
+        detailsDiv.style.color = '#666';
+        nameContainer.appendChild(detailsDiv);
+        
         const selectBtn = document.createElement('button');
         selectBtn.textContent = 'Select';
+        selectBtn.style.padding = '4px 12px';
+        selectBtn.style.fontSize = '12px';
         selectBtn.addEventListener('click', () => {
-            chosenDevice = { type: 'serial', port: p, name: `Serial ${idx + 1}` };
-            selectedDeviceLabel.textContent = `Selected: ${chosenDevice.name}`;
+            chosenDevice = { type: 'serial', port: p, name: deviceName, details: deviceDetails };
+            selectedDeviceLabel.textContent = `Selected: ${deviceName}`;
             devicesPanel.style.display = 'none';
         });
         const resetBtn = document.createElement('button');
         resetBtn.textContent = 'Reset to bootloader';
+        resetBtn.style.padding = '4px 12px';
+        resetBtn.style.fontSize = '12px';
         resetBtn.addEventListener('click', async () => {
             try {
                 // open at 1200 baud then close
@@ -288,9 +333,15 @@ function renderDevicesPanel(serialPorts, opts = {}) {
                 selectedDeviceLabel.textContent = 'Failed to reset via serial: ' + err.message;
             }
         });
-        row.appendChild(name);
-        row.appendChild(selectBtn);
-        row.appendChild(resetBtn);
+        
+        const buttonContainer = document.createElement('div');
+        buttonContainer.style.display = 'flex';
+        buttonContainer.style.gap = '4px';
+        buttonContainer.appendChild(selectBtn);
+        buttonContainer.appendChild(resetBtn);
+        
+        row.appendChild(nameContainer);
+        row.appendChild(buttonContainer);
         devicesPanel.appendChild(row);
     });
 
@@ -442,7 +493,26 @@ async function scanForDevicesOnce() {
                     const info = p.getInfo ? p.getInfo() : {};
                     const isRp = (info.usbVendorId === 0x2e8a || info.vendorId === 0x2e8a || (info.usbProductId && info.usbProductId > 0));
                     const id = `serial:${info.usbVendorId || 'u'}:${info.usbProductId || 'p'}:${p}`;
-                    found.push({ id, type: 'serial', port: p, info, name: `Serial ${info.usbProductId || ''}` });
+                    
+                    // Create a more descriptive device name
+                    let deviceName = 'Unknown Serial Device';
+                    if (info.usbVendorId === 0x2e8a || info.vendorId === 0x2e8a) {
+                        // Raspberry Pi Foundation devices
+                        if (info.usbProductId === 0x0003) {
+                            deviceName = 'Raspberry Pi Pico';
+                        } else if (info.usbProductId === 0x000a) {
+                            deviceName = 'Raspberry Pi Pico W';
+                        } else if (info.usbProductId === 0x000f) {
+                            deviceName = 'Raspberry Pi Pico 2';
+                        } else {
+                            deviceName = 'RP2040 Device';
+                        }
+                        deviceName += ` (VID:${info.usbVendorId.toString(16).toUpperCase().padStart(4, '0')} PID:${info.usbProductId.toString(16).toUpperCase().padStart(4, '0')})`;
+                    } else if (info.usbVendorId && info.usbProductId) {
+                        deviceName = `Serial Device (VID:${info.usbVendorId.toString(16).toUpperCase().padStart(4, '0')} PID:${info.usbProductId.toString(16).toUpperCase().padStart(4, '0')})`;
+                    }
+                    
+                    found.push({ id, type: 'serial', port: p, info, name: deviceName });
                 } catch (err) { 
                     console.warn('Error getting port info:', err);
                 }
@@ -565,7 +635,16 @@ function renderDetectedDevices() {
     if (detectedDevices.length === 1) {
         const d = detectedDevices[0];
         chosenDevice = d.type === 'serial' ? { type: 'serial', port: d.port, name: d.name } : { type: 'mass', dirHandle: d.dirHandle, name: d.name };
-        if (deviceStatusElem) deviceStatusElem.textContent = `Found device: ${chosenDevice.name} (${chosenDevice.type})`;
+        if (deviceStatusElem) {
+            if (d.type === 'serial') {
+                deviceStatusElem.innerHTML = `
+                    <div><strong>Found device: ${chosenDevice.name}</strong></div>
+                    <div style="font-size: 12px; color: #666;">${d.type} port - Ready for bootloader trigger</div>
+                `;
+            } else {
+                deviceStatusElem.textContent = `Found device: ${chosenDevice.name} (${chosenDevice.type})`;
+            }
+        }
         selectedDeviceLabel.textContent = `Selected: ${chosenDevice.name}`;
         uploadBtn.disabled = false;
         return;
@@ -573,11 +652,16 @@ function renderDetectedDevices() {
 
     // multiple devices: create a select box
     const sel = document.createElement('select');
-    sel.style.minWidth = '220px';
+    sel.style.minWidth = '280px';
+    sel.style.padding = '4px 8px';
     detectedDevices.forEach((d, idx) => {
         const opt = document.createElement('option');
         opt.value = d.id;
-        opt.textContent = `${d.type === 'serial' ? 'Serial' : 'Mass'} — ${d.name || ('Device ' + (idx + 1))}`;
+        if (d.type === 'serial') {
+            opt.textContent = `📱 ${d.name} (Serial Port)`;
+        } else {
+            opt.textContent = `💾 ${d.name || ('Device ' + (idx + 1))} (Mass Storage)`;
+        }
         sel.appendChild(opt);
     });
     sel.addEventListener('change', () => {
@@ -591,6 +675,11 @@ function renderDetectedDevices() {
     });
     if (deviceStatusElem) {
         deviceStatusElem.innerHTML = '';
+        const label = document.createElement('div');
+        label.textContent = 'Multiple devices found - select one:';
+        label.style.marginBottom = '4px';
+        label.style.fontSize = '13px';
+        deviceStatusElem.appendChild(label);
         deviceStatusElem.appendChild(sel);
     }
     deviceSelectElem = sel;
@@ -662,7 +751,7 @@ async function uploadToDevice(d) {
     } else {
         // For uploadToDevice calls (like multi-upload), we need to enforce the download-first approach
         // since GitHub blocks CORS for all external sites
-        throw new Error('Remote files must be downloaded first. Use the main upload button to download the file, then try again.');
+        throw new Error('Remote files must be downloaded first for direct copy. Use the main upload button to download the file, then try again.');
     }
 
     const fileName = selectedUF2Name || 'update.uf2';
@@ -750,7 +839,7 @@ async function writeToPickedDirectoryWithHandle(dirHandle, source, filename) {
 async function writeToPickedDirectory(source, filename) {
     // source can be: ArrayBuffer/Uint8Array, a Response object (streamable), or a URL string
     // If File System Access isn't available, fall back to a Save-As dialog so the user can save the UF2
-    // and then copy it to the mounted UF2 drive.
+    // and then manually copy it to the mounted UF2 drive.
     if (!(chosenDevice && chosenDevice.type === 'mass' && chosenDevice.dirHandle) && !('showDirectoryPicker' in window)) {
         // fallback: prompt a Save As dialog
         await promptSaveAs(source, filename);
@@ -809,7 +898,7 @@ async function writeToPickedDirectory(source, filename) {
 
 // Fallback save-as: gather the source into a Blob and trigger a browser Save dialog
 async function promptSaveAs(source, filename) {
-    statusDiv.textContent = 'Browser does not support direct drive access — opening Save dialog...';
+    statusDiv.textContent = '⚠️ Direct drive access not supported — using save dialog fallback...';
     let ab = null;
     try {
         if (source instanceof ArrayBuffer) {
@@ -852,9 +941,9 @@ async function promptSaveAs(source, filename) {
         a.click();
         a.remove();
         setTimeout(() => URL.revokeObjectURL(url), 5000);
-        statusDiv.textContent = 'Save dialog opened — please save to the mounted UF2 drive or download folder and copy to the drive.';
+        statusDiv.textContent = '📁 Save dialog opened — fallback method: please save to your UF2 drive or Downloads folder, then manually copy to the UF2 drive.';
     } catch (err) {
-        statusDiv.textContent = 'Failed to prepare Save As: ' + err.message;
+        statusDiv.textContent = 'Save dialog fallback failed: ' + err.message;
         throw err;
     }
 }
@@ -1070,13 +1159,13 @@ uploadBtn.addEventListener('click', async () => {
     if (uf2ArrayBuffer) {
         sourceCandidate = uf2ArrayBuffer;
     } else {
-        // GitHub blocks CORS on release downloads, so we always use browser downloads
+        // GitHub blocks CORS on release downloads, so we must use browser downloads as fallback
         // This provides a consistent experience across all deployment methods
         const downloadUrl = selectedUF2Browser || selectedUF2Api;
         if (downloadUrl) {
             statusDiv.innerHTML = `
-                <strong>Ready to download!</strong><br>
-                Click the button below to download the UF2 file to your computer.<br>
+                <strong>📁 Direct copy not available for library files</strong><br>
+                Browser security prevents direct access to remote files. Using download fallback instead.<br>
                 <br>
                 <div style="margin: 12px 0;">
                     <button id="start-download-btn" style="padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 14px;">
@@ -1084,7 +1173,7 @@ uploadBtn.addEventListener('click', async () => {
                     </button>
                 </div>
                 <div style="font-size: 13px; color: #666; line-height: 1.4;">
-                    After the download completes, use the "Choose Local UF2 File" button above to select the downloaded file, then click "Upload to KYWY" again.
+                    <strong>Fallback process:</strong> After download completes, use "Choose Local UF2 File" to select the downloaded file, then click "Upload to KYWY" again for direct copy.
                 </div>
             `;
             
@@ -1096,11 +1185,11 @@ uploadBtn.addEventListener('click', async () => {
                         <strong>✅ Download started!</strong><br>
                         The file "${selectedUF2Name}" should appear in your Downloads folder shortly.<br>
                         <br>
-                        <strong>Next steps:</strong><br>
+                        <strong>Complete the fallback process:</strong><br>
                         1. Wait for the download to complete<br>
                         2. Click "Choose Local UF2 File" above<br>
                         3. Select the downloaded file from your Downloads folder<br>
-                        4. Click "Upload to KYWY" again
+                        4. Click "Upload to KYWY" again (will then use direct copy)
                     `;
                 });
             }
@@ -1119,7 +1208,7 @@ uploadBtn.addEventListener('click', async () => {
     async function triggerBootloaderViaSerial() {
         if (!('serial' in navigator)) throw new Error('Web Serial API not available in this browser');
         
-        statusDiv.textContent = 'Please select your KYWY serial port...';
+        statusDiv.textContent = 'Please select your KYWY device from the available serial ports...';
         // Prefer filtering by vendor id (user may still need to pick the port)
         const filters = [{ usbVendorId: 0x2e8a }];
         let port;
@@ -1131,6 +1220,7 @@ uploadBtn.addEventListener('click', async () => {
             }
                 // try without filters as a fallback
                 try {
+                    statusDiv.textContent = 'KYWY device not found, showing all serial ports...';
                     port = await navigator.serial.requestPort();
                 } catch (err2) {
                     if (err2.name === 'NotFoundError') {
@@ -1140,13 +1230,33 @@ uploadBtn.addEventListener('click', async () => {
                 }
             }
             
+            // Show which device was selected
+            const info = port.getInfo ? port.getInfo() : {};
+            let deviceName = 'Selected device';
+            if (info.usbVendorId === 0x2e8a || info.vendorId === 0x2e8a) {
+                if (info.usbProductId === 0x0003) {
+                    deviceName = 'Raspberry Pi Pico';
+                } else if (info.usbProductId === 0x000a) {
+                    deviceName = 'Raspberry Pi Pico W';
+                } else if (info.usbProductId === 0x000f) {
+                    deviceName = 'Raspberry Pi Pico 2';
+                } else {
+                    deviceName = 'RP2040 Device';
+                }
+                if (info.usbVendorId && info.usbProductId) {
+                    deviceName += ` (VID:${info.usbVendorId.toString(16).toUpperCase().padStart(4, '0')} PID:${info.usbProductId.toString(16).toUpperCase().padStart(4, '0')})`;
+                }
+            }
+            
+            statusDiv.textContent = `Triggering bootloader on ${deviceName}...`;
+            
             try {
                 await port.open({ baudRate: 1200 });
                 // Some boards require a small pause; close quickly to trigger reset
                 await new Promise(resolve => setTimeout(resolve, 100));
                 await port.close();
             } catch (err) {
-                throw new Error(`Failed to trigger bootloader: ${err.message}`);
+                throw new Error(`Failed to trigger bootloader on ${deviceName}: ${err.message}`);
             }
         }
 
@@ -1159,18 +1269,18 @@ uploadBtn.addEventListener('click', async () => {
         // knock + mass-storage write flow.
         // If we have a full ArrayBuffer and WebUSB exists, try direct upload first
         if (uf2ArrayBuffer && ('usb' in navigator)) {
-            statusDiv.textContent = 'Attempting direct USB upload (if supported by device)...';
+            statusDiv.textContent = 'Attempting direct USB upload (fastest method)...';
             try {
                 const directOk = await attemptWebUSBUpload(uf2ArrayBuffer);
                 if (directOk) {
-                    statusDiv.textContent = 'Direct upload complete! Device should reboot.';
+                    statusDiv.textContent = '✅ Direct USB upload complete! Device should reboot.';
                     return;
                 }
             } catch (err) {
                 if (err.name === 'NotFoundError') {
-                    statusDiv.textContent = 'No compatible USB device found — trying serial bootloader method.';
+                    statusDiv.textContent = 'Direct USB not available — using bootloader fallback method.';
                 } else {
-                    statusDiv.textContent = 'Direct USB upload not available: ' + err.message + ' — falling back to UF2 drive method.';
+                    statusDiv.textContent = 'Direct USB upload failed: ' + err.message + ' — falling back to UF2 drive method.';
                 }
             }
         }
@@ -1193,14 +1303,14 @@ uploadBtn.addEventListener('click', async () => {
                 await triggerBootloaderViaSerial();
                 // Give the OS a short moment to re-enumerate and mount the UF2 drive
                 statusDiv.innerHTML = `
-                    <strong>✅ Bootloader triggered!</strong><br>
+                    <strong>✅ Bootloader triggered successfully!</strong><br>
                     Your KYWY should now appear as a USB drive (usually named "RPI-RP2").<br>
                     <br>
                     <button id="select-drive-btn" style="padding: 10px 20px; background: #28a745; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; margin: 8px 0;">
-                        📁 Select UF2 Drive
+                        📁 Select UF2 Drive for Direct Copy
                     </button><br>
                     <div style="font-size: 13px; color: #666;">
-                        Click the button above to browse for your UF2 drive folder.
+                        Click above to browse for your UF2 drive folder and complete the direct copy.
                     </div>
                 `;
                 
@@ -1212,9 +1322,9 @@ uploadBtn.addEventListener('click', async () => {
                             selectBtn.disabled = true;
                             
                             await writeToPickedDirectory(sourceCandidate, fileName);
-                            statusDiv.textContent = `Successfully wrote ${fileName} to the UF2 drive. The board should reboot into the new firmware.`;
+                            statusDiv.textContent = `✅ Direct copy successful! ${fileName} written to UF2 drive. Device should reboot into new firmware.`;
                         } catch (err) {
-                            statusDiv.textContent = `Failed to write to drive: ${err.message}`;
+                            statusDiv.textContent = `Direct copy failed: ${err.message}`;
                             // Show the overlay for manual save/copy as fallback
                             if (!('showDirectoryPicker' in window)) {
                                 showPostSaveOverlay();
@@ -1225,18 +1335,19 @@ uploadBtn.addEventListener('click', async () => {
                 return; // Don't continue to automatic drive selection
                 
             } catch (err) {
-                statusDiv.textContent = err.message + ' — Please put your board into bootloader mode manually.';
+                statusDiv.textContent = err.message + ' — Bootloader trigger failed. Using manual fallback method.';
                 await new Promise(r => setTimeout(r, 1000));
             }
         }
 
         // Manual drive selection (for cases where serial bootloader trigger failed)
         statusDiv.innerHTML = `
-            <strong>Please put your KYWY into bootloader mode</strong><br>
-            Hold the BOOTSEL button while connecting USB, then click below:<br>
+            <strong>⚠️ Using manual fallback method</strong><br>
+            Please put your KYWY into bootloader mode manually, then select the drive:<br>
+            <em>Hold BOOTSEL button while connecting USB</em><br>
             <br>
             <button id="select-drive-btn-manual" style="padding: 10px 20px; background: #28a745; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; margin: 8px 0;">
-                📁 Select UF2 Drive
+                📁 Select UF2 Drive for Direct Copy
             </button>
         `;
         
@@ -1248,9 +1359,9 @@ uploadBtn.addEventListener('click', async () => {
                     manualBtn.disabled = true;
                     
                     await writeToPickedDirectory(sourceCandidate, fileName);
-                    statusDiv.textContent = `Successfully wrote ${fileName} to the UF2 drive. The board should reboot into the new firmware.`;
+                    statusDiv.textContent = `✅ Direct copy successful! ${fileName} written to UF2 drive. Device should reboot into new firmware.`;
                 } catch (err) {
-                    statusDiv.textContent = `Failed to write to drive: ${err.message}`;
+                    statusDiv.textContent = `Direct copy failed: ${err.message}`;
                     // Show the overlay for manual save/copy as fallback
                     if (!('showDirectoryPicker' in window)) {
                         showPostSaveOverlay();
