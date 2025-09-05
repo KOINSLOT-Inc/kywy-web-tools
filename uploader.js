@@ -47,6 +47,32 @@ async function fetchSplashList() {
 }
 
 async function fetchUF2Assets() {
+    // Try to fetch from our synced files first (no CORS issues)
+    try {
+        const syncedUrl = 'https://tools.kywy.io/files/releases.json';
+        const syncedResponse = await fetch(syncedUrl);
+        if (syncedResponse.ok) {
+            const syncedFiles = await syncedResponse.json();
+            console.log(`Loaded ${syncedFiles.length} synced UF2 files`);
+            
+            // Convert to the format expected by the rest of the code
+            return syncedFiles.map(file => ({
+                name: file.name,
+                url: file.url,           // Direct URL to our synced file (no CORS)
+                id: `synced_${file.repo}_${file.tag}_${file.name}`,
+                apiUrl: file.url,        // Same as url since it's already accessible
+                repo: file.repo,
+                tag: file.tag,
+                published_at: file.published_at,
+                size: file.size
+            }));
+        }
+    } catch (error) {
+        console.log('Failed to load synced files, falling back to GitHub API:', error.message);
+    }
+    
+    // Fallback to GitHub API (will require download workaround due to CORS)
+    console.log('Using GitHub API fallback - files will require download step');
     const all = [];
     for (const repo of repos) {
         try {
@@ -58,7 +84,16 @@ async function fetchUF2Assets() {
                 for (const a of r.assets || []) {
                     if (a.name && a.name.toLowerCase().endsWith('.uf2')) {
                         // keep both the browser_download_url and the API asset url/id
-                        all.push({ name: a.name, url: a.browser_download_url, id: a.id, apiUrl: a.url, repo });
+                        all.push({ 
+                            name: a.name, 
+                            url: a.browser_download_url, 
+                            id: a.id, 
+                            apiUrl: a.url, 
+                            repo,
+                            tag: r.tag_name,
+                            published_at: r.published_at,
+                            size: a.size
+                        });
                     }
                 }
             }

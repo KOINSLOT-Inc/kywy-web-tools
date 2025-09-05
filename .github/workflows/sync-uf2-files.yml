@@ -1,0 +1,171 @@
+name: Sync UF2 Files from Releases
+
+on:
+  schedule:
+    # Run daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    # Allow manual triggering
+  push:
+    paths:
+      - '.github/workflows/sync-uf2-files.yml'
+    # Run when workflow is modified
+
+jobs:
+  sync-files:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Create files directory
+        run: |
+          mkdir -p files
+          
+      - name: Sync UF2 files from releases
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # List of repositories to sync (matches the repos array in uploader.js)
+          REPOS=(
+            "KOINSLOT-Inc/kywy"
+            # Add more repositories here as needed
+          )
+          
+          # Create metadata file
+          echo "[]" > files/releases.json
+          
+          for REPO in "${REPOS[@]}"; do
+            echo "Syncing releases from $REPO..."
+            
+            # Get latest releases
+            RELEASES=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
+              "https://api.github.com/repos/$REPO/releases")
+            
+            # Process each release
+            echo "$RELEASES" | jq -r '.[] | select(.assets != null) | {tag_name, published_at, assets: [.assets[] | select(.name | endswith(".uf2"))]} | select(.assets | length > 0)' > temp_releases.json
+            
+            # Download UF2 files
+            while read -r release; do
+              TAG=$(echo "$release" | jq -r '.tag_name')
+              PUBLISHED=$(echo "$release" | jq -r '.published_at')
+              
+              echo "Processing release $TAG..."
+              
+              # Create release directory
+              RELEASE_DIR="files/$REPO/$TAG"
+              mkdir -p "$RELEASE_DIR"
+              
+              # Download each UF2 asset
+              echo "$release" | jq -r '.assets[] | @base64' | while read -r asset_b64; do
+                asset=$(echo "$asset_b64" | base64 -d)
+                
+                ASSET_NAME=$(echo "$asset" | jq -r '.name')
+                DOWNLOAD_URL=$(echo "$asset" | jq -r '.browser_download_url')
+                ASSET_ID=$(echo "$asset" | jq -r '.id')
+                ASSET_SIZE=$(echo "$asset" | jq -r '.size')
+                
+                TARGET_FILE="$RELEASE_DIR/$ASSET_NAME"
+                
+                # Check if file exists and has correct size
+                if [[ -f "$TARGET_FILE" ]] && [[ $(stat -c%s "$TARGET_FILE" 2>/dev/null || echo 0) -eq $ASSET_SIZE ]]; then
+                  echo "  $ASSET_NAME already up to date"
+                else
+                  echo "  Downloading $ASSET_NAME..."
+                  curl -L -H "Authorization: token $GITHUB_TOKEN" \
+                    "$DOWNLOAD_URL" -o "$TARGET_FILE"
+                  
+                  # Verify download
+                  if [[ $(stat -c%s "$TARGET_FILE") -eq $ASSET_SIZE ]]; then
+                    echo "  ✓ Downloaded $ASSET_NAME ($(stat -c%s "$TARGET_FILE") bytes)"
+                  else
+                    echo "  ✗ Download failed for $ASSET_NAME"
+                    rm -f "$TARGET_FILE"
+                  fi
+                fi
+                
+                # Add to releases.json metadata
+                jq --arg repo "$REPO" --arg tag "$TAG" --arg name "$ASSET_NAME" \
+                   --arg url "https://tools.kywy.io/files/$REPO/$TAG/$ASSET_NAME" \
+                   --arg published "$PUBLISHED" \
+                   --arg size "$ASSET_SIZE" \
+                   '. += [{
+                     repo: $repo,
+                     tag: $tag, 
+                     name: $name,
+                     url: $url,
+                     published_at: $published,
+                     size: ($size | tonumber)
+                   }]' files/releases.json > files/releases.json.tmp && \
+                mv files/releases.json.tmp files/releases.json
+              done
+            done < <(echo "$RELEASES" | jq -c '.[] | select(.assets != null) | {tag_name, published_at, assets: [.assets[] | select(.name | endswith(".uf2"))]} | select(.assets | length > 0)')
+          done
+          
+          # Sort releases by published date (newest first)
+          jq 'sort_by(.published_at) | reverse' files/releases.json > files/releases.json.tmp && \
+            mv files/releases.json.tmp files/releases.json
+          
+          echo "Sync completed. Found $(jq length files/releases.json) UF2 files."
+          
+      - name: Generate file index
+        run: |
+          # Create a simple HTML index for browsing
+          cat > files/index.html << 'EOF'
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>KYWY UF2 Files</title>
+            <style>
+              body { font-family: Arial, sans-serif; margin: 40px; }
+              .file { margin: 10px 0; padding: 10px; border: 1px solid #ccc; }
+              .repo { font-weight: bold; color: #007bff; }
+              .tag { color: #28a745; }
+              .size { color: #666; font-size: 0.9em; }
+            </style>
+          </head>
+          <body>
+            <h1>KYWY UF2 Files</h1>
+            <p>Last updated: $(date)</p>
+            <div id="files"></div>
+            <script>
+              fetch('./releases.json')
+                .then(r => r.json())
+                .then(files => {
+                  const container = document.getElementById('files');
+                  files.forEach(file => {
+                    const div = document.createElement('div');
+                    div.className = 'file';
+                    div.innerHTML = \`
+                      <div class="repo">\${file.repo}</div>
+                      <div class="tag">\${file.tag}</div>
+                      <div><a href="\${file.url}">\${file.name}</a> <span class="size">(\${(file.size/1024).toFixed(1)} KB)</span></div>
+                      <div class="size">Published: \${new Date(file.published_at).toLocaleDateString()}</div>
+                    \`;
+                    container.appendChild(div);
+                  });
+                });
+            </script>
+          </body>
+          </html>
+          EOF
+          
+      - name: Commit changes
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add files/
+          
+          # Check if there are changes to commit
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Auto-sync UF2 files - $(date -u '+%Y-%m-%d %H:%M UTC')"
+            git push
+            echo "Files synced and committed"
+          fi
