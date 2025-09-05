@@ -55,17 +55,24 @@ async function fetchUF2Assets() {
             const syncedFiles = await syncedResponse.json();
             console.log(`Loaded ${syncedFiles.length} synced UF2 files`);
             
-            // Convert to the format expected by the rest of the code
-            return syncedFiles.map(file => ({
-                name: file.name,
-                url: file.url,           // Direct URL to our synced file (no CORS)
-                id: `synced_${file.repo}_${file.tag}_${file.name}`,
-                apiUrl: file.url,        // Same as url since it's already accessible
-                repo: file.repo,
-                tag: file.tag,
-                published_at: file.published_at,
-                size: file.size
-            }));
+            // Only use synced files if we actually have some
+            if (syncedFiles.length > 0) {
+                // Convert to the format expected by the rest of the code
+                return syncedFiles.map(file => ({
+                    name: file.name,
+                    url: file.url,           // Direct URL to our synced file (no CORS)
+                    id: `synced_${file.repo}_${file.tag}_${file.name}`,
+                    apiUrl: file.url,        // Same as url since it's already accessible
+                    repo: file.repo,
+                    tag: file.tag,
+                    published_at: file.published_at,
+                    size: file.size
+                }));
+            } else {
+                console.log('Synced files list is empty, falling back to GitHub API');
+            }
+        } else {
+            console.log(`Synced files not available (${syncedResponse.status}), falling back to GitHub API`);
         }
     } catch (error) {
         console.log('Failed to load synced files, falling back to GitHub API:', error.message);
@@ -99,8 +106,10 @@ async function fetchUF2Assets() {
             }
         } catch (e) {
             // ignore per-repo errors
+            console.log(`Error fetching releases for ${repo}:`, e.message);
         }
     }
+    console.log(`Loaded ${all.length} files from GitHub API`);
     return all;
 }
 
@@ -159,6 +168,7 @@ function makeCard(displayName, imgSrc, highlight = false) {
 }
 
 async function loadLibrary() {
+    console.log('Loading library...');
     statusDiv.textContent = '';
     const spinner = document.getElementById('library-spinner');
     const grid = document.getElementById('library-grid');
@@ -169,14 +179,19 @@ async function loadLibrary() {
     selectedUF2Buffer = null;
     uploadBtn.disabled = true;
 
+    console.log('Fetching splash files...');
     const splashFiles = await fetchSplashList();
+    console.log(`Found ${splashFiles.length} splash files`);
     const splashMap = new Map();
     for (const f of splashFiles) {
         const key = f.replace(/\.(png|bmp)$/i, '').toLowerCase().replace(/[^a-z0-9]/g, '');
         splashMap.set(key, f);
     }
 
+    console.log('Fetching UF2 assets...');
     const assets = await fetchUF2Assets();
+    console.log(`Raw assets found: ${assets.length}`);
+    
     // dedupe by normalized key
     const seen = new Set();
     const unique = [];
@@ -187,6 +202,7 @@ async function loadLibrary() {
             unique.push(a);
         }
     }
+    console.log(`Unique assets after deduplication: ${unique.length}`);
 
     if (unique.length === 0) {
     statusDiv.textContent = 'No UF2 files found.';
