@@ -71,23 +71,13 @@ async function fetchUF2Assets() {
 
 // Helper: determine if we're running locally and need to use browser downloads
 function needsBrowserDownload() {
-    // Only use browser downloads for local file:// protocol
-    // When hosted on GitHub Pages or other HTTPS sites, direct downloads should work
-    return window.location.protocol === 'file:';
+    // GitHub blocks CORS on release downloads for all origins, so we always need browser downloads for remote files
+    // Only exception would be if we had our own proxy server or the files were hosted elsewhere
+    return true; // Always use browser download for GitHub releases due to CORS
 }
 
 // Helper: trigger browser download for files that can't be fetched due to CORS
 function triggerBrowserDownload(url, filename) {
-    statusDiv.innerHTML = `
-        <strong>Starting download...</strong><br>
-        The file "${filename}" will be downloaded to your Downloads folder.<br>
-        <br>
-        <strong>After download completes:</strong><br>
-        1. Click "Choose Local UF2 File" above<br>
-        2. Select the downloaded file from your Downloads folder<br>
-        3. Click "Upload to KYWY" again
-    `;
-    
     const a = document.createElement('a');
     a.href = url;
     a.download = filename;
@@ -436,20 +426,34 @@ function stopAutoSearch() {
 // --- Background scanning and auto-selection (runs without explicit search click)
 async function scanForDevicesOnce() {
     const found = [];
+    
+    // Check if we're on HTTPS (required for many Web APIs)
+    const isSecure = window.location.protocol === 'https:' || window.location.hostname === 'localhost';
+    
     // serial ports the site has permission for
     if ('serial' in navigator) {
         try {
+            // On HTTPS sites, getPorts() only returns ports the user has previously granted permission to
             const ports = await navigator.serial.getPorts();
+            console.log(`Found ${ports.length} serial ports with permissions`);
+            
             for (const p of ports) {
                 try {
                     const info = p.getInfo ? p.getInfo() : {};
                     const isRp = (info.usbVendorId === 0x2e8a || info.vendorId === 0x2e8a || (info.usbProductId && info.usbProductId > 0));
                     const id = `serial:${info.usbVendorId || 'u'}:${info.usbProductId || 'p'}:${p}`;
                     found.push({ id, type: 'serial', port: p, info, name: `Serial ${info.usbProductId || ''}` });
-                } catch (_) { /* ignore */ }
+                } catch (err) { 
+                    console.warn('Error getting port info:', err);
+                }
             }
-        } catch (_) {}
+        } catch (err) {
+            console.warn('Error accessing serial ports:', err);
+        }
+    } else {
+        console.log('Web Serial API not available');
     }
+    
     // mass storage: include chosenDevice.dirHandle if user previously picked one
     if (chosenDevice && chosenDevice.type === 'mass' && chosenDevice.dirHandle) {
         found.push({ id: 'mass:chosen', type: 'mass', dirHandle: chosenDevice.dirHandle, name: chosenDevice.name });
@@ -477,12 +481,67 @@ function renderDetectedDevices() {
     // Show simple status in the selectedDevice label area and manage selection UI
     const container = document.createElement('div');
     if (!detectedDevices || detectedDevices.length === 0) {
-        container.innerHTML = `
-            <div>No KYWY device found.</div>
-            <button onclick="showDeviceInstructions()" style="margin-top: 8px; padding: 4px 8px; font-size: 12px;">
-                How to connect my KYWY?
-            </button>
-        `;
+        const isSecure = window.location.protocol === 'https:' || window.location.hostname === 'localhost';
+        const hasSerial = 'serial' in navigator;
+        
+        if (hasSerial && isSecure) {
+            // On HTTPS sites, we need user interaction to grant permissions
+            container.innerHTML = `
+                <div>No KYWY device found.</div>
+                <div style="margin-top: 8px; display: flex; gap: 8px; align-items: center;">
+                    <button id="connect-device-btn" style="padding: 6px 12px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">
+                        🔌 Connect KYWY Device
+                    </button>
+                    <button onclick="showDeviceInstructions()" style="padding: 4px 8px; font-size: 12px; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; cursor: pointer;">
+                        How to connect?
+                    </button>
+                </div>
+                <div style="font-size: 11px; color: #666; margin-top: 4px;">
+                    Click "Connect KYWY Device" to grant permission for device detection
+                </div>
+            `;
+            
+            const connectBtn = container.querySelector('#connect-device-btn');
+            if (connectBtn) {
+                connectBtn.addEventListener('click', async () => {
+                    try {
+                        connectBtn.textContent = 'Connecting...';
+                        connectBtn.disabled = true;
+                        
+                        // Request permission for a new serial port
+                        const port = await navigator.serial.requestPort({ 
+                            filters: [{ usbVendorId: 0x2e8a }] // RP2040 vendor ID
+                        });
+                        
+                        // Refresh the device list
+                        await scanForDevicesOnce();
+                        
+                    } catch (err) {
+                        if (err.name === 'NotFoundError') {
+                            connectBtn.textContent = 'No device selected';
+                        } else {
+                            connectBtn.textContent = 'Connection failed';
+                            console.error('Device connection error:', err);
+                        }
+                        setTimeout(() => {
+                            connectBtn.textContent = '🔌 Connect KYWY Device';
+                            connectBtn.disabled = false;
+                        }, 2000);
+                    }
+                });
+            }
+        } else {
+            // Fallback for non-HTTPS or unsupported browsers
+            container.innerHTML = `
+                <div>No KYWY device found.</div>
+                <button onclick="showDeviceInstructions()" style="margin-top: 8px; padding: 4px 8px; font-size: 12px;">
+                    How to connect my KYWY?
+                </button>
+                ${!hasSerial ? '<div style="font-size: 11px; color: #666; margin-top: 4px;">Web Serial API not supported in this browser</div>' : ''}
+                ${!isSecure ? '<div style="font-size: 11px; color: #666; margin-top: 4px;">HTTPS required for automatic device detection</div>' : ''}
+            `;
+        }
+        
         if (deviceStatusElem) {
             deviceStatusElem.innerHTML = '';
             deviceStatusElem.appendChild(container);
@@ -982,77 +1041,44 @@ uploadBtn.addEventListener('click', async () => {
     if (uf2ArrayBuffer) {
         sourceCandidate = uf2ArrayBuffer;
     } else {
-        // When running from file:// protocol, CORS blocks all external requests
-        // so we must use browser downloads instead
-        if (needsBrowserDownload()) {
-            const downloadUrl = selectedUF2Browser || selectedUF2Api;
-            if (downloadUrl) {
-                triggerBrowserDownload(downloadUrl, selectedUF2Name);
-                return;
-            } else {
-                statusDiv.textContent = 'No download URL available for this file.';
-                return;
-            }
-        } else {
-            // For hosted versions (like GitHub Pages), try direct download
-            try {
-                statusDiv.textContent = 'Downloading UF2 file...';
-                
-                // Try browser_download_url first (usually has better CORS support)
-                let downloadUrl = selectedUF2Browser;
-                
-                // If no browser URL, try the API URL
-                if (!downloadUrl && selectedUF2Api) {
-                    downloadUrl = selectedUF2Api;
-                }
-                
-                if (!downloadUrl) {
-                    statusDiv.textContent = 'No download URL available for this file.';
-                    return;
-                }
-                
-                const response = await fetch(downloadUrl, {
-                    method: 'GET',
-                    mode: 'cors',
-                    credentials: 'omit',
-                    headers: selectedUF2Api && downloadUrl === selectedUF2Api ? {
-                        'Accept': 'application/octet-stream'
-                    } : {}
-                });
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                }
-                
-                uf2ArrayBuffer = await response.arrayBuffer();
-                sourceCandidate = uf2ArrayBuffer;
-                
-            } catch (e) {
-                // Fallback to browser download if fetch fails
-                const downloadUrl = selectedUF2Browser || selectedUF2Api;
-                if (downloadUrl) {
+        // GitHub blocks CORS on release downloads, so we always use browser downloads
+        // This provides a consistent experience across all deployment methods
+        const downloadUrl = selectedUF2Browser || selectedUF2Api;
+        if (downloadUrl) {
+            statusDiv.innerHTML = `
+                <strong>Ready to download!</strong><br>
+                Click the button below to download the UF2 file to your computer.<br>
+                <br>
+                <div style="margin: 12px 0;">
+                    <button id="start-download-btn" style="padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 14px;">
+                        📥 Download ${selectedUF2Name}
+                    </button>
+                </div>
+                <div style="font-size: 13px; color: #666; line-height: 1.4;">
+                    After the download completes, use the "Choose Local UF2 File" button above to select the downloaded file, then click "Upload to KYWY" again.
+                </div>
+            `;
+            
+            const downloadBtn = document.getElementById('start-download-btn');
+            if (downloadBtn) {
+                downloadBtn.addEventListener('click', () => {
+                    triggerBrowserDownload(downloadUrl, selectedUF2Name);
                     statusDiv.innerHTML = `
-                        <strong>Direct download failed.</strong><br>
-                        ${e.message}<br>
+                        <strong>✅ Download started!</strong><br>
+                        The file "${selectedUF2Name}" should appear in your Downloads folder shortly.<br>
                         <br>
-                        <button id="manual-download-btn" style="margin: 8px 0; padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">
-                            Download ${selectedUF2Name} manually
-                        </button><br>
-                        After downloading, use "Choose Local UF2 File" above to select it.
+                        <strong>Next steps:</strong><br>
+                        1. Wait for the download to complete<br>
+                        2. Click "Choose Local UF2 File" above<br>
+                        3. Select the downloaded file from your Downloads folder<br>
+                        4. Click "Upload to KYWY" again
                     `;
-                    
-                    const downloadBtn = document.getElementById('manual-download-btn');
-                    if (downloadBtn) {
-                        downloadBtn.addEventListener('click', () => {
-                            triggerBrowserDownload(downloadUrl, selectedUF2Name);
-                        });
-                    }
-                    return;
-                } else {
-                    statusDiv.textContent = 'Download failed and no fallback URL available.';
-                    return;
-                }
+                });
             }
+            return;
+        } else {
+            statusDiv.textContent = 'No download URL available for this file.';
+            return;
         }
     }
 
