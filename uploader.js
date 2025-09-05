@@ -1060,13 +1060,12 @@ localInput.addEventListener('change', async (e) => {
     selectedUF2Buffer = await f.arrayBuffer();
     selectedUF2Name = f.name;
     uploadBtn.disabled = false;
-    // prepend card
-    const card = makeCard(f.name.replace(/\.uf2$/i, ''), '');
-    // simple placeholder
-    card.querySelector('img').style.background = '#fff';
+    
+    // Clear any library file selections (remove blue borders)
     Array.from(libraryGrid.children).forEach(c => c.style.border = '2px solid #ccc');
-    card.style.border = '2px solid #007bff';
-    libraryGrid.prepend(card);
+    
+    // Update status to show local file is selected
+    statusDiv.textContent = `Local file selected: ${f.name}`;
 });
 
 // initial load
