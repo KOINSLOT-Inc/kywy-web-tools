@@ -652,16 +652,17 @@ function stopMultiUploadLoop() {
 async function uploadToDevice(d) {
     // Use currently selected UF2 as sourceCandidate if available
     if (!selectedUF2Api && !selectedUF2Browser && !selectedUF2Buffer) throw new Error('No UF2 selected');
+    
     // prepare sourceCandidate similarly to the upload button flow
     let uf2ArrayBuffer = selectedUF2Buffer;
     let sourceCandidate = null;
-    if (uf2ArrayBuffer) sourceCandidate = uf2ArrayBuffer;
-    else if (selectedUF2Api) {
-        const res = await fetch(selectedUF2Api, { headers: { Accept: 'application/octet-stream' } });
-        if (!res.ok) throw new Error('Download failed: ' + res.status);
-        sourceCandidate = res.body && typeof res.body.getReader === 'function' ? res : await res.arrayBuffer();
-    } else if (selectedUF2Browser) {
-        sourceCandidate = selectedUF2Browser;
+    
+    if (uf2ArrayBuffer) {
+        sourceCandidate = uf2ArrayBuffer;
+    } else {
+        // For uploadToDevice calls (like multi-upload), we need to enforce the download-first approach
+        // since GitHub blocks CORS for all external sites
+        throw new Error('Remote files must be downloaded first. Use the main upload button to download the file, then try again.');
     }
 
     const fileName = selectedUF2Name || 'update.uf2';
@@ -717,25 +718,9 @@ async function writeToPickedDirectoryWithHandle(dirHandle, source, filename) {
                 return;
             }
 
-            // If source is a URL string, fetch and stream
+            // If source is a URL string, this should no longer happen since we use download-first approach
             if (typeof source === 'string') {
-                const res = await fetch(source);
-                if (!res.ok) throw new Error('Download failed: ' + res.status);
-                if (!res.body || typeof res.body.getReader !== 'function') {
-                    // fallback to arrayBuffer
-                    const ab = await res.arrayBuffer();
-                    await writable.write(new Uint8Array(ab));
-                    await writable.close();
-                    return;
-                }
-                const reader = res.body.getReader();
-                while (true) {
-                    const { done, value } = await reader.read();
-                    if (done) break;
-                    await writable.write(value);
-                }
-                await writable.close();
-                return;
+                throw new Error('URL strings are no longer supported - files must be downloaded first due to CORS restrictions');
             }
 
             // Otherwise assume an ArrayBuffer/Uint8Array
@@ -1050,8 +1035,17 @@ checkExistingPermissions();
 // wire multi-upload toggle
 if (multiUploadCheckbox) {
     multiUploadCheckbox.addEventListener('change', () => {
-        if (multiUploadCheckbox.checked) startMultiUploadLoop();
-        else stopMultiUploadLoop();
+        if (multiUploadCheckbox.checked) {
+            // Multi-upload only works with local files due to CORS restrictions
+            if (!selectedUF2Buffer) {
+                alert('Multi-upload mode only works with local UF2 files. Please select a local file first.');
+                multiUploadCheckbox.checked = false;
+                return;
+            }
+            startMultiUploadLoop();
+        } else {
+            stopMultiUploadLoop();
+        }
     });
 }
 
@@ -1198,24 +1192,71 @@ uploadBtn.addEventListener('click', async () => {
             try {
                 await triggerBootloaderViaSerial();
                 // Give the OS a short moment to re-enumerate and mount the UF2 drive
-                statusDiv.textContent = 'Bootloader triggered. Waiting for UF2 drive to appear...';
-                await new Promise(r => setTimeout(r, 2000));
+                statusDiv.innerHTML = `
+                    <strong>✅ Bootloader triggered!</strong><br>
+                    Your KYWY should now appear as a USB drive (usually named "RPI-RP2").<br>
+                    <br>
+                    <button id="select-drive-btn" style="padding: 10px 20px; background: #28a745; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; margin: 8px 0;">
+                        📁 Select UF2 Drive
+                    </button><br>
+                    <div style="font-size: 13px; color: #666;">
+                        Click the button above to browse for your UF2 drive folder.
+                    </div>
+                `;
+                
+                const selectBtn = document.getElementById('select-drive-btn');
+                if (selectBtn) {
+                    selectBtn.addEventListener('click', async () => {
+                        try {
+                            selectBtn.textContent = 'Selecting drive...';
+                            selectBtn.disabled = true;
+                            
+                            await writeToPickedDirectory(sourceCandidate, fileName);
+                            statusDiv.textContent = `Successfully wrote ${fileName} to the UF2 drive. The board should reboot into the new firmware.`;
+                        } catch (err) {
+                            statusDiv.textContent = `Failed to write to drive: ${err.message}`;
+                            // Show the overlay for manual save/copy as fallback
+                            if (!('showDirectoryPicker' in window)) {
+                                showPostSaveOverlay();
+                            }
+                        }
+                    });
+                }
+                return; // Don't continue to automatic drive selection
+                
             } catch (err) {
                 statusDiv.textContent = err.message + ' — Please put your board into bootloader mode manually.';
                 await new Promise(r => setTimeout(r, 1000));
             }
         }
 
-        // Manual drive selection
-        try {
-            await writeToPickedDirectory(sourceCandidate, fileName);
-            statusDiv.textContent = `Successfully wrote ${fileName} to the UF2 drive. The board should reboot into the new firmware.`;
-        } catch (err) {
-            statusDiv.textContent = `Failed to write to drive: ${err.message}`;
-            // Show the overlay for manual save/copy as fallback
-            if (!('showDirectoryPicker' in window)) {
-                showPostSaveOverlay();
-            }
+        // Manual drive selection (for cases where serial bootloader trigger failed)
+        statusDiv.innerHTML = `
+            <strong>Please put your KYWY into bootloader mode</strong><br>
+            Hold the BOOTSEL button while connecting USB, then click below:<br>
+            <br>
+            <button id="select-drive-btn-manual" style="padding: 10px 20px; background: #28a745; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; margin: 8px 0;">
+                📁 Select UF2 Drive
+            </button>
+        `;
+        
+        const manualBtn = document.getElementById('select-drive-btn-manual');
+        if (manualBtn) {
+            manualBtn.addEventListener('click', async () => {
+                try {
+                    manualBtn.textContent = 'Selecting drive...';
+                    manualBtn.disabled = true;
+                    
+                    await writeToPickedDirectory(sourceCandidate, fileName);
+                    statusDiv.textContent = `Successfully wrote ${fileName} to the UF2 drive. The board should reboot into the new firmware.`;
+                } catch (err) {
+                    statusDiv.textContent = `Failed to write to drive: ${err.message}`;
+                    // Show the overlay for manual save/copy as fallback
+                    if (!('showDirectoryPicker' in window)) {
+                        showPostSaveOverlay();
+                    }
+                }
+            });
         }
 });
 
