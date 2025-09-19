@@ -6826,7 +6826,7 @@ Instructions:
         // Only support specific angles for pixel-perfect rotation
         const normalizedAngle = ((degrees % 360) + 360) % 360;
         
-        // Create array of non-white pixels with their positions
+        // Create array of non-white pixels with their absolute positions
         const pixels = [];
         for (let y = 0; y < height; y++) {
             for (let x = 0; x < width; x++) {
@@ -6841,8 +6841,8 @@ Instructions:
                     // Convert to black or white only
                     const isBlack = (r + g + b) < 384; // Average < 128
                     pixels.push({
-                        x: x - width / 2,
-                        y: y - height / 2,
+                        x: x, // Keep absolute coordinates
+                        y: y, // Keep absolute coordinates
                         color: isBlack ? 'black' : 'white'
                     });
                 }
@@ -6851,17 +6851,28 @@ Instructions:
         
         if (pixels.length === 0) return null;
         
-        // Rotate each pixel
+        // Calculate center of selection for rotation
+        const centerX = width / 2;
+        const centerY = height / 2;
+        
+        // Rotate each pixel around the selection center
         const angleRad = normalizedAngle * Math.PI / 180;
         const cos = Math.cos(angleRad);
         const sin = Math.sin(angleRad);
         
         const rotatedPixels = pixels.map(pixel => {
-            const newX = Math.round(pixel.x * cos - pixel.y * sin);
-            const newY = Math.round(pixel.x * sin + pixel.y * cos);
+            // Translate to origin
+            const relX = pixel.x - centerX;
+            const relY = pixel.y - centerY;
+            
+            // Rotate
+            const newRelX = relX * cos - relY * sin;
+            const newRelY = relX * sin + relY * cos;
+            
+            // Translate back and round to nearest pixel
             return {
-                x: newX,
-                y: newY,
+                x: Math.round(newRelX + centerX),
+                y: Math.round(newRelY + centerY),
                 color: pixel.color
             };
         });
@@ -6873,7 +6884,7 @@ Instructions:
     findBestPlacement(rotatedPixels, originalCenterX, originalCenterY) {
         if (rotatedPixels.length === 0) return null;
         
-        // Calculate bounding box of rotated pixels
+        // Calculate bounding box of rotated pixels (in selection-relative coordinates)
         let minX = rotatedPixels[0].x;
         let maxX = rotatedPixels[0].x;
         let minY = rotatedPixels[0].y;
@@ -6886,43 +6897,34 @@ Instructions:
             maxY = Math.max(maxY, pixel.y);
         });
         
-        const rotatedWidth = maxX - minX + 1;
-        const rotatedHeight = maxY - minY + 1;
+        // Calculate the center of the rotated content
+        const rotatedCenterX = (minX + maxX) / 2;
+        const rotatedCenterY = (minY + maxY) / 2;
         
-        // Try to center around original position
-        let offsetX = originalCenterX - (maxX + minX) / 2;
-        let offsetY = originalCenterY - (maxY + minY) / 2;
+        // Calculate offset to keep the content centered on the original position
+        const offsetX = originalCenterX - rotatedCenterX;
+        const offsetY = originalCenterY - rotatedCenterY;
         
-        // Adjust to stay within canvas bounds
-        const finalMinX = Math.round(minX + offsetX);
-        const finalMaxX = Math.round(maxX + offsetX);
-        const finalMinY = Math.round(minY + offsetY);
-        const finalMaxY = Math.round(maxY + offsetY);
+        // Calculate final bounds after offset
+        const finalMinX = minX + offsetX;
+        const finalMaxX = maxX + offsetX;
+        const finalMinY = minY + offsetY;
+        const finalMaxY = maxY + offsetY;
         
-        if (finalMinX < 0) offsetX -= finalMinX;
-        if (finalMaxX >= this.canvasWidth) offsetX -= (finalMaxX - this.canvasWidth + 1);
-        if (finalMinY < 0) offsetY -= finalMinY;
-        if (finalMaxY >= this.canvasHeight) offsetY -= (finalMaxY - this.canvasHeight + 1);
-        
-        // Final bounds check
-        const adjustedMinX = Math.round(minX + offsetX);
-        const adjustedMaxX = Math.round(maxX + offsetX);
-        const adjustedMinY = Math.round(minY + offsetY);
-        const adjustedMaxY = Math.round(maxY + offsetY);
-        
-        if (adjustedMinX < 0 || adjustedMaxX >= this.canvasWidth || 
-            adjustedMinY < 0 || adjustedMaxY >= this.canvasHeight) {
+        // Check if it fits on canvas
+        if (finalMinX < 0 || finalMaxX >= this.canvasWidth || 
+            finalMinY < 0 || finalMaxY >= this.canvasHeight) {
             return null; // Doesn't fit
         }
         
         return {
-            x: Math.round(offsetX),
-            y: Math.round(offsetY),
+            x: offsetX,
+            y: offsetY,
             bounds: {
-                minX: adjustedMinX,
-                maxX: adjustedMaxX + 1, // +1 for selection box
-                minY: adjustedMinY,
-                maxY: adjustedMaxY + 1  // +1 for selection box
+                minX: Math.floor(finalMinX),
+                maxX: Math.ceil(finalMaxX) + 1, // +1 for selection box
+                minY: Math.floor(finalMinY),
+                maxY: Math.ceil(finalMaxY) + 1  // +1 for selection box
             }
         };
     }
@@ -6930,14 +6932,14 @@ Instructions:
     // Place rotated pixels on canvas
     placeRotatedPixels(ctx, rotatedPixels, offsetX, offsetY) {
         rotatedPixels.forEach(pixel => {
-            const canvasX = Math.round(pixel.x + offsetX);
-            const canvasY = Math.round(pixel.y + offsetY);
+            const canvasX = pixel.x + offsetX;
+            const canvasY = pixel.y + offsetY;
             
             if (canvasX >= 0 && canvasX < this.canvasWidth && 
                 canvasY >= 0 && canvasY < this.canvasHeight) {
                 
                 ctx.fillStyle = pixel.color;
-                ctx.fillRect(canvasX, canvasY, 1, 1);
+                ctx.fillRect(Math.round(canvasX), Math.round(canvasY), 1, 1);
             }
         });
     }
