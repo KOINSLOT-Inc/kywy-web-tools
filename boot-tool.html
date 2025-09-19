@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kywy Boot Tool</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="boot-tool-style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔧 Kywy Boot Tool</h1>
+            <p>Connect to your Kywy device and trigger a reboot</p>
+        </div>
+
+        <div class="tool-section">
+            <div class="connection-section">
+                <h2>Device Connection</h2>
+                <div class="connection-controls">
+                    <button id="connectBtn" class="btn btn-primary">
+                        📡 Connect to Kywy
+                    </button>
+                    <button id="disconnectBtn" class="btn btn-secondary" disabled>
+                        🔌 Disconnect
+                    </button>
+                </div>
+                <div id="connectionStatus" class="status-display">
+                    Not connected
+                </div>
+            </div>
+
+            <div class="boot-section">
+                <h2>Boot Control</h2>
+                <div class="boot-controls">
+                    <button id="rebootBtn" class="btn btn-warning" disabled>
+                        🔄 Reboot Kywy
+                    </button>
+                </div>
+                <div id="bootStatus" class="status-display">
+                    Ready to reboot (connect device first)
+                </div>
+            </div>
+        </div>
+
+        <div class="info-section">
+            <h3>ℹ️ How to Use</h3>
+            <ol>
+                <li>Click "Connect to Kywy" to establish a serial connection</li>
+                <li>Select your Kywy device from the browser dialog</li>
+                <li>Once connected, click "Reboot Kywy" to trigger a device restart</li>
+                <li>The tool will send a 1200 baud signal to initiate the reboot</li>
+                <li>The KYWY will reconnect as a storage device and you can copy your UF2 files to it</li>
+            </ol>
+            
+            <div class="note">
+                <strong>Get games <a href="http://kywy.io/featured-games.html" target="_blank">here</a></strong>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button onclick="window.location.href='menu.html'" class="btn btn-secondary">
+                ← Back to Menu
+            </button>
+        </div>
+    </div>
+
+    <script src="boot-tool.js"></script>
+</body>
+</html>

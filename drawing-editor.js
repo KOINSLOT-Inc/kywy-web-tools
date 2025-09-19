@@ -104,6 +104,30 @@ class FloodFillCommand extends Command {
     }
 }
 
+// Command for paste operations
+class PasteCommand extends Command {
+    constructor(editor, pasteData, frameIndex = null) {
+        super(editor, frameIndex);
+        this.pasteData = pasteData; // Array of {x, y, oldColor, newColor} objects
+    }
+    
+    execute() {
+        const ctx = this.getFrameContext();
+        this.pasteData.forEach(pixel => {
+            this.editor.setPixelInFrameWithColor(pixel.x, pixel.y, pixel.newColor, ctx);
+        });
+        this.editor.redrawCanvas();
+    }
+    
+    undo() {
+        const ctx = this.getFrameContext();
+        this.pasteData.forEach(pixel => {
+            this.editor.setPixelInFrameWithColor(pixel.x, pixel.y, pixel.oldColor, ctx);
+        });
+        this.editor.redrawCanvas();
+    }
+}
+
 // Command for clear canvas operations
 class ClearCanvasCommand extends Command {
     constructor(editor, canvasSnapshot, frameIndex = null) {
@@ -145,19 +169,19 @@ class TransformCommand extends Command {
     }
     
     applyTransform() {
-        // Reapply the specific transform
+        // Reapply the specific transform using internal methods to avoid recursion
         switch(this.transformType) {
             case 'flipH':
-                this.editor.flipCanvasHorizontal();
+                this.editor._flipCanvasHorizontalInternal();
                 break;
             case 'flipV':
-                this.editor.flipCanvasVertical();
+                this.editor._flipCanvasVerticalInternal();
                 break;
             case 'rotateL':
-                this.editor.rotateCanvas(-90);
+                this.editor._rotateCanvasInternal(-90);
                 break;
             case 'rotateR':
-                this.editor.rotateCanvas(90);
+                this.editor._rotateCanvasInternal(90);
                 break;
         }
     }
@@ -196,9 +220,17 @@ class DrawingEditor {
         this.shapeThickness = 1;
         this.shapeStrokePosition = 'outside'; // 'outside', 'inside', 'centered'
         
+        // Shape drawing mode: 'corner', 'center', 'perfect-corner', 'perfect-center'
+        this.shapeMode = 'corner';
+        
         // Grid properties
         this.showPixelGrid = false;
         this.showGrid = false;
+        
+        // Grid mode properties
+        this.gridModeEnabled = false;
+        this.gridSize = 8;
+        this.showGridLines = true;
         
         // Fill pattern properties
         this.fillPattern = 'solid'; // default to solid fill
@@ -258,6 +290,19 @@ class DrawingEditor {
         // Selection state
         this.clipboard = null;
         this.selection = null;
+        this.isPasteModeActive = false;
+        this.pasteIgnoreWhite = false;
+        this.pasteIgnoreBlack = false;
+        
+        // Paste mode drag state
+        this.pasteDragActive = false;
+        this.pasteDragStartTime = 0;
+        this.pasteDragStartX = 0;
+        this.pasteDragStartY = 0;
+        this.pasteDragThreshold = 5; // pixels to move before considering it a drag
+        this.pasteDragTimeThreshold = 150; // milliseconds to hold before dragging
+        this.lastPasteTime = 0;
+        this.pasteThrottleInterval = 50; // minimum milliseconds between pastes during drag
         
         // Last preview area for live pattern updates
         this.lastPreviewArea = null;
@@ -318,6 +363,10 @@ class DrawingEditor {
         
         this.setCanvasSize(144, 168);
         this.initializeBackgroundCanvas();
+        
+        // Initialize grid display
+        this.updateGridDisplay();
+        this.updateBrushControlsState();
         
         // Center the canvas on initialization - wait longer for DOM to be ready
         setTimeout(() => this.centerCanvas(), 300);
@@ -598,6 +647,38 @@ class DrawingEditor {
             document.getElementById('brushSizeDisplay').textContent = this.brushSize;
         });
 
+        // Grid mode controls
+        const gridModeToggle = document.getElementById('gridModeToggle');
+        const gridModeSettings = document.getElementById('gridModeSettings');
+        const gridSizeSlider = document.getElementById('gridSize');
+        const showGridLinesToggle = document.getElementById('showGridLines');
+        
+        if (gridModeToggle) {
+            gridModeToggle.addEventListener('change', () => {
+                this.gridModeEnabled = gridModeToggle.checked;
+                gridModeSettings.style.display = this.gridModeEnabled ? 'block' : 'none';
+                this.updateGridDisplay();
+                this.updateBrushControlsState();
+            });
+        }
+        
+        if (gridSizeSlider) {
+            gridSizeSlider.addEventListener('input', () => {
+                this.gridSize = parseInt(gridSizeSlider.value);
+                document.getElementById('gridSizeDisplay').textContent = this.gridSize;
+                document.getElementById('gridSizeDisplay2').textContent = this.gridSize;
+                this.updateGridDisplay();
+                this.updateBrushControlsState(); // Update brush display to show grid size
+            });
+        }
+        
+        if (showGridLinesToggle) {
+            showGridLinesToggle.addEventListener('change', () => {
+                this.showGridLines = showGridLinesToggle.checked;
+                this.updateGridDisplay();
+            });
+        }
+
         // Percentage pattern controls
         this.setupPercentageControls();
         
@@ -734,14 +815,15 @@ class DrawingEditor {
             });
         }
     }    initializeEvents() {
+        // Get the canvas container for panning/zooming events
+        const canvasContainer = document.querySelector('.canvas-container');
+        
         // Canvas mouse events - add to both drawing and overlay canvas
         [this.drawingCanvas, this.overlayCanvas].forEach(canvas => {
             canvas.addEventListener('mousedown', (e) => this.onMouseDown(e));
             canvas.addEventListener('mousemove', (e) => this.onMouseMove(e));
             canvas.addEventListener('mouseup', (e) => this.onMouseUp(e));
-            
-            // Add scroll wheel zooming
-            canvas.addEventListener('wheel', (e) => this.onMouseWheel(e), { passive: false });
+            canvas.addEventListener('mouseleave', (e) => this.onMouseLeave(e));
             
             // Add touch events
             canvas.addEventListener('touchstart', (e) => this.onTouchStart(e), { passive: false });
@@ -763,6 +845,38 @@ class DrawingEditor {
             });
         });
         
+        // Add scroll wheel zooming to the canvas container - this allows zooming anywhere in the container
+        if (canvasContainer) {
+            canvasContainer.addEventListener('wheel', (e) => this.onMouseWheel(e), { passive: false });
+            
+            // Add panning support to the canvas container
+            canvasContainer.addEventListener('mousedown', (e) => {
+                if (e.button === 1 || (e.button === 2 && !this.isDrawing)) { // Middle or right click
+                    e.preventDefault();
+                    this.startPanning(e);
+                }
+            });
+            
+            canvasContainer.addEventListener('mousemove', (e) => {
+                if (this.isPanning) {
+                    e.preventDefault();
+                    this.updatePanning(e);
+                }
+            });
+            
+            canvasContainer.addEventListener('mouseup', (e) => {
+                if (this.isPanning && (e.button === 1 || e.button === 2)) {
+                    this.endPanning();
+                }
+            });
+            
+            // Prevent context menu on the container
+            canvasContainer.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                return false;
+            });
+        }
+        
         // Add global mouse events to handle drawing outside canvas
         document.addEventListener('mousemove', (e) => {
             // Store the current mouse event for panning
@@ -778,6 +892,39 @@ class DrawingEditor {
                     });
                 }
                 return;
+            }
+
+            // Handle previews for all tools when mouse is outside canvas
+            if (!this.isDrawing) {
+                const pos = this.getMousePos(e);
+                
+                // Show pen preview when hovering with pen tool (even when not drawing)
+                if (this.currentTool === 'pen' && !this.gridModeEnabled) {
+                    // Only show preview if cursor is within canvas bounds
+                    if (this.isWithinCanvas(pos.x, pos.y)) {
+                        this.showPenPreview(pos.x, pos.y);
+                    } else {
+                        // Clear preview when outside canvas
+                        this.clearOverlayAndRedrawBase();
+                    }
+                }
+
+                // Show fill preview when hovering with bucket tool
+                if (this.currentTool === 'bucket') {
+                    // Only show preview if cursor is within canvas bounds
+                    if (this.isWithinCanvas(pos.x, pos.y)) {
+                        this.showFillPreview(pos.x, pos.y);
+                    } else {
+                        // Clear preview when outside canvas
+                        this.clearOverlayAndRedrawBase();
+                    }
+                }
+
+                // Show paste preview when in paste mode (even while drawing/clicking)
+                if (this.currentTool === 'select' && this.isPasteModeActive) {
+                    // Allow paste preview to show even when partially off-canvas
+                    this.showPastePreview(pos.x, pos.y);
+                }
             }
             
             if (this.isDrawing && this.currentTool === 'pen' && !this.shiftKey) {
@@ -795,20 +942,42 @@ class DrawingEditor {
                 const isWithinBounds = canvasX >= 0 && canvasX < this.canvasWidth && canvasY >= 0 && canvasY < this.canvasHeight;
                 
                 if (this.lastPos) {
-                    if (isWithinBounds) {
-                        // Normal drawing within bounds
-                        this.drawLine(this.lastPos.x, this.lastPos.y, canvasX, canvasY);
-                        this.lastPos = {x: canvasX, y: canvasY};
-                    } else {
-                        // Mouse moved outside bounds - draw to the edge and stop
+                    // Check if either the start or end point is within canvas bounds
+                    const startInBounds = this.lastPos.x >= 0 && this.lastPos.x < this.canvasWidth && 
+                                         this.lastPos.y >= 0 && this.lastPos.y < this.canvasHeight;
+                    const endInBounds = canvasX >= 0 && canvasX < this.canvasWidth && 
+                                       canvasY >= 0 && canvasY < this.canvasHeight;
+                    
+                    // Only draw if at least one endpoint is within bounds (this creates a line that crosses the canvas)
+                    if (startInBounds || endInBounds) {
                         const clamped = this.clampLineToCanvas(this.lastPos.x, this.lastPos.y, canvasX, canvasY);
-                        this.drawLine(clamped.x1, clamped.y1, clamped.x2, clamped.y2);
-                        // End the line by resetting lastPos
-                        this.lastPos = null;
+                        
+                        // Only draw if there's actually a visible line segment within canvas
+                        if (clamped.x1 !== clamped.x2 || clamped.y1 !== clamped.y2) {
+                            this.drawLine(clamped.x1, clamped.y1, clamped.x2, clamped.y2);
+                        }
                     }
-                } else if (isWithinBounds) {
-                    // Starting a new line segment within bounds
+                    
+                    // Always update last position regardless of bounds - this keeps the "virtual" drawing continuous
                     this.lastPos = {x: canvasX, y: canvasY};
+                } else {
+                    // Start tracking position regardless of bounds
+                    this.lastPos = {x: canvasX, y: canvasY};
+                }
+            }
+
+            // Handle drawing previews for other tools
+            if (this.isDrawing) {
+                const pos = this.getMousePos(e);
+                
+                // Handle straight line preview for pen tool with shift
+                if (this.currentTool === 'pen' && this.shiftKey && this.startPos) {
+                    this.drawStraightLinePreview(this.startPos.x, this.startPos.y, pos.x, pos.y);
+                }
+                
+                // Handle shape previews for circle and square tools
+                if ((this.currentTool === 'circle' || this.currentTool === 'square')) {
+                    this.updateShapePreview(pos);
                 }
             }
         });
@@ -845,9 +1014,17 @@ class DrawingEditor {
         
         // Edit buttons
         document.getElementById('copyBtn').addEventListener('click', () => this.copy());
-        document.getElementById('pasteBtn').addEventListener('click', () => this.paste());
+        document.getElementById('pasteModeBtn').addEventListener('click', () => this.togglePasteMode());
         document.getElementById('cutBtn').addEventListener('click', () => this.cut());
         document.getElementById('clearBtn').addEventListener('click', () => this.clear());
+        
+        // Paste mode options
+        document.getElementById('ignoreWhite').addEventListener('change', (e) => {
+            this.pasteIgnoreWhite = e.target.checked;
+        });
+        document.getElementById('ignoreBlack').addEventListener('change', (e) => {
+            this.pasteIgnoreBlack = e.target.checked;
+        });
         
         // Rotation controls
         document.getElementById('rotationAngle').addEventListener('input', (e) => {
@@ -1018,6 +1195,11 @@ class DrawingEditor {
             btn.addEventListener('click', () => {
                 this.setShapeFillMode(btn.dataset.fill);
             });
+        });
+        
+        // Shape mode toggle button
+        document.getElementById('shapeModeToggle').addEventListener('click', () => {
+            this.cycleShapeMode();
         });
         
         // Shape thickness controls
@@ -1255,12 +1437,124 @@ class DrawingEditor {
         const scaleX = this.canvasWidth / rect.width;
         const scaleY = this.canvasHeight / rect.height;
         
-        const pos = {
+        let pos = {
             x: Math.floor((e.clientX - rect.left) * scaleX),
             y: Math.floor((e.clientY - rect.top) * scaleY)
         };
         
+        // Apply grid snapping if grid mode is enabled
+        if (this.gridModeEnabled) {
+            pos = this.snapToGrid(pos);
+        }
+        
         return pos;
+    }
+    
+    snapToGrid(pos) {
+        const gridSize = this.gridSize;
+        return {
+            x: Math.floor(pos.x / gridSize) * gridSize,
+            y: Math.floor(pos.y / gridSize) * gridSize
+        };
+    }
+    
+    updateBrushControlsState() {
+        const brushSizeSlider = document.getElementById('brushSize');
+        const brushSizeDisplay = document.getElementById('brushSizeDisplay');
+        const brushShapeButtons = document.querySelectorAll('.brush-shape-btn');
+        
+        if (this.gridModeEnabled) {
+            // Disable brush controls when grid mode is active
+            if (brushSizeSlider) {
+                brushSizeSlider.disabled = true;
+                brushSizeSlider.style.opacity = '0.5';
+            }
+            if (brushSizeDisplay) {
+                brushSizeDisplay.textContent = `${this.gridSize} (Grid)`;
+            }
+            brushShapeButtons.forEach(btn => {
+                btn.disabled = true;
+                btn.style.opacity = '0.5';
+            });
+        } else {
+            // Re-enable brush controls when grid mode is disabled
+            if (brushSizeSlider) {
+                brushSizeSlider.disabled = false;
+                brushSizeSlider.style.opacity = '1';
+            }
+            if (brushSizeDisplay) {
+                brushSizeDisplay.textContent = this.brushSize;
+            }
+            brushShapeButtons.forEach(btn => {
+                btn.disabled = false;
+                btn.style.opacity = '1';
+            });
+        }
+    }
+    
+    updateGridDisplay() {
+        if (this.gridModeEnabled && this.showGridLines) {
+            // Draw persistent grid
+            this.drawPersistentGrid();
+            console.log(`Grid enabled: size=${this.gridSize}, zoom=${this.zoom}`); // Debug
+        } else {
+            // Clear grid
+            this.clearPersistentGrid();
+            console.log('Grid disabled'); // Debug
+        }
+    }
+    
+    drawPersistentGrid() {
+        // Clear overlay first
+        this.overlayCtx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
+        
+        // Draw base layers first
+        this.drawBaseOverlays();
+        
+        // Draw the persistent grid
+        this.overlayCtx.save();
+        
+        // Disable anti-aliasing for crisp, pixel-perfect rendering
+        this.overlayCtx.imageSmoothingEnabled = false;
+        this.overlayCtx.webkitImageSmoothingEnabled = false;
+        this.overlayCtx.mozImageSmoothingEnabled = false;
+        this.overlayCtx.msImageSmoothingEnabled = false;
+        
+        this.overlayCtx.strokeStyle = 'rgba(255, 0, 0, 0.5)'; // Made more transparent
+        this.overlayCtx.lineWidth = 0.5; // Thinner lines
+        this.overlayCtx.beginPath();
+        
+        // Ensure pixel-perfect lines
+        this.overlayCtx.translate(0.5, 0.5);
+        
+        // Draw vertical grid lines
+        for (let x = 0; x < this.canvasWidth; x += this.gridSize) {
+            this.overlayCtx.moveTo(x, 0);
+            this.overlayCtx.lineTo(x, this.canvasHeight);
+        }
+        
+        // Draw horizontal grid lines  
+        for (let y = 0; y < this.canvasHeight; y += this.gridSize) {
+            this.overlayCtx.moveTo(0, y);
+            this.overlayCtx.lineTo(this.canvasWidth, y);
+        }
+        
+        this.overlayCtx.stroke();
+        this.overlayCtx.restore();
+    }
+    
+    clearPersistentGrid() {
+        // Clear the overlay and redraw base layers only
+        this.overlayCtx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
+        this.drawBaseOverlays();
+    }
+    
+    drawBaseOverlays() {
+        // Draw pixel grid if enabled (without clearing overlay)
+        this.drawPixelGridOnly();
+        
+        // Note: Selection overlay is handled separately by drawSelectionOverlay()
+        // to avoid circular dependencies in the overlay system
     }
     
     onMouseDown(e) {
@@ -1304,11 +1598,26 @@ class DrawingEditor {
                 this.startPanning(pos);
                 break;
             case 'select':
-                this.startSelection(pos.x, pos.y);
+                if (this.isPasteModeActive) {
+                    // Start tracking for potential drag-to-paste
+                    this.pasteDragActive = true;
+                    this.pasteDragStartTime = Date.now();
+                    this.pasteDragStartX = pos.x;
+                    this.pasteDragStartY = pos.y;
+                    // Don't paste immediately - wait to see if it's a drag or quick click
+                } else {
+                    this.startSelection(pos.x, pos.y);
+                }
                 break;
         }
         
         this.updateMousePosition(pos);
+    }
+    
+    onMouseLeave(e) {
+        // When mouse leaves, restore the proper overlay state without cursor highlights
+        // This will preserve grids, selections, and other overlays
+        this.restoreOverlayState();
     }
     
     onMouseWheel(e) {
@@ -1468,17 +1777,38 @@ class DrawingEditor {
             return;
         }
         
-        // Show pen preview when hovering with pen tool (even when not drawing)
-        if (this.currentTool === 'pen' && !this.isDrawing) {
-            this.showPenPreview(pos.x, pos.y);
+        // Show grid cursor when in grid mode
+        if (this.gridModeEnabled && this.currentTool === 'pen') {
+            this.showGridCursor(pos.x, pos.y);
         }
         
+        // Show pen preview when hovering with pen tool (even when not drawing)
+        if (this.currentTool === 'pen' && !this.isDrawing && !this.gridModeEnabled) {
+            // Only show preview if cursor is within canvas bounds
+            if (this.isWithinCanvas(pos.x, pos.y)) {
+                this.showPenPreview(pos.x, pos.y);
+            } else {
+                // Clear preview when outside canvas
+                this.clearOverlayAndRedrawBase();
+            }
+        }
+
         // Show fill preview when hovering with bucket tool
         if (this.currentTool === 'bucket' && !this.isDrawing) {
-            this.showFillPreview(pos.x, pos.y);
+            // Only show preview if cursor is within canvas bounds
+            if (this.isWithinCanvas(pos.x, pos.y)) {
+                this.showFillPreview(pos.x, pos.y);
+            } else {
+                // Clear preview when outside canvas
+                this.clearOverlayAndRedrawBase();
+            }
         }
-        
-        if (!this.isDrawing) return;
+
+        // Show paste preview when in paste mode (even while drawing/clicking)
+        if (this.currentTool === 'select' && this.isPasteModeActive) {
+            // Allow paste preview to show even when partially off-canvas
+            this.showPastePreview(pos.x, pos.y);
+        }        if (!this.isDrawing) return;
         
         switch (this.currentTool) {
             case 'pen':
@@ -1499,12 +1829,48 @@ class DrawingEditor {
                 this.updatePanning();
                 break;
             case 'select':
-                this.updateSelection(pos.x, pos.y);
+                if (this.isPasteModeActive && this.pasteDragActive && this.isDrawing) {
+                    // Check if we've moved enough to consider it a drag
+                    const deltaX = Math.abs(pos.x - this.pasteDragStartX);
+                    const deltaY = Math.abs(pos.y - this.pasteDragStartY);
+                    const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+                    const timePassed = Date.now() - this.pasteDragStartTime;
+                    
+                    // If we've moved enough distance OR held long enough, start dragging
+                    if (distance > this.pasteDragThreshold || timePassed > this.pasteDragTimeThreshold) {
+                        // Throttle pasting during drag to prevent lag
+                        const now = Date.now();
+                        if (now - this.lastPasteTime >= this.pasteThrottleInterval) {
+                            this.pasteAtPosition(pos.x, pos.y);
+                            this.lastPasteTime = now;
+                        }
+                    }
+                } else if (!this.isPasteModeActive) {
+                    this.updateSelection(pos.x, pos.y);
+                }
                 break;
         }
     }
     
     onMouseUp(e) {
+        // Handle paste mode drag completion even if not in drawing mode
+        if (this.isPasteModeActive && this.pasteDragActive) {
+            const pos = this.getMousePos(e);
+            const deltaX = Math.abs(pos.x - this.pasteDragStartX);
+            const deltaY = Math.abs(pos.y - this.pasteDragStartY);
+            const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+            const timePassed = Date.now() - this.pasteDragStartTime;
+            
+            // If it was a quick click (small movement and short time), paste once
+            if (distance <= this.pasteDragThreshold && timePassed <= this.pasteDragTimeThreshold) {
+                this.pasteAtPosition(pos.x, pos.y);
+            }
+            // If it was a drag, the pasting already happened during mousemove
+            
+            // Reset drag state
+            this.pasteDragActive = false;
+        }
+        
         if (!this.isDrawing && !this.isPanning) return;
         
         // End panning for any mouse button
@@ -1579,26 +1945,37 @@ class DrawingEditor {
         this.selection = null;
         
         this.redrawCanvas();
-        this.drawSelectionOverlay();
+        // Since selection is now cleared, restore the overlay state
+        this.restoreOverlayState();
     }
     
     drawPixel(x, y) {
         const ctx = this.getCurrentFrameContext();
-        const color = this.currentColor; // Simply use the selected color
+        const color = this.currentColor;
         
         // Start pixel tracking for this operation
         this.startPixelTracking();
         
-        // Draw the main pixel
-        if (this.brushShape === 'circle') {
-            this.drawCircleBrush(x, y, this.brushSize, ctx, color);
+        if (this.gridModeEnabled) {
+            // In grid mode, completely override brush settings and fill entire grid squares
+            this.drawGridSquare(x, y, ctx, color);
+            
+            // Handle mirroring for grid mode
+            if (this.mirrorHorizontal || this.mirrorVertical) {
+                this.drawMirroredGridSquares(x, y, ctx, color);
+            }
         } else {
-            this.drawSquareBrush(x, y, this.brushSize, ctx, color);
-        }
-        
-        // Draw mirrored pixels if mirror mode is enabled
-        if (this.mirrorHorizontal || this.mirrorVertical) {
-            this.drawMirroredPixels(x, y, ctx, color);
+            // Normal drawing mode - use brush size and shape
+            if (this.brushShape === 'circle') {
+                this.drawCircleBrush(x, y, this.brushSize, ctx, color);
+            } else {
+                this.drawSquareBrush(x, y, this.brushSize, ctx, color);
+            }
+            
+            // Handle mirroring for normal mode
+            if (this.mirrorHorizontal || this.mirrorVertical) {
+                this.drawMirroredPixels(x, y, ctx, color);
+            }
         }
         
         // End pixel tracking and add to stroke
@@ -1606,6 +1983,48 @@ class DrawingEditor {
         
         // Throttle canvas updates during continuous drawing for better performance
         this.throttledRedrawCanvas();
+    }
+    
+    drawGridSquare(x, y, ctx, color) {
+        const gridSize = this.gridSize;
+        
+        // Calculate the top-left corner of the grid square
+        const gridX = Math.floor(x / gridSize) * gridSize;
+        const gridY = Math.floor(y / gridSize) * gridSize;
+        
+        // Fill the entire grid square
+        for (let px = gridX; px < gridX + gridSize && px < this.canvasWidth; px++) {
+            for (let py = gridY; py < gridY + gridSize && py < this.canvasHeight; py++) {
+                this.setPixelInFrameWithColor(px, py, color, ctx);
+            }
+        }
+    }
+    
+    drawMirroredGridSquares(x, y, ctx, color) {
+        const centerX = Math.floor(this.canvasWidth / 2);
+        const centerY = Math.floor(this.canvasHeight / 2);
+        
+        if (this.mirrorHorizontal) {
+            const mirrorX = centerX - (x - centerX);
+            if (mirrorX >= 0 && mirrorX < this.canvasWidth) {
+                this.drawGridSquare(mirrorX, y, ctx, color);
+            }
+        }
+        
+        if (this.mirrorVertical) {
+            const mirrorY = centerY - (y - centerY);
+            if (mirrorY >= 0 && mirrorY < this.canvasHeight) {
+                this.drawGridSquare(x, mirrorY, ctx, color);
+            }
+        }
+        
+        if (this.mirrorHorizontal && this.mirrorVertical) {
+            const mirrorX = centerX - (x - centerX);
+            const mirrorY = centerY - (y - centerY);
+            if (mirrorX >= 0 && mirrorX < this.canvasWidth && mirrorY >= 0 && mirrorY < this.canvasHeight) {
+                this.drawGridSquare(mirrorX, mirrorY, ctx, color);
+            }
+        }
     }
     
     throttledRedrawCanvas() {
@@ -1826,18 +2245,35 @@ class DrawingEditor {
         // Clear overlay completely first
         this.overlayCtx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
         
-        // Phase 1: Draw grid if enabled (bottom layer)
-        if (this.showPixelGrid && this.zoom >= 2) {
+        // Phase 1: Draw base overlays (bottom layer) - includes pixel grid if enabled
+        this.drawBaseOverlays();
+        
+        // Phase 2: Draw grid mode lines if enabled
+        if (this.gridModeEnabled && this.showGridLines) {
+            // Draw grid lines
             this.overlayCtx.save();
-            this.overlayCtx.fillStyle = 'rgba(135, 206, 235, 0.25)'; // Increased opacity to 25% for better visibility
             
-            for (let x = 0; x < this.canvasWidth; x++) {
-                for (let y = 0; y < this.canvasHeight; y++) {
-                    if ((x + y) % 2 === 0) {
-                        this.overlayCtx.fillRect(x, y, 1, 1);
-                    }
-                }
+            // Disable anti-aliasing for crisp, pixel-perfect rendering
+            this.overlayCtx.imageSmoothingEnabled = false;
+            this.overlayCtx.webkitImageSmoothingEnabled = false;
+            this.overlayCtx.mozImageSmoothingEnabled = false;
+            this.overlayCtx.msImageSmoothingEnabled = false;
+            
+            this.overlayCtx.strokeStyle = 'rgba(255, 0, 0, 0.5)'; // Made more transparent
+            this.overlayCtx.lineWidth = 0.5; // Thinner lines
+            this.overlayCtx.beginPath();
+            this.overlayCtx.translate(0.5, 0.5);
+            
+            for (let x = 0; x < this.canvasWidth; x += this.gridSize) {
+                this.overlayCtx.moveTo(x, 0);
+                this.overlayCtx.lineTo(x, this.canvasHeight);
             }
+            for (let y = 0; y < this.canvasHeight; y += this.gridSize) {
+                this.overlayCtx.moveTo(0, y);
+                this.overlayCtx.lineTo(this.canvasWidth, y);
+            }
+            
+            this.overlayCtx.stroke();
             this.overlayCtx.restore();
         }
         
@@ -1850,15 +2286,21 @@ class DrawingEditor {
         this.overlayCtx.save();
         this.overlayCtx.fillStyle = 'rgba(255, 0, 0, 0.9)'; // Very strong red with 90% opacity for clear visibility
         
-        // Get the pixels that would be drawn by the line using Bresenham algorithm
-        const linePixels = this.getLinePixels(x0, y0, x1, y1);
+        // Clamp the line to canvas bounds for preview (this allows drawing over edges but shows proper preview)
+        const clampedLine = this.clampLineToCanvas(x0, y0, x1, y1);
+        
+        // Get the pixels that would be drawn by the clamped line using Bresenham algorithm
+        const linePixels = this.getLinePixels(clampedLine.x1, clampedLine.y1, clampedLine.x2, clampedLine.y2);
         
         // Draw each pixel that would be affected by the brush
         linePixels.forEach(pixel => {
-            if (this.brushShape === 'circle') {
-                this.drawCircleBrushPreview(pixel.x, pixel.y, this.brushSize);
-            } else {
-                this.drawSquareBrushPreview(pixel.x, pixel.y, this.brushSize);
+            // Only draw pixels that are within canvas bounds
+            if (this.isWithinCanvas(pixel.x, pixel.y)) {
+                if (this.brushShape === 'circle') {
+                    this.drawCircleBrushPreview(pixel.x, pixel.y, this.brushSize);
+                } else {
+                    this.drawSquareBrushPreview(pixel.x, pixel.y, this.brushSize);
+                }
             }
         });
         
@@ -1871,31 +2313,29 @@ class DrawingEditor {
     }
     
     showPenPreview(x, y) {
+        // Ensure coordinates are integers for pixel-perfect positioning
+        x = Math.floor(x);
+        y = Math.floor(y);
+        
         // Clear overlay completely first
         this.overlayCtx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
         
-        // Phase 1: Draw grid if enabled (bottom layer)
-        if (this.showPixelGrid && this.zoom >= 2) {
-            this.overlayCtx.save();
-            this.overlayCtx.fillStyle = 'rgba(135, 206, 235, 0.25)'; // Increased opacity to 25% for better visibility
-            
-            for (let x = 0; x < this.canvasWidth; x++) {
-                for (let y = 0; y < this.canvasHeight; y++) {
-                    if ((x + y) % 2 === 0) {
-                        this.overlayCtx.fillRect(x, y, 1, 1);
-                    }
-                }
-            }
-            this.overlayCtx.restore();
+        // Phase 1: Draw persistent grid if enabled (bottom layer)
+        if (this.gridModeEnabled && this.showGridLines) {
+            this.drawPersistentGrid();
+        } else {
+            this.drawBaseOverlays();
         }
         
-        // Phase 2: Draw selection overlay if active (middle layer)
-        if (this.selection && this.selection.active) {
-            this.drawSelectionOverlay();
-        }
-        
-        // Phase 3: Draw pen preview (top layer)
+        // Phase 2: Draw pen preview (top layer)
         this.overlayCtx.save();
+        
+        // Disable anti-aliasing for crisp, pixel-perfect rendering
+        this.overlayCtx.imageSmoothingEnabled = false;
+        this.overlayCtx.webkitImageSmoothingEnabled = false;
+        this.overlayCtx.mozImageSmoothingEnabled = false;
+        this.overlayCtx.msImageSmoothingEnabled = false;
+        
         this.overlayCtx.fillStyle = 'rgba(255, 0, 0, 0.9)'; // Very strong red with 90% opacity for clear visibility
         
         // Draw pen preview based on brush shape and size
@@ -1914,9 +2354,129 @@ class DrawingEditor {
         this.overlayCtx.restore();
     }
     
+    showGridCursor(x, y) {
+        // Start with persistent grid and base overlays
+        if (this.gridModeEnabled && this.showGridLines) {
+            this.drawPersistentGrid();
+        } else {
+            this.clearPersistentGrid();
+        }
+        
+        // Add grid cursor on top with pixel-perfect rendering
+        this.overlayCtx.save();
+        
+        // Disable anti-aliasing for crisp, pixel-perfect rendering
+        this.overlayCtx.imageSmoothingEnabled = false;
+        this.overlayCtx.webkitImageSmoothingEnabled = false;
+        this.overlayCtx.mozImageSmoothingEnabled = false;
+        this.overlayCtx.msImageSmoothingEnabled = false;
+        
+        // Calculate the grid square boundaries - ensure exact alignment
+        const gridSize = this.gridSize;
+        const gridX = Math.floor(x / gridSize) * gridSize;
+        const gridY = Math.floor(y / gridSize) * gridSize;
+        
+        // Clamp to canvas boundaries
+        const endX = Math.min(gridX + gridSize, this.canvasWidth);
+        const endY = Math.min(gridY + gridSize, this.canvasHeight);
+        const actualWidth = endX - gridX;
+        const actualHeight = endY - gridY;
+        
+        // Fill the grid square - pixel perfect
+        this.overlayCtx.fillStyle = 'rgba(255, 0, 0, 0.3)';
+        this.overlayCtx.fillRect(gridX, gridY, actualWidth, actualHeight);
+        
+        // Draw crisp border - use integer coordinates for pixel-perfect lines
+        this.overlayCtx.strokeStyle = 'rgba(255, 0, 0, 0.9)';
+        this.overlayCtx.lineWidth = 1;
+        this.overlayCtx.translate(0.5, 0.5); // Shift for pixel-perfect lines
+        this.overlayCtx.strokeRect(gridX - 0.5, gridY - 0.5, actualWidth, actualHeight);
+        
+        this.overlayCtx.restore();
+        
+        // Draw mirrored grid cursors if mirror mode is enabled
+        if (this.mirrorHorizontal || this.mirrorVertical) {
+            this.drawMirroredGridCursor(x, y);
+        }
+    }
+    
+    drawMirroredGridCursor(x, y) {
+        const centerX = Math.floor(this.canvasWidth / 2);
+        const centerY = Math.floor(this.canvasHeight / 2);
+        const gridSize = this.gridSize;
+        
+        this.overlayCtx.save();
+        
+        // Disable anti-aliasing for crisp, pixel-perfect rendering
+        this.overlayCtx.imageSmoothingEnabled = false;
+        this.overlayCtx.webkitImageSmoothingEnabled = false;
+        this.overlayCtx.mozImageSmoothingEnabled = false;
+        this.overlayCtx.msImageSmoothingEnabled = false;
+        
+        this.overlayCtx.fillStyle = 'rgba(255, 165, 0, 0.3)'; // Orange for mirrored cursors
+        this.overlayCtx.strokeStyle = 'rgba(255, 165, 0, 0.9)';
+        this.overlayCtx.lineWidth = 1;
+        this.overlayCtx.translate(0.5, 0.5); // Pixel-perfect lines
+        
+        if (this.mirrorHorizontal) {
+            const mirrorX = centerX - (x - centerX);
+            if (mirrorX >= 0 && mirrorX < this.canvasWidth) {
+                const gridX = Math.floor(mirrorX / gridSize) * gridSize;
+                const gridY = Math.floor(y / gridSize) * gridSize;
+                const endX = Math.min(gridX + gridSize, this.canvasWidth);
+                const endY = Math.min(gridY + gridSize, this.canvasHeight);
+                const actualWidth = endX - gridX;
+                const actualHeight = endY - gridY;
+                
+                // Render without additional translation
+                this.overlayCtx.fillRect(gridX - 0.5, gridY - 0.5, actualWidth, actualHeight);
+                this.overlayCtx.strokeRect(gridX - 0.5, gridY - 0.5, actualWidth, actualHeight);
+            }
+        }
+        
+        if (this.mirrorVertical) {
+            const mirrorY = centerY - (y - centerY);
+            if (mirrorY >= 0 && mirrorY < this.canvasHeight) {
+                const gridX = Math.floor(x / gridSize) * gridSize;
+                const gridY = Math.floor(mirrorY / gridSize) * gridSize;
+                const endX = Math.min(gridX + gridSize, this.canvasWidth);
+                const endY = Math.min(gridY + gridSize, this.canvasHeight);
+                const actualWidth = endX - gridX;
+                const actualHeight = endY - gridY;
+                
+                // Render without additional translation
+                this.overlayCtx.fillRect(gridX - 0.5, gridY - 0.5, actualWidth, actualHeight);
+                this.overlayCtx.strokeRect(gridX - 0.5, gridY - 0.5, actualWidth, actualHeight);
+            }
+        }
+        
+        if (this.mirrorHorizontal && this.mirrorVertical) {
+            const mirrorX = centerX - (x - centerX);
+            const mirrorY = centerY - (y - centerY);
+            if (mirrorX >= 0 && mirrorX < this.canvasWidth && mirrorY >= 0 && mirrorY < this.canvasHeight) {
+                const gridX = Math.floor(mirrorX / gridSize) * gridSize;
+                const gridY = Math.floor(mirrorY / gridSize) * gridSize;
+                const endX = Math.min(gridX + gridSize, this.canvasWidth);
+                const endY = Math.min(gridY + gridSize, this.canvasHeight);
+                const actualWidth = endX - gridX;
+                const actualHeight = endY - gridY;
+                
+                // Render without additional translation
+                this.overlayCtx.fillRect(gridX - 0.5, gridY - 0.5, actualWidth, actualHeight);
+                this.overlayCtx.strokeRect(gridX - 0.5, gridY - 0.5, actualWidth, actualHeight);
+            }
+        }
+        
+        this.overlayCtx.restore();
+    }
+    
     drawCircleBrushPreview(x, y, size) {
         const radius = size / 2;
         const halfSize = Math.floor(size / 2);
+        
+        // Ensure x and y are integers for pixel-perfect positioning
+        x = Math.floor(x);
+        y = Math.floor(y);
         
         for (let dx = 0; dx < size; dx++) {
             for (let dy = 0; dy < size; dy++) {
@@ -1926,7 +2486,8 @@ class DrawingEditor {
                 // Check if point is within circle and canvas bounds
                 const distance = Math.sqrt((dx - halfSize) ** 2 + (dy - halfSize) ** 2);
                 if (distance <= radius && px >= 0 && px < this.canvasWidth && py >= 0 && py < this.canvasHeight) {
-                    this.overlayCtx.fillRect(px, py, 1, 1);
+                    // Use integer coordinates for crisp pixel rendering
+                    this.overlayCtx.fillRect(Math.floor(px), Math.floor(py), 1, 1);
                 }
             }
         }
@@ -1934,13 +2495,19 @@ class DrawingEditor {
     
     drawSquareBrushPreview(x, y, size) {
         const halfSize = Math.floor(size / 2);
+        
+        // Ensure x and y are integers for pixel-perfect positioning
+        x = Math.floor(x);
+        y = Math.floor(y);
+        
         for (let dx = 0; dx < size; dx++) {
             for (let dy = 0; dy < size; dy++) {
                 const px = x + dx - halfSize;
                 const py = y + dy - halfSize;
                 
                 if (px >= 0 && px < this.canvasWidth && py >= 0 && py < this.canvasHeight) {
-                    this.overlayCtx.fillRect(px, py, 1, 1);
+                    // Use integer coordinates for crisp pixel rendering
+                    this.overlayCtx.fillRect(Math.floor(px), Math.floor(py), 1, 1);
                 }
             }
         }
@@ -2164,6 +2731,94 @@ class DrawingEditor {
         
         return positions;
     }
+    
+    showPastePreview(x, y) {
+        if (!this.clipboard) return;
+        
+        // Ensure coordinates are integers for pixel-perfect positioning
+        x = Math.floor(x);
+        y = Math.floor(y);
+        
+        // Clear overlay completely first
+        this.overlayCtx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
+        
+        // Draw base overlays (grids etc.)
+        this.drawBaseOverlays();
+        
+        // Save overlay context
+        this.overlayCtx.save();
+        
+        // Disable anti-aliasing for crisp, pixel-perfect rendering
+        this.overlayCtx.imageSmoothingEnabled = false;
+        this.overlayCtx.webkitImageSmoothingEnabled = false;
+        this.overlayCtx.mozImageSmoothingEnabled = false;
+        this.overlayCtx.msImageSmoothingEnabled = false;
+        
+        // Calculate paste position (center the clipboard content at mouse position)
+        const pasteX = Math.floor(x - this.clipboard.width / 2);
+        const pasteY = Math.floor(y - this.clipboard.height / 2);
+        
+        // Get the clipboard image data for pixel analysis
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = this.clipboard.width;
+        tempCanvas.height = this.clipboard.height;
+        const tempCtx = tempCanvas.getContext('2d');
+        tempCtx.drawImage(this.clipboard.data, 0, 0);
+        const imageData = tempCtx.getImageData(0, 0, this.clipboard.width, this.clipboard.height);
+        const data = imageData.data;
+        
+        // Draw preview with varying red intensity based on pixel brightness
+        for (let py = 0; py < this.clipboard.height; py++) {
+            for (let px = 0; px < this.clipboard.width; px++) {
+                const dataIndex = (py * this.clipboard.width + px) * 4;
+                const r = data[dataIndex];
+                const g = data[dataIndex + 1];
+                const b = data[dataIndex + 2];
+                const a = data[dataIndex + 3];
+                
+                // Skip fully transparent pixels
+                if (a === 0) continue;
+                
+                // Check if pixel is white or black
+                const isWhite = r >= 240 && g >= 240 && b >= 240;
+                const isBlack = r <= 15 && g <= 15 && b <= 15;
+                
+                // Determine if we should show this pixel in preview
+                let showPixel = true;
+                
+                if (this.pasteIgnoreWhite && isWhite) {
+                    showPixel = false;
+                }
+                if (this.pasteIgnoreBlack && isBlack) {
+                    showPixel = false;
+                }
+                
+                // Only show pixels that would actually be pasted
+                if (showPixel) {
+                    const drawX = pasteX + px;
+                    const drawY = pasteY + py;
+                    
+                    // Only draw if within canvas bounds
+                    if (drawX >= 0 && drawX < this.canvasWidth && drawY >= 0 && drawY < this.canvasHeight) {
+                        // Calculate brightness (0-255) using luminance formula
+                        const brightness = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
+                        
+                        // Map brightness to red intensity
+                        // Dark pixels (low brightness) = dark red
+                        // Light pixels (high brightness) = light red
+                        const redIntensity = Math.max(100, 255 - brightness); // Ensure minimum visibility
+                        const alpha = 0.7; // Good visibility with transparency
+                        
+                        this.overlayCtx.fillStyle = `rgba(${redIntensity}, 0, 0, ${alpha})`;
+                        this.overlayCtx.fillRect(drawX, drawY, 1, 1);
+                    }
+                }
+            }
+        }
+        
+        // Restore overlay context
+        this.overlayCtx.restore();
+    }
 
     updateGradientLivePreview() {
         // Only show live preview when bucket tool is selected
@@ -2357,19 +3012,57 @@ class DrawingEditor {
         const endY = pos.y;
         
         if (this.currentShape === 'circle') {
-            if (this.shiftKey) {
-                // Shift held: draw circle from center to radius
-                const radius = Math.sqrt(Math.pow(endX - startX, 2) + Math.pow(endY - startY, 2));
+            const isPerfect = this.shapeMode.includes('perfect') || this.shiftKey;
+            const isCenter = this.shapeMode.includes('center') || this.shiftKey;
+            
+            if (isPerfect && isCenter) {
+                // Perfect center: draw perfect circle bounded by rectangle from center
+                const halfWidth = Math.abs(endX - startX);
+                const halfHeight = Math.abs(endY - startY);
+                const radius = Math.max(halfWidth, halfHeight); // Use larger dimension for perfect circle
                 this.drawCirclePreview(startX, startY, radius);
                 this.showMirroredShapePreview('circle', startX, startY, radius, 0, 0);
+            } else if (isPerfect) {
+                // Perfect corner: draw circle bounded by perfect square from corner
+                const width = Math.abs(endX - startX);
+                const height = Math.abs(endY - startY);
+                const size = Math.max(width, height); // Make it a perfect square
+                const x2 = startX + (endX > startX ? size : -size);
+                const y2 = startY + (endY > startY ? size : -size);
+                
+                // Draw pixel-perfect circle bounded by this perfect square
+                const centerX = (startX + x2) / 2;
+                const centerY = (startY + y2) / 2;
+                const radius = size / 2;
+                
+                // Use ellipse preview with equal width/height for pixel-perfect circle
+                const x1 = centerX - radius;
+                const y1 = centerY - radius;
+                const x2Circle = centerX + radius;
+                const y2Circle = centerY + radius;
+                this.drawEllipsePreview(x1, y1, x2Circle, y2Circle);
+                this.showMirroredShapePreview('ellipse', x1, y1, 0, x2Circle, y2Circle);
+            } else if (isCenter) {
+                // Center: draw ellipse bounded by rectangle from center
+                const halfWidth = Math.abs(endX - startX);
+                const halfHeight = Math.abs(endY - startY);
+                const x1 = startX - halfWidth;
+                const y1 = startY - halfHeight;
+                const x2 = startX + halfWidth;
+                const y2 = startY + halfHeight;
+                this.drawEllipsePreview(x1, y1, x2, y2);
+                this.showMirroredShapePreview('ellipse', x1, y1, 0, x2, y2);
             } else {
-                // Normal: draw ellipse from corner to corner
+                // Corner: draw ellipse from corner to corner
                 this.drawEllipsePreview(startX, startY, endX, endY);
                 this.showMirroredShapePreview('ellipse', startX, startY, 0, endX, endY);
             }
         } else if (this.currentShape === 'square') {
-            if (this.shiftKey) {
-                // Shift held: draw square from center outward
+            const isPerfect = this.shapeMode.includes('perfect') || this.shiftKey;
+            const isCenter = this.shapeMode.includes('center') || this.shiftKey;
+            
+            if (isPerfect && isCenter) {
+                // Perfect center: draw perfect square from center outward
                 const halfWidth = Math.abs(endX - startX);
                 const halfHeight = Math.abs(endY - startY);
                 const halfSize = Math.max(halfWidth, halfHeight); // Make it square
@@ -2379,8 +3072,27 @@ class DrawingEditor {
                 const y2 = startY + halfSize;
                 this.drawRectanglePreview(x1, y1, x2, y2);
                 this.showMirroredShapePreview('rectangle', x1, y1, 0, x2, y2);
+            } else if (isPerfect) {
+                // Perfect corner: draw perfect square from corner
+                const width = Math.abs(endX - startX);
+                const height = Math.abs(endY - startY);
+                const size = Math.max(width, height);
+                const x2 = startX + (endX > startX ? size : -size);
+                const y2 = startY + (endY > startY ? size : -size);
+                this.drawRectanglePreview(startX, startY, x2, y2);
+                this.showMirroredShapePreview('rectangle', startX, startY, 0, x2, y2);
+            } else if (isCenter) {
+                // Center: draw rectangle from center outward
+                const halfWidth = Math.abs(endX - startX);
+                const halfHeight = Math.abs(endY - startY);
+                const x1 = startX - halfWidth;
+                const y1 = startY - halfHeight;
+                const x2 = startX + halfWidth;
+                const y2 = startY + halfHeight;
+                this.drawRectanglePreview(x1, y1, x2, y2);
+                this.showMirroredShapePreview('rectangle', x1, y1, 0, x2, y2);
             } else {
-                // Normal: draw rectangle from corner to corner
+                // Corner: draw rectangle from corner to corner
                 this.drawRectanglePreview(startX, startY, endX, endY);
                 this.showMirroredShapePreview('rectangle', startX, startY, 0, endX, endY);
             }
@@ -2457,10 +3169,14 @@ class DrawingEditor {
         if (radius < 1) return; // Skip tiny circles
         
         if (this.shapeFillMode === 'filled') {
-            // Use canvas arc for filled circle preview (much faster)
+            // Use solid red for filled circle preview
+            this.overlayCtx.save();
+            this.overlayCtx.fillStyle = '#ff0000';
+            this.overlayCtx.globalAlpha = 0.9;
             this.overlayCtx.beginPath();
             this.overlayCtx.arc(centerX + 0.5, centerY + 0.5, radius, 0, 2 * Math.PI);
             this.overlayCtx.fill();
+            this.overlayCtx.restore();
             return;
         }
         
@@ -2680,9 +3396,14 @@ class DrawingEditor {
         
         // Draw the shape
         if (this.currentShape === 'circle') {
-            if (this.shiftKey) {
-                // Shift held: draw circle from center to radius
-                const radius = Math.sqrt(Math.pow(endX - startX, 2) + Math.pow(endY - startY, 2));
+            const isPerfect = this.shapeMode.includes('perfect') || this.shiftKey;
+            const isCenter = this.shapeMode.includes('center') || this.shiftKey;
+            
+            if (isPerfect && isCenter) {
+                // Perfect center: draw perfect circle bounded by rectangle from center
+                const halfWidth = Math.abs(endX - startX);
+                const halfHeight = Math.abs(endY - startY);
+                const radius = Math.max(halfWidth, halfHeight); // Use larger dimension for perfect circle
                 this.drawCircle(startX, startY, radius, ctx);
                 
                 // Draw mirrored circles
@@ -2692,8 +3413,52 @@ class DrawingEditor {
                         this.drawCircle(mirrorPos.x, mirrorPos.y, radius, ctx);
                     });
                 }
+            } else if (isPerfect) {
+                // Perfect corner: draw circle bounded by perfect square from corner
+                const width = Math.abs(endX - startX);
+                const height = Math.abs(endY - startY);
+                const size = Math.max(width, height); // Make it a perfect square
+                const x2 = startX + (endX > startX ? size : -size);
+                const y2 = startY + (endY > startY ? size : -size);
+                
+                // Draw pixel-perfect circle bounded by this perfect square using ellipse method
+                const centerX = (startX + x2) / 2;
+                const centerY = (startY + y2) / 2;
+                const radius = size / 2;
+                
+                // Use ellipse drawing with equal width/height for pixel-perfect circle
+                const x1 = centerX - radius;
+                const y1 = centerY - radius;
+                const x2Circle = centerX + radius;
+                const y2Circle = centerY + radius;
+                this.drawEllipse(x1, y1, x2Circle, y2Circle, ctx);
+                
+                // Draw mirrored ellipses
+                if (this.mirrorHorizontal || this.mirrorVertical) {
+                    const mirrorPositions = this.calculateMirrorShapePositions(x1, y1, x2Circle, y2Circle);
+                    mirrorPositions.forEach(mirror => {
+                        this.drawEllipse(mirror.x1, mirror.y1, mirror.x2, mirror.y2, ctx);
+                    });
+                }
+            } else if (isCenter) {
+                // Center: draw ellipse bounded by rectangle from center
+                const halfWidth = Math.abs(endX - startX);
+                const halfHeight = Math.abs(endY - startY);
+                const x1 = startX - halfWidth;
+                const y1 = startY - halfHeight;
+                const x2 = startX + halfWidth;
+                const y2 = startY + halfHeight;
+                this.drawEllipse(x1, y1, x2, y2, ctx);
+                
+                // Draw mirrored ellipses
+                if (this.mirrorHorizontal || this.mirrorVertical) {
+                    const mirrorPositions = this.calculateMirrorShapePositions(x1, y1, x2, y2);
+                    mirrorPositions.forEach(mirror => {
+                        this.drawEllipse(mirror.x1, mirror.y1, mirror.x2, mirror.y2, ctx);
+                    });
+                }
             } else {
-                // Normal: draw ellipse from corner to corner
+                // Corner: draw ellipse from corner to corner
                 this.drawEllipse(startX, startY, endX, endY, ctx);
                 
                 // Draw mirrored ellipses
@@ -2705,8 +3470,11 @@ class DrawingEditor {
                 }
             }
         } else if (this.currentShape === 'square') {
-            if (this.shiftKey) {
-                // Shift held: draw square from center outward
+            const isPerfect = this.shapeMode.includes('perfect') || this.shiftKey;
+            const isCenter = this.shapeMode.includes('center') || this.shiftKey;
+            
+            if (isPerfect && isCenter) {
+                // Perfect center: draw perfect square from center outward
                 const halfWidth = Math.abs(endX - startX);
                 const halfHeight = Math.abs(endY - startY);
                 const halfSize = Math.max(halfWidth, halfHeight); // Make it square
@@ -2723,8 +3491,41 @@ class DrawingEditor {
                         this.drawRectangle(mirror.x1, mirror.y1, mirror.x2, mirror.y2, ctx);
                     });
                 }
+            } else if (isPerfect) {
+                // Perfect corner: draw perfect square from corner
+                const width = Math.abs(endX - startX);
+                const height = Math.abs(endY - startY);
+                const size = Math.max(width, height);
+                const x2 = startX + (endX > startX ? size : -size);
+                const y2 = startY + (endY > startY ? size : -size);
+                this.drawRectangle(startX, startY, x2, y2, ctx);
+                
+                // Draw mirrored squares
+                if (this.mirrorHorizontal || this.mirrorVertical) {
+                    const mirrorPositions = this.calculateMirrorShapePositions(startX, startY, x2, y2);
+                    mirrorPositions.forEach(mirror => {
+                        this.drawRectangle(mirror.x1, mirror.y1, mirror.x2, mirror.y2, ctx);
+                    });
+                }
+            } else if (isCenter) {
+                // Center: draw rectangle from center outward
+                const halfWidth = Math.abs(endX - startX);
+                const halfHeight = Math.abs(endY - startY);
+                const x1 = startX - halfWidth;
+                const y1 = startY - halfHeight;
+                const x2 = startX + halfWidth;
+                const y2 = startY + halfHeight;
+                this.drawRectangle(x1, y1, x2, y2, ctx);
+                
+                // Draw mirrored rectangles
+                if (this.mirrorHorizontal || this.mirrorVertical) {
+                    const mirrorPositions = this.calculateMirrorShapePositions(x1, y1, x2, y2);
+                    mirrorPositions.forEach(mirror => {
+                        this.drawRectangle(mirror.x1, mirror.y1, mirror.x2, mirror.y2, ctx);
+                    });
+                }
             } else {
-                // Normal: draw rectangle from corner to corner
+                // Corner: draw rectangle from corner to corner
                 this.drawRectangle(startX, startY, endX, endY, ctx);
                 
                 // Draw mirrored rectangles
@@ -3106,10 +3907,20 @@ class DrawingEditor {
     // Panning methods
     startPanning(pos) {
         // Store screen coordinates for accurate panning
-        this.panStart = {
-            x: this.lastMouseEvent ? this.lastMouseEvent.clientX : 0,
-            y: this.lastMouseEvent ? this.lastMouseEvent.clientY : 0
-        };
+        // pos can be either a mouse event or position object
+        if (pos.clientX !== undefined) {
+            // It's a mouse event
+            this.panStart = {
+                x: pos.clientX,
+                y: pos.clientY
+            };
+        } else {
+            // It's a position object or use lastMouseEvent
+            this.panStart = {
+                x: this.lastMouseEvent ? this.lastMouseEvent.clientX : 0,
+                y: this.lastMouseEvent ? this.lastMouseEvent.clientY : 0
+            };
+        }
         this.isPanning = true;
         
         // Get current transform - handle both translate and translate3d formats
@@ -3139,12 +3950,16 @@ class DrawingEditor {
         });
     }
     
-    updatePanning() {
-        if (!this.isPanning || !this.panStart || !this.lastMouseEvent || !this.canvasWrapper) return;
+    updatePanning(e) {
+        if (!this.isPanning || !this.panStart || !this.canvasWrapper) return;
+        
+        // Use the event if provided, otherwise use stored lastMouseEvent
+        const mouseEvent = e || this.lastMouseEvent;
+        if (!mouseEvent) return;
         
         // Use screen coordinates for smooth panning - no zoom adjustment needed for screen space
-        const deltaX = this.lastMouseEvent.clientX - this.panStart.x;
-        const deltaY = this.lastMouseEvent.clientY - this.panStart.y;
+        const deltaX = mouseEvent.clientX - this.panStart.x;
+        const deltaY = mouseEvent.clientY - this.panStart.y;
         
         const newX = this.panOffsetStart.x + deltaX;
         const newY = this.panOffsetStart.y + deltaY;
@@ -3481,13 +4296,60 @@ class DrawingEditor {
         // Clear any previews when switching tools
         this.clearOverlayAndRedrawBase();
         
+        // Disable paste mode when switching away from select tool
+        if (this.currentTool === 'select' && tool !== 'select' && this.isPasteModeActive) {
+            this.isPasteModeActive = false;
+            const pasteModeBtn = document.getElementById('pasteModeBtn');
+            const pasteModeOptions = document.getElementById('pasteModeOptions');
+            pasteModeBtn.classList.remove('active');
+            pasteModeBtn.textContent = 'Paste Mode';
+            pasteModeOptions.style.display = 'none';
+        }
+        
+        // Disable grid mode when switching away from pen tool (but preserve checkbox state)
+        if (this.currentTool === 'pen' && tool !== 'pen' && this.gridModeEnabled) {
+            this.gridModeEnabled = false;
+            // Don't uncheck the checkbox - preserve user's grid preference
+            // Clear any persistent grid display
+            this.clearPersistentGrid();
+            console.log('Grid mode disabled - switched from pen to', tool);
+        }
+        
+        // Re-enable grid mode when switching back to pen tool if checkbox is checked
+        if (this.currentTool !== 'pen' && tool === 'pen') {
+            const gridModeToggle = document.getElementById('gridModeToggle');
+            const gridModeSettings = document.getElementById('gridModeSettings');
+            
+            if (gridModeToggle && gridModeToggle.checked) {
+                this.gridModeEnabled = true;
+                // Show grid mode settings
+                if (gridModeSettings) {
+                    gridModeSettings.style.display = 'block';
+                }
+                // Update grid display and controls
+                this.updateGridDisplay();
+                this.updateBrushControlsState();
+                // Redraw persistent grid if enabled
+                if (this.showGridLines) {
+                    this.drawPersistentGrid();
+                }
+                console.log('Grid mode re-enabled - switched back to pen tool');
+            }
+        }
+        
         this.currentTool = tool;
         document.querySelectorAll('.tool-btn').forEach(btn => {
             btn.classList.toggle('active', btn.dataset.tool === tool);
         });
         
-        // Update selection overlay visibility when changing tools
-        this.drawSelectionOverlay();
+        // Handle overlay coordination when switching tools
+        if (tool === 'select') {
+            // When switching to select tool, draw selection overlay if there's an active selection
+            this.drawSelectionOverlay();
+        } else {
+            // When switching away from select tool, restore the overlay state without selection
+            this.restoreOverlayState();
+        }
         
         // Show live preview if switching to bucket tool with gradient pattern
         if (tool === 'bucket' && this.fillPattern.startsWith('gradient-')) {
@@ -3500,11 +4362,17 @@ class DrawingEditor {
         const bucketSettings = document.getElementById('bucketSettings');
         const shapeSettings = document.getElementById('shapeSettings');
         const shapeThickness = document.getElementById('shapeThickness');
+        const gridModeSettings = document.getElementById('gridModeSettings');
         
         brushSettings.style.display = tool === 'pen' ? 'block' : 'none';
         editSettings.style.display = tool === 'select' ? 'block' : 'none';
         bucketSettings.style.display = tool === 'bucket' ? 'block' : 'none';
         shapeSettings.style.display = (tool === 'circle' || tool === 'square') ? 'block' : 'none';
+        
+        // Show grid mode settings only for pen tool
+        if (gridModeSettings) {
+            gridModeSettings.style.display = tool === 'pen' ? 'block' : 'none';
+        }
         
         // Show thickness controls for both rectangle and circle tools when outline mode
         if (shapeThickness) {
@@ -3523,6 +4391,93 @@ class DrawingEditor {
         
         this.drawingCanvas.style.cursor = cursor;
         this.overlayCanvas.style.cursor = cursor;
+    }
+    
+    restoreOverlayState() {
+        // Clear overlay and restore all overlay elements in proper order
+        this.overlayCtx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
+        
+        // 1. Base overlays (pixel grid, selection)
+        this.drawBaseOverlays();
+        
+        // 2. Grid mode lines (if enabled)
+        if (this.gridModeEnabled && this.showGridLines) {
+            // Draw grid lines on top of base overlays
+            this.overlayCtx.save();
+            
+            // Disable anti-aliasing for crisp, pixel-perfect rendering
+            this.overlayCtx.imageSmoothingEnabled = false;
+            this.overlayCtx.webkitImageSmoothingEnabled = false;
+            this.overlayCtx.mozImageSmoothingEnabled = false;
+            this.overlayCtx.msImageSmoothingEnabled = false;
+            
+            this.overlayCtx.strokeStyle = 'rgba(255, 0, 0, 0.5)'; // Made more transparent
+            this.overlayCtx.lineWidth = 0.5; // Thinner lines
+            this.overlayCtx.beginPath();
+            
+            // Ensure pixel-perfect lines
+            this.overlayCtx.translate(0.5, 0.5);
+            
+            // Draw vertical grid lines
+            for (let x = 0; x < this.canvasWidth; x += this.gridSize) {
+                this.overlayCtx.moveTo(x, 0);
+                this.overlayCtx.lineTo(x, this.canvasHeight);
+            }
+            
+            // Draw horizontal grid lines  
+            for (let y = 0; y < this.canvasHeight; y += this.gridSize) {
+                this.overlayCtx.moveTo(0, y);
+                this.overlayCtx.lineTo(this.canvasWidth, y);
+            }
+            
+            this.overlayCtx.stroke();
+            this.overlayCtx.restore();
+        }
+        
+        // 3. Selection overlay (if active and using select tool) - draw directly to avoid circular dependency
+        if (this.selection && this.selection.active && this.currentTool === 'select') {
+            const { startX, startY, endX, endY } = this.selection;
+            const minX = Math.min(startX, endX);
+            const minY = Math.min(startY, endY);
+            const width = Math.abs(endX - startX);
+            const height = Math.abs(endY - startY);
+            
+            // Only draw if selection has meaningful size
+            if (width > 0 && height > 0) {
+                this.overlayCtx.save();
+                
+                // Disable anti-aliasing for crisp, pixel-perfect rendering
+                this.overlayCtx.imageSmoothingEnabled = false;
+                this.overlayCtx.webkitImageSmoothingEnabled = false;
+                this.overlayCtx.mozImageSmoothingEnabled = false;
+                this.overlayCtx.msImageSmoothingEnabled = false;
+                
+                if (this.selection.cutContent) {
+                    // Draw cut content
+                    this.overlayCtx.drawImage(this.selection.cutContent, minX, minY);
+                    
+                    // Draw blue border around the draggable content
+                    this.overlayCtx.strokeStyle = '#0066ff';
+                    this.overlayCtx.setLineDash([2, 2]);
+                    this.overlayCtx.lineWidth = 1;
+                    this.overlayCtx.strokeRect(minX, minY, width, height);
+                    this.overlayCtx.setLineDash([]);
+                } else {
+                    // Draw selection overlay - simplified version for restore
+                    this.overlayCtx.fillStyle = 'rgba(255, 0, 0, 0.3)';
+                    this.overlayCtx.fillRect(minX, minY, width, height);
+                    
+                    // Draw selection border
+                    this.overlayCtx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
+                    this.overlayCtx.setLineDash([2, 2]);
+                    this.overlayCtx.lineWidth = 1;
+                    this.overlayCtx.strokeRect(minX, minY, width, height);
+                    this.overlayCtx.setLineDash([]);
+                }
+                
+                this.overlayCtx.restore();
+            }
+        }
     }
     
     setShapeFillMode(fillMode) {
@@ -3544,6 +4499,32 @@ class DrawingEditor {
         document.querySelectorAll('.style-btn').forEach(btn => {
             btn.classList.toggle('active', btn.dataset.style === strokePosition);
         });
+    }
+
+    cycleShapeMode() {
+        const modes = ['corner', 'center', 'perfect-corner', 'perfect-center'];
+        const currentIndex = modes.indexOf(this.shapeMode);
+        const nextIndex = (currentIndex + 1) % modes.length;
+        this.shapeMode = modes[nextIndex];
+        
+        // Update UI
+        this.updateShapeModeDisplay();
+    }
+    
+    updateShapeModeDisplay() {
+        const iconElement = document.getElementById('shapeModeIcon');
+        const textElement = document.getElementById('shapeModeText');
+        
+        const modeConfig = {
+            'corner': { icon: '📐', text: 'Corner' },
+            'center': { icon: '🎯', text: 'Center' },
+            'perfect-corner': { icon: '⭕', text: 'Perfect Corner' },
+            'perfect-center': { icon: '🔥', text: 'Perfect Center' }
+        };
+        
+        const config = modeConfig[this.shapeMode];
+        if (iconElement) iconElement.textContent = config.icon;
+        if (textElement) textElement.textContent = config.text;
     }
 
     setColor(color) {
@@ -3699,6 +4680,11 @@ class DrawingEditor {
         this.zoom = Math.max(0.5, Math.min(newZoom, 20));
         this.setCanvasSize(this.canvasWidth, this.canvasHeight);
         document.getElementById('zoomLevel').textContent = Math.round(this.zoom * 100) + '%';
+        
+        // Update grid display when zoom changes
+        if (this.gridModeEnabled) {
+            this.updateGridDisplay();
+        }
     }
     
     fitToScreen() {
@@ -3711,6 +4697,9 @@ class DrawingEditor {
         const scale = Math.min(scaleX, scaleY);
         
         this.setZoom(scale);
+        
+        // Center the canvas after fitting using the same method as the center button
+        this.centerCanvas();
     }
     
     fitToWindow() {
@@ -3749,11 +4738,26 @@ class DrawingEditor {
     
     togglePixelGrid() {
         this.showPixelGrid = document.getElementById('pixelGrid').checked;
-        this.drawPixelGrid();
+        
+        // If grid mode is active, update the grid display to coordinate both grids
+        if (this.gridModeEnabled && this.showGridLines) {
+            this.updateGridDisplay();
+        } else {
+            // Otherwise, just draw the standalone pixel grid
+            this.drawPixelGrid();
+        }
     }
     
     drawPixelGrid() {
+        // This function now only handles standalone pixel grid drawing
+        // When grid mode is active, pixel grid is drawn by drawBaseOverlays()
         if (!this.showPixelGrid) {
+            return;
+        }
+
+        // If grid mode is active, don't draw standalone pixel grid
+        // It will be handled by the grid mode drawing functions
+        if (this.gridModeEnabled && this.showGridLines) {
             return;
         }
 
@@ -3762,8 +4766,18 @@ class DrawingEditor {
             return;
         }
         
-        // Clear overlay first to prevent stacking
+        // Clear overlay first only if we're drawing standalone
         this.overlayCtx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
+        
+        // Draw the pixel grid
+        this.drawPixelGridOnly();
+    }
+    
+    drawPixelGridOnly() {
+        // Helper function to draw just the pixel grid without clearing
+        if (!this.showPixelGrid || this.zoom < 2) {
+            return;
+        }
         
         // Save context state and ensure proper compositing
         this.overlayCtx.save();
@@ -3791,26 +4805,8 @@ class DrawingEditor {
         // Clear the entire overlay
         this.overlayCtx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
         
-        // Redraw base layers in correct order
-        // 1. Grid (bottom layer) - only if not already being handled by preview method
-        if (this.showPixelGrid && this.zoom >= 2) {
-            this.overlayCtx.save();
-            this.overlayCtx.fillStyle = 'rgba(135, 206, 235, 0.25)'; // Increased opacity to 25% for better visibility
-            
-            for (let x = 0; x < this.canvasWidth; x++) {
-                for (let y = 0; y < this.canvasHeight; y++) {
-                    if ((x + y) % 2 === 0) {
-                        this.overlayCtx.fillRect(x, y, 1, 1);
-                    }
-                }
-            }
-            this.overlayCtx.restore();
-        }
-        
-        // 2. Selection overlay (middle layer)
-        if (this.selection && this.selection.active) {
-            this.drawSelectionOverlay();
-        }
+        // Redraw base layers using the coordinated approach
+        this.drawBaseOverlays();
     }
     
     redrawCanvas() {
@@ -3834,8 +4830,8 @@ class DrawingEditor {
             this.updateOnionSkin();
         }
         
-        // Draw pixel grid if enabled
-        this.drawPixelGrid();
+        // Restore overlay state to ensure all overlays are properly displayed
+        this.restoreOverlayState();
     }
     
     updateOnionSkin() {
@@ -3964,6 +4960,25 @@ class DrawingEditor {
         
         // Update frame thumbnails
         this.updateFrameList();
+        
+        // Update edit button states
+        this.updateEditButtonStates();
+    }
+    
+    updateEditButtonStates() {
+        // Update paste-related button states based on clipboard content
+        const hasClipboard = this.clipboard !== null;
+        
+        document.getElementById('pasteModeBtn').disabled = !hasClipboard;
+        
+        // If clipboard is empty and paste mode is active, exit paste mode
+        if (!hasClipboard && this.isPasteModeActive) {
+            this.isPasteModeActive = false;
+            const pasteModeBtn = document.getElementById('pasteModeBtn');
+            pasteModeBtn.classList.remove('active');
+            pasteModeBtn.textContent = 'Paste Mode';
+            this.clearPastePreview();
+        }
     }
     
     toggleAnimationSettings() {
@@ -4346,6 +5361,19 @@ class DrawingEditor {
         };
     }
 
+    // Clamp coordinates to canvas bounds for previews
+    clampToCanvas(x, y) {
+        return {
+            x: Math.max(0, Math.min(this.canvasWidth - 1, Math.floor(x))),
+            y: Math.max(0, Math.min(this.canvasHeight - 1, Math.floor(y)))
+        };
+    }
+
+    // Check if coordinates are within canvas bounds
+    isWithinCanvas(x, y) {
+        return x >= 0 && x < this.canvasWidth && y >= 0 && y < this.canvasHeight;
+    }
+
     generateCode() {
         // Auto-detect format based on animation settings
         const animationEnabled = document.getElementById('animationEnabled')?.checked;
@@ -4502,7 +5530,7 @@ class DrawingEditor {
                 width: this.canvasWidth,
                 height: this.canvasHeight
             };
-            document.getElementById('pasteBtn').disabled = false;
+            this.updateEditButtonStates();
         }
     }
     
@@ -4537,13 +5565,14 @@ class DrawingEditor {
             height: height
         };
         
-        document.getElementById('pasteBtn').disabled = false;
+        this.updateEditButtonStates();
     }
     
     paste() {
         if (!this.clipboard) return;
         
         const ctx = this.getCurrentFrameContext();
+        const pasteData = []; // Array to store pixel changes for undo
         
         if (this.clipboard.isSelection) {
             // Paste at selection location or center if no selection
@@ -4556,15 +5585,126 @@ class DrawingEditor {
                 pasteY = Math.min(startY, this.selection.endY);
             }
             
-            ctx.drawImage(this.clipboard.data, pasteX, pasteY);
+            // Get the clipboard image data
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = this.clipboard.width;
+            tempCanvas.height = this.clipboard.height;
+            const tempCtx = tempCanvas.getContext('2d');
+            tempCtx.drawImage(this.clipboard.data, 0, 0);
+            const clipboardImageData = tempCtx.getImageData(0, 0, this.clipboard.width, this.clipboard.height);
+            const clipboardData = clipboardImageData.data;
+            
+            // Calculate actual paste area bounds (clamp to canvas)
+            const startX = Math.max(0, pasteX);
+            const startY = Math.max(0, pasteY);
+            const endX = Math.min(this.canvasWidth, pasteX + this.clipboard.width);
+            const endY = Math.min(this.canvasHeight, pasteY + this.clipboard.height);
+            const actualWidth = endX - startX;
+            const actualHeight = endY - startY;
+            
+            if (actualWidth > 0 && actualHeight > 0) {
+                // Get current canvas data for the paste area to record old colors
+                const currentImageData = ctx.getImageData(startX, startY, actualWidth, actualHeight);
+                const currentData = currentImageData.data;
+                
+                // Process each pixel and record changes
+                for (let py = 0; py < actualHeight; py++) {
+                    for (let px = 0; px < actualWidth; px++) {
+                        // Source pixel coordinates in clipboard
+                        const srcX = px + (startX - pasteX);
+                        const srcY = py + (startY - pasteY);
+                        const srcIndex = (srcY * this.clipboard.width + srcX) * 4;
+                        
+                        // Destination pixel coordinates in current image
+                        const dstIndex = (py * actualWidth + px) * 4;
+                        
+                        const r = clipboardData[srcIndex];
+                        const g = clipboardData[srcIndex + 1];
+                        const b = clipboardData[srcIndex + 2];
+                        const a = clipboardData[srcIndex + 3];
+                        
+                        // Only paste non-transparent pixels
+                        if (a > 0) {
+                            const canvasX = startX + px;
+                            const canvasY = startY + py;
+                            
+                            // Get old color for undo
+                            const oldR = currentData[dstIndex];
+                            const oldG = currentData[dstIndex + 1];
+                            const oldB = currentData[dstIndex + 2];
+                            const oldA = currentData[dstIndex + 3];
+                            const oldColor = `rgba(${oldR}, ${oldG}, ${oldB}, ${oldA/255})`;
+                            
+                            // New color
+                            const newColor = `rgba(${r}, ${g}, ${b}, ${a/255})`;
+                            
+                            // Record the change
+                            pasteData.push({
+                                x: canvasX,
+                                y: canvasY,
+                                oldColor: oldColor,
+                                newColor: newColor
+                            });
+                        }
+                    }
+                }
+            }
         } else {
-            // Paste entire frame
-            ctx.drawImage(this.clipboard.data, 0, 0);
+            // Paste entire frame - get all pixels
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = this.clipboard.width;
+            tempCanvas.height = this.clipboard.height;
+            const tempCtx = tempCanvas.getContext('2d');
+            tempCtx.drawImage(this.clipboard.data, 0, 0);
+            const clipboardImageData = tempCtx.getImageData(0, 0, this.clipboard.width, this.clipboard.height);
+            const clipboardData = clipboardImageData.data;
+            
+            // Get current canvas data
+            const currentImageData = ctx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
+            const currentData = currentImageData.data;
+            
+            // Process each pixel
+            const width = Math.min(this.canvasWidth, this.clipboard.width);
+            const height = Math.min(this.canvasHeight, this.clipboard.height);
+            
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    const index = (y * width + x) * 4;
+                    
+                    const r = clipboardData[index];
+                    const g = clipboardData[index + 1];
+                    const b = clipboardData[index + 2];
+                    const a = clipboardData[index + 3];
+                    
+                    // Only paste non-transparent pixels
+                    if (a > 0) {
+                        // Get old color for undo
+                        const oldR = currentData[index];
+                        const oldG = currentData[index + 1];
+                        const oldB = currentData[index + 2];
+                        const oldA = currentData[index + 3];
+                        const oldColor = `rgba(${oldR}, ${oldG}, ${oldB}, ${oldA/255})`;
+                        
+                        // New color
+                        const newColor = `rgba(${r}, ${g}, ${b}, ${a/255})`;
+                        
+                        // Record the change
+                        pasteData.push({
+                            x: x,
+                            y: y,
+                            oldColor: oldColor,
+                            newColor: newColor
+                        });
+                    }
+                }
+            }
         }
         
-        this.redrawCanvas();
-        this.generateThumbnail(this.currentFrameIndex);
-        this.generateCode();
+        // Only create command if there are actual changes
+        if (pasteData.length > 0) {
+            const command = new PasteCommand(this, pasteData, this.currentFrameIndex);
+            this.executeCommand(command);
+        }
     }
     
     cut() {
@@ -4592,7 +5732,7 @@ class DrawingEditor {
         
         // Copy to clipboard
         this.clipboard = cutCanvas;
-        document.getElementById('pasteBtn').disabled = false;
+        this.updateEditButtonStates();
         
         // Clear the original area
         this.clearSelection();
@@ -4663,6 +5803,168 @@ class DrawingEditor {
         this.generateCode();
     }
     
+    togglePasteMode() {
+        if (!this.clipboard) {
+            alert('No content to paste. Copy or cut something first.');
+            return;
+        }
+        
+        // Switch to select tool if not already
+        if (this.currentTool !== 'select') {
+            this.setTool('select');
+        }
+        
+        // Toggle paste mode
+        this.isPasteModeActive = !this.isPasteModeActive;
+        
+        // Update button appearance and options visibility
+        const pasteModeBtn = document.getElementById('pasteModeBtn');
+        const pasteModeOptions = document.getElementById('pasteModeOptions');
+        
+        if (this.isPasteModeActive) {
+            pasteModeBtn.classList.add('active');
+            pasteModeBtn.textContent = 'Exit Paste Mode';
+            pasteModeOptions.style.display = 'block';
+        } else {
+            pasteModeBtn.classList.remove('active');
+            pasteModeBtn.textContent = 'Paste Mode';
+            pasteModeOptions.style.display = 'none';
+            this.clearPastePreview();
+            // Reset drag state when exiting paste mode
+            this.pasteDragActive = false;
+        }
+        
+        // Clear any existing selection when entering paste mode
+        if (this.isPasteModeActive && this.selection) {
+            this.selection.active = false;
+            this.redrawCanvas();
+        }
+    }
+    
+    clearPastePreview() {
+        // Clear any paste preview from overlay
+        this.overlayCtx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
+        this.drawBaseOverlays();
+    }
+    
+    togglePerfectShapeMode() {
+        this.perfectShapeMode = !this.perfectShapeMode;
+        
+        const toggleBtn = document.getElementById('perfectShapeToggle');
+        const statusSpan = document.getElementById('perfectShapeStatus');
+        const iconSpan = document.getElementById('perfectShapeIcon');
+        
+        if (this.perfectShapeMode) {
+            toggleBtn.classList.add('active');
+            statusSpan.textContent = 'ON';
+            iconSpan.textContent = '⭕';
+        } else {
+            toggleBtn.classList.remove('active');
+            statusSpan.textContent = 'OFF';
+            iconSpan.textContent = '🔲';
+        }
+    }
+    
+    pasteAtPosition(x, y) {
+        if (!this.clipboard) return;
+        
+        // Calculate paste position (center the clipboard content at click position)
+        const pasteX = Math.floor(x - this.clipboard.width / 2);
+        const pasteY = Math.floor(y - this.clipboard.height / 2);
+        
+        const ctx = this.getCurrentFrameContext();
+        const pasteData = []; // Array to store pixel changes for undo
+        
+        // Calculate actual paste area bounds (clamp to canvas)
+        const startX = Math.max(0, pasteX);
+        const startY = Math.max(0, pasteY);
+        const endX = Math.min(this.canvasWidth, pasteX + this.clipboard.width);
+        const endY = Math.min(this.canvasHeight, pasteY + this.clipboard.height);
+        const actualWidth = endX - startX;
+        const actualHeight = endY - startY;
+        
+        if (actualWidth <= 0 || actualHeight <= 0) return; // Nothing to paste
+        
+        // Get clipboard image data
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = this.clipboard.width;
+        tempCanvas.height = this.clipboard.height;
+        const tempCtx = tempCanvas.getContext('2d');
+        tempCtx.drawImage(this.clipboard.data, 0, 0);
+        const clipboardImageData = tempCtx.getImageData(0, 0, this.clipboard.width, this.clipboard.height);
+        const clipboardData = clipboardImageData.data;
+        
+        // Get current canvas data for the paste area to record old colors
+        const currentImageData = ctx.getImageData(startX, startY, actualWidth, actualHeight);
+        const currentData = currentImageData.data;
+        
+        // Process each pixel and record changes
+        for (let py = 0; py < actualHeight; py++) {
+            for (let px = 0; px < actualWidth; px++) {
+                // Source pixel coordinates in clipboard
+                const srcX = px + (startX - pasteX);
+                const srcY = py + (startY - pasteY);
+                const srcIndex = (srcY * this.clipboard.width + srcX) * 4;
+                
+                // Destination pixel coordinates in current image
+                const dstIndex = (py * actualWidth + px) * 4;
+                
+                const r = clipboardData[srcIndex];
+                const g = clipboardData[srcIndex + 1];
+                const b = clipboardData[srcIndex + 2];
+                const a = clipboardData[srcIndex + 3];
+                
+                // Check if pixel is white or black
+                const isWhite = r >= 240 && g >= 240 && b >= 240;
+                const isBlack = r <= 15 && g <= 15 && b <= 15;
+                
+                // Determine if we should paste this pixel
+                let pastePixel = true;
+                
+                if (this.pasteIgnoreWhite && isWhite) {
+                    pastePixel = false;
+                }
+                if (this.pasteIgnoreBlack && isBlack) {
+                    pastePixel = false;
+                }
+                
+                // Only paste non-transparent pixels that aren't being ignored
+                if (a > 0 && pastePixel) {
+                    const canvasX = startX + px;
+                    const canvasY = startY + py;
+                    
+                    // Get old color for undo
+                    const oldR = currentData[dstIndex];
+                    const oldG = currentData[dstIndex + 1];
+                    const oldB = currentData[dstIndex + 2];
+                    const oldA = currentData[dstIndex + 3];
+                    const oldColor = `rgba(${oldR}, ${oldG}, ${oldB}, ${oldA/255})`;
+                    
+                    // New color
+                    const newColor = `rgba(${r}, ${g}, ${b}, ${a/255})`;
+                    
+                    // Record the change
+                    pasteData.push({
+                        x: canvasX,
+                        y: canvasY,
+                        oldColor: oldColor,
+                        newColor: newColor
+                    });
+                }
+            }
+        }
+        
+        // Only create command if there are actual changes
+        if (pasteData.length > 0) {
+            const command = new PasteCommand(this, pasteData, this.currentFrameIndex);
+            this.executeCommand(command);
+        }
+        
+        // Keep paste mode active - don't exit automatically
+        // User needs to click "Exit Paste Mode" to turn it off
+        this.clearPastePreview();
+    }
+    
     newDrawing() {
         if (confirm('Create a new drawing? This will clear your current work.')) {
             this.frames = [this.createEmptyFrame()];
@@ -4699,17 +6001,42 @@ class DrawingEditor {
         document.getElementById('fileInput').click();
         document.getElementById('fileInput').onchange = (e) => {
             const file = e.target.files[0];
-            if (file && file.type === 'application/json') {
+            if (file) {
+                const fileName = file.name.toLowerCase();
                 const reader = new FileReader();
-                reader.onload = (event) => {
-                    try {
-                        const data = JSON.parse(event.target.result);
-                        this.loadFromData(data);
-                    } catch (err) {
-                        alert('Error loading file: ' + err.message);
-                    }
-                };
-                reader.readAsText(file);
+                
+                if (fileName.endsWith('.json')) {
+                    // Handle JSON files
+                    reader.onload = (event) => {
+                        try {
+                            const data = JSON.parse(event.target.result);
+                            this.loadFromData(data);
+                            // Reset file input so same file can be loaded again
+                            e.target.value = '';
+                        } catch (err) {
+                            alert('Error loading JSON file: ' + err.message);
+                            e.target.value = '';
+                        }
+                    };
+                    reader.readAsText(file);
+                } else if (fileName.endsWith('.hpp')) {
+                    // Handle HPP files
+                    reader.onload = (event) => {
+                        try {
+                            const hppContent = event.target.result;
+                            this.loadFromHPP(hppContent);
+                            // Reset file input so same file can be loaded again
+                            e.target.value = '';
+                        } catch (err) {
+                            alert('Error loading HPP file: ' + err.message);
+                            e.target.value = '';
+                        }
+                    };
+                    reader.readAsText(file);
+                } else {
+                    alert('Unsupported file type. Please select a .json or .hpp file.');
+                    e.target.value = '';
+                }
             }
         };
     }
@@ -4738,6 +6065,160 @@ class DrawingEditor {
             this.redrawCanvas();
             this.generateCode();
         });
+    }
+    
+    loadFromHPP(hppContent) {
+        try {
+            // Parse HPP file to extract 1-bit packed pixel data
+            const lines = hppContent.split('\n');
+            let width = 0;
+            let height = 0;
+            let pixelData = [];
+            let inDataArray = false;
+            let dataArrayName = '';
+            
+            console.log('HPP Content preview:', hppContent.substring(0, 500));
+            
+            // Find width and height
+            for (const line of lines) {
+                // Try to find dimensions in comments first
+                const commentMatch = line.match(/\/\/.*?(\d+)x(\d+)/);
+                if (commentMatch && !width && !height) {
+                    width = parseInt(commentMatch[1]);
+                    height = parseInt(commentMatch[2]);
+                    console.log('Found dimensions in comment:', width, 'x', height);
+                }
+                
+                // Also check for #define statements
+                const widthMatch = line.match(/#define\s+\w+WIDTH\s+(\d+)/);
+                if (widthMatch) {
+                    width = parseInt(widthMatch[1]);
+                    console.log('Found width:', width);
+                }
+                
+                const heightMatch = line.match(/#define\s+\w+HEIGHT\s+(\d+)/);
+                if (heightMatch) {
+                    height = parseInt(heightMatch[1]);
+                    console.log('Found height:', height);
+                }
+                
+                // Look for data array start (uint8_t array)
+                const arrayMatch = line.match(/uint8_t\s+(\w+)\[\d*\]\s*=\s*{/);
+                if (arrayMatch) {
+                    inDataArray = true;
+                    dataArrayName = arrayMatch[1];
+                    console.log('Found data array:', dataArrayName);
+                    // Check if data is on the same line
+                    const dataOnSameLine = line.substring(line.indexOf('{') + 1);
+                    if (dataOnSameLine.trim()) {
+                        pixelData.push(...this.parseHPPDataLine(dataOnSameLine));
+                    }
+                    continue;
+                }
+                
+                // Parse data lines
+                if (inDataArray) {
+                    if (line.includes('}')) {
+                        // End of array
+                        const lastData = line.substring(0, line.indexOf('}'));
+                        if (lastData.trim()) {
+                            pixelData.push(...this.parseHPPDataLine(lastData));
+                        }
+                        console.log('Finished parsing data array, total bytes:', pixelData.length);
+                        break;
+                    } else {
+                        const lineData = this.parseHPPDataLine(line);
+                        if (lineData.length > 0) {
+                            pixelData.push(...lineData);
+                        }
+                    }
+                }
+            }
+            
+            console.log('Parse results - Width:', width, 'Height:', height, 'Data bytes:', pixelData.length);
+            
+            if (width && height && pixelData.length > 0) {
+                // Convert 1-bit packed data to canvas
+                this.setCanvasSize(width, height);
+                this.frames = [this.createEmptyFrame()];
+                this.currentFrameIndex = 0;
+                
+                const ctx = this.getCurrentFrameContext();
+                const imageData = ctx.createImageData(width, height);
+                const data = imageData.data;
+                
+                // Convert packed bits to RGBA pixels (optimized)
+                const totalPixels = width * height;
+                
+                // Process in chunks to avoid blocking the UI
+                let pixelIndex = 0;
+                const chunkSize = 1000; // Process 1000 pixels at a time
+                
+                const processChunk = () => {
+                    const endIndex = Math.min(pixelIndex + chunkSize, totalPixels);
+                    
+                    for (; pixelIndex < endIndex; pixelIndex++) {
+                        const byteIndex = Math.floor(pixelIndex / 8);
+                        const bitIndex = 7 - (pixelIndex % 8); // MSB first
+                        
+                        if (byteIndex < pixelData.length) {
+                            const byte = pixelData[byteIndex];
+                            const isWhite = (byte >> bitIndex) & 1;
+                            
+                            const dataIndex = pixelIndex * 4;
+                            const colorValue = isWhite ? 255 : 0; // White or black
+                            
+                            data[dataIndex] = colorValue;     // R
+                            data[dataIndex + 1] = colorValue; // G
+                            data[dataIndex + 2] = colorValue; // B
+                            data[dataIndex + 3] = 255;        // A (fully opaque)
+                        }
+                    }
+                    
+                    if (pixelIndex < totalPixels) {
+                        // More pixels to process, continue in next frame
+                        requestAnimationFrame(processChunk);
+                    } else {
+                        // All pixels processed, update canvas
+                        ctx.putImageData(imageData, 0, 0);
+                        this.updateUI();
+                        this.redrawCanvas();
+                        this.generateCode();
+                        
+                        // HPP file loaded successfully (no alert)
+                    }
+                };
+                
+                // Start processing
+                processChunk();
+            } else {
+                throw new Error('Invalid HPP file format or missing data');
+            }
+        } catch (err) {
+            alert('Error parsing HPP file: ' + err.message);
+            console.error('HPP parsing error:', err);
+        }
+    }
+    
+    parseHPPDataLine(line) {
+        // Parse a line of 8-bit hex values for packed bitmap data
+        const cleanLine = line.replace(/\/\*.*?\*\//g, '') // Remove /* */ comments
+                              .replace(/\/\/.*$/, '')      // Remove // comments
+                              .trim();
+        
+        const hexPattern = /0x([0-9a-fA-F]+)/g;
+        const values = [];
+        let match;
+        
+        while ((match = hexPattern.exec(cleanLine)) !== null) {
+            const hexValue = parseInt(match[1], 16);
+            // Ensure it's a valid 8-bit value
+            if (hexValue >= 0 && hexValue <= 255) {
+                values.push(hexValue);
+            }
+        }
+        
+        return values;
     }
     
     export() {
@@ -4988,10 +6469,11 @@ Instructions:
     }
     
     drawSelectionOverlay() {
-        this.overlayCtx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
-        
-        // Only show selection overlay when using the selection tool
+        // Only clear and redraw everything if we have an active selection for the select tool
         if (this.selection && this.selection.active && this.currentTool === 'select') {
+            // Clear overlay and redraw ALL base layers first (including grid mode lines)
+            this.restoreOverlayState();
+            
             const { startX, startY, endX, endY } = this.selection;
             const minX = Math.min(startX, endX);
             const minY = Math.min(startY, endY);
@@ -5002,6 +6484,15 @@ Instructions:
             if (width <= 0 || height <= 0) {
                 return;
             }
+            
+            // Draw the selection overlay on top of ALL other overlays (including grid lines)
+            this.overlayCtx.save();
+            
+            // Disable anti-aliasing for crisp, pixel-perfect rendering
+            this.overlayCtx.imageSmoothingEnabled = false;
+            this.overlayCtx.webkitImageSmoothingEnabled = false;
+            this.overlayCtx.mozImageSmoothingEnabled = false;
+            this.overlayCtx.msImageSmoothingEnabled = false;
             
             // If we have cut content, draw it at the selection position
             if (this.selection.cutContent) {
@@ -5064,7 +6555,11 @@ Instructions:
             this.drawHandle(minX + width/2, minY + height, handleSize);
             this.drawHandle(minX, minY + height/2, handleSize);
             this.drawHandle(minX + width, minY + height/2, handleSize);
+            
+            this.overlayCtx.restore();
         }
+        // Note: When there's no active selection, we don't clear the overlay
+        // to preserve other overlay elements like grids
     }
     
     drawHandle(x, y, size) {
@@ -5656,6 +7151,28 @@ Instructions:
     
     // Canvas transformation functions
     flipCanvasHorizontal() {
+        // Capture state before transform for undo
+        const ctx = this.getCurrentFrameContext();
+        const beforeImageData = ctx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
+        
+        // Perform the transform
+        this._flipCanvasHorizontalInternal();
+        
+        // Add to undo stack
+        const command = new TransformCommand(this, beforeImageData, 'flipH', this.currentFrameIndex);
+        this.undoStack.push(command);
+        this.redoStack = [];
+        
+        // Limit undo stack size
+        if (this.undoStack.length > this.maxUndoStackSize) {
+            this.undoStack.shift();
+        }
+        
+        this.markAsUnsaved();
+        this.updateUndoRedoUI();
+    }
+    
+    _flipCanvasHorizontalInternal() {
         const ctx = this.getCurrentFrameContext();
         const imageData = ctx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
         
@@ -5676,9 +7193,33 @@ Instructions:
         ctx.restore();
         
         this.redrawCanvas();
+        this.generateThumbnail(this.currentFrameIndex);
+        this.generateCode();
     }
     
     flipCanvasVertical() {
+        // Capture state before transform for undo
+        const ctx = this.getCurrentFrameContext();
+        const beforeImageData = ctx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
+        
+        // Perform the transform
+        this._flipCanvasVerticalInternal();
+        
+        // Add to undo stack
+        const command = new TransformCommand(this, beforeImageData, 'flipV', this.currentFrameIndex);
+        this.undoStack.push(command);
+        this.redoStack = [];
+        
+        // Limit undo stack size
+        if (this.undoStack.length > this.maxUndoStackSize) {
+            this.undoStack.shift();
+        }
+        
+        this.markAsUnsaved();
+        this.updateUndoRedoUI();
+    }
+    
+    _flipCanvasVerticalInternal() {
         const ctx = this.getCurrentFrameContext();
         const imageData = ctx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
         
@@ -5699,9 +7240,34 @@ Instructions:
         ctx.restore();
         
         this.redrawCanvas();
+        this.generateThumbnail(this.currentFrameIndex);
+        this.generateCode();
     }
     
     rotateCanvas(degrees) {
+        // Capture state before transform for undo
+        const ctx = this.getCurrentFrameContext();
+        const beforeImageData = ctx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
+        
+        // Perform the transform
+        this._rotateCanvasInternal(degrees);
+        
+        // Add to undo stack
+        const transformType = degrees === -90 ? 'rotateL' : 'rotateR';
+        const command = new TransformCommand(this, beforeImageData, transformType, this.currentFrameIndex);
+        this.undoStack.push(command);
+        this.redoStack = [];
+        
+        // Limit undo stack size
+        if (this.undoStack.length > this.maxUndoStackSize) {
+            this.undoStack.shift();
+        }
+        
+        this.markAsUnsaved();
+        this.updateUndoRedoUI();
+    }
+    
+    _rotateCanvasInternal(degrees) {
         const ctx = this.getCurrentFrameContext();
         const imageData = ctx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
         
@@ -5725,6 +7291,8 @@ Instructions:
         
         ctx.restore();
         this.redrawCanvas();
+        this.generateThumbnail(this.currentFrameIndex);
+        this.generateCode();
     }
 
     // Mobile menu methods
@@ -7052,7 +8620,7 @@ class MobileInterface {
                         <div class="setting-group">
                             <div class="mobile-edit-buttons">
                                 <button class="mobile-edit-btn" id="mobileCopyBtn">📋 Copy</button>
-                                <button class="mobile-edit-btn" id="mobilePasteBtn" ${!this.editor.clipboard ? 'disabled' : ''}>📋 Paste</button>
+                                <button class="mobile-edit-btn" id="mobilePasteBtn" ${!this.editor.clipboard ? 'disabled' : ''}>📋 Paste Mode</button>
                                 <button class="mobile-edit-btn" id="mobileCutBtn">✂️ Cut</button>
                                 <button class="mobile-edit-btn" id="mobileClearSelectionBtn">🗑️ Clear</button>
                             </div>
@@ -7215,7 +8783,7 @@ class MobileInterface {
         });
         
         document.getElementById('mobilePasteBtn')?.addEventListener('click', () => {
-            document.getElementById('pasteBtn')?.click();
+            document.getElementById('pasteModeBtn')?.click();
         });
         
         document.getElementById('mobileCutBtn')?.addEventListener('click', () => {
@@ -7378,9 +8946,33 @@ class MobileInterface {
     }
 }
 
+// Sidebar toggle functionality
+function initializeSidebarToggles() {
+    const leftToggle = document.getElementById('leftToggle');
+    const rightToggle = document.getElementById('rightToggle');
+    const toolsPanel = document.getElementById('toolsPanel');
+    const exportPanel = document.getElementById('exportPanel');
+    const editorLayout = document.querySelector('.editor-layout');
+    
+    leftToggle.addEventListener('click', () => {
+        toolsPanel.classList.toggle('collapsed');
+        leftToggle.classList.toggle('collapsed');
+        editorLayout.classList.toggle('left-collapsed');
+    });
+    
+    rightToggle.addEventListener('click', () => {
+        exportPanel.classList.toggle('collapsed');
+        rightToggle.classList.toggle('collapsed');
+        editorLayout.classList.toggle('right-collapsed');
+    });
+}
+
 // Initialize the drawing editor when the page loads
 document.addEventListener('DOMContentLoaded', () => {
     const editor = new DrawingEditor();
+    
+    // Initialize sidebar toggles
+    initializeSidebarToggles();
     
     // Initialize mobile interface if on mobile
     if (window.innerWidth <= 768) {

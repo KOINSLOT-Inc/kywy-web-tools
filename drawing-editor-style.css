@@ -140,21 +140,132 @@ header h1 {
     display: flex;
     flex: 1;
     overflow: hidden;
+    position: relative;
 }
 
-/* Side Panels */
-.tools-panel, .export-panel {
+/* Main content area - takes full width since both panels are overlays */
+.canvas-container {
+    flex: 1;
+    display: block;
+    position: relative;
+    padding: 20px;
+    overflow: auto;
+    transition: all 0.3s ease;
+    width: 100%;
+}
+
+/* Sidebar Toggle Buttons */
+.sidebar-toggle {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 24px;
+    height: 60px;
+    background: #f8f9fa;
+    border: 1px solid #ddd;
+    border-radius: 0 8px 8px 0;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    transition: all 0.3s ease;
+    box-shadow: 2px 0 4px rgba(0,0,0,0.1);
+}
+
+.sidebar-toggle:hover {
+    background: #e9ecef;
+    box-shadow: 2px 0 8px rgba(0,0,0,0.15);
+}
+
+.left-toggle {
+    left: 280px;
+    border-radius: 0 8px 8px 0;
+    transition: left 0.3s ease, transform 0.3s ease;
+}
+
+.right-toggle {
+    right: 280px;
+    border-radius: 8px 0 0 8px;
+    box-shadow: -2px 0 4px rgba(0,0,0,0.1);
+    transition: right 0.3s ease, transform 0.3s ease;
+}
+
+.right-toggle:hover {
+    box-shadow: -2px 0 8px rgba(0,0,0,0.15);
+}
+
+.sidebar-toggle .arrow {
+    font-size: 12px;
+    color: #666;
+    transition: transform 0.3s ease;
+}
+
+/* Collapsed states */
+.tools-panel.collapsed {
+    transform: translateX(-100%);
+}
+
+.export-panel.collapsed {
+    transform: translateX(100%);
+}
+
+.left-toggle.collapsed {
+    left: 0;
+}
+
+.left-toggle.collapsed .arrow {
+    transform: rotate(180deg);
+}
+
+.right-toggle.collapsed {
+    right: 0;
+}
+
+.right-toggle.collapsed .arrow {
+    transform: rotate(180deg);
+}
+
+/* Export Panel */
+.export-panel {
     width: 280px;
     background: white;
     border-right: 1px solid #ddd;
     padding: 20px;
     overflow-y: auto;
     flex-shrink: 0;
+    transition: all 0.3s ease;
+}
+.tools-panel {
+    width: 280px;
+    background: white;
+    border-right: 1px solid #ddd;
+    padding: 20px;
+    overflow-y: auto;
+    flex-shrink: 0;
+    transition: transform 0.3s ease;
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: calc(100% - 65px);
+    z-index: 50;
+    box-shadow: 2px 0 8px rgba(0,0,0,0.1);
 }
 
 .export-panel {
-    border-right: none;
+    width: 280px;
+    background: white;
     border-left: 1px solid #ddd;
+    padding: 20px;
+    overflow-y: auto;
+    flex-shrink: 0;
+    transition: all 0.3s ease;
+    position: absolute;
+    right: 0;
+    top: 0;
+    height: calc(100% - 65px);
+    z-index: 50;
+    box-shadow: -2px 0 8px rgba(0,0,0,0.1);
 }
 
 .tool-section {
@@ -171,6 +282,14 @@ header h1 {
     margin-bottom: 15px;
     color: #333;
     font-size: 1rem;
+    font-weight: 600;
+}
+
+.tool-section h4 {
+    margin-bottom: 10px;
+    margin-top: 15px;
+    color: #333;
+    font-size: 0.9rem;
     font-weight: 600;
 }
 
@@ -567,6 +686,11 @@ input[type="range"]::-moz-range-thumb {
     cursor: not-allowed;
 }
 
+.edit-btn.active {
+    background: var(--accent-color);
+    color: #000000;
+}
+
 .export-btn {
     background: var(--accent-color);
     color: #000000;
@@ -767,18 +891,55 @@ input[type="range"]::-moz-range-thumb {
 .thickness-style, .fill-style {
     display: flex;
     gap: 5px;
-    margin-top: 10px;
-    justify-content: center;
+    margin-bottom: 15px;
+}
+
+.fill-style {
+    margin-bottom: 20px;
+}
+
+.shape-mode-toggle {
+    display: flex;
+    margin-bottom: 15px;
+}
+
+.shape-mode-btn {
+    flex: 1;
+    background: #f8f9fa;
+    color: #333;
+    border: 2px solid #dee2e6;
+    padding: 8px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+}
+
+.shape-mode-btn:hover {
+    background: #e9ecef;
+    border-color: var(--accent-color);
+}
+
+.shape-mode-btn.active {
+    background: var(--accent-color);
+    color: #000000;
+    border-color: var(--accent-color);
 }
 
 .style-btn, .fill-btn {
+    flex: 1;
     background: #e9ecef;
     color: #333;
     border: 2px solid #dee2e6;
-    padding: 6px 10px;
+    padding: 8px 12px;
     border-radius: 4px;
     cursor: pointer;
-    font-size: 0.8rem;
+    font-size: 0.9rem;
     transition: all 0.2s;
 }
 
@@ -860,6 +1021,8 @@ input[type="range"]::-moz-range-thumb {
     position: relative;
     padding: 20px;
     overflow: auto;
+    transition: all 0.3s ease;
+    width: 100%;
 }
 
 .canvas-wrapper {
@@ -983,6 +1146,11 @@ input[type="range"]::-moz-range-thumb {
     font-family: 'Monaco', 'Menlo', monospace;
     font-size: 0.9rem;
     color: #666;
+}
+
+.canvas-info #mousePos {
+    min-width: 80px;
+    text-align: left;
 }
 
 /* Export Options */

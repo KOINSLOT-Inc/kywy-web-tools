@@ -1,4 +1,33 @@
-/* Apple II Theme - Early Mac OS Black & White Interface Style */
+/* Apple II Theme for Kywy Web Tools */
+
+/* Font size standardization - preserve original sizes */
+header h1 {
+    font-size: 1.5rem !important;
+}
+
+.tool-section h3 {
+    font-size: 1rem !important;
+}
+
+.tool-section h4 {
+    font-size: 0.9rem !important;
+}
+
+.mirror-tools h4, .transform-tools h4 {
+    font-size: 0.9rem !important;
+}
+
+button, .nav-btn, .back-button {
+    font-size: 0.85rem !important;
+}
+
+label, span, p {
+    font-size: 0.9rem !important;
+}
+
+input, select, textarea {
+    font-size: 0.9rem !important;
+}
 
 /* Exclude functional elements from theme styling */
 .resize-handle, .splitter, .resize-grip, [data-resize], 

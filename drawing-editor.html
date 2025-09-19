@@ -63,8 +63,13 @@
         </header>
 
         <div class="editor-layout">
+            <!-- Left Sidebar Toggle -->
+            <button class="sidebar-toggle left-toggle" id="leftToggle" title="Toggle Tools Panel">
+                <span class="arrow">◀</span>
+            </button>
+            
             <!-- Left Sidebar - Tools -->
-            <aside class="tools-panel">
+            <aside class="tools-panel" id="toolsPanel">
                 <div class="tool-section">
                     <h3>Canvas Size</h3>
                     <select id="canvasSize">
@@ -117,7 +122,18 @@
                 <div class="tool-section" id="editSettings" style="display: none;">
                     <h3>Edit</h3>
                     <button id="copyBtn" class="edit-btn">📋 Copy</button>
-                    <button id="pasteBtn" class="edit-btn" disabled>📋 Paste</button>
+                    <button id="pasteModeBtn" class="edit-btn" disabled>📋 Paste Mode</button>
+                    
+                    <div id="pasteModeOptions" style="display: none; margin-top: 8px;">
+                        <h4>Paste Options</h4>
+                        <label style="display: block; margin-bottom: 4px;">
+                            <input type="checkbox" id="ignoreWhite"> Ignore White
+                        </label>
+                        <label style="display: block; margin-bottom: 8px;">
+                            <input type="checkbox" id="ignoreBlack"> Ignore Black
+                        </label>
+                    </div>
+                    
                     <button id="cutBtn" class="edit-btn">✂️ Cut</button>
                     <button id="clearBtn" class="edit-btn">🗑️ Clear</button>
                     
@@ -324,6 +340,14 @@
                         <button id="filledShape" class="fill-btn" data-fill="filled">⬛ Filled</button>
                     </div>
                     
+                    <h4>Mode</h4>
+                    <div class="shape-mode-toggle">
+                        <button id="shapeModeToggle" class="shape-mode-btn" title="Click to cycle through drawing modes">
+                            <span id="shapeModeIcon">📐</span>
+                            <span id="shapeModeText">Corner</span>
+                        </button>
+                    </div>
+                    
                     <div id="shapeThickness" class="thickness-section">
                         <h4>Stroke Thickness</h4>
                         <label>Width: <span id="shapeThicknessDisplay">1</span>px</label>
@@ -435,8 +459,13 @@
                 </div>
             </main>
 
+            <!-- Right Sidebar Toggle -->
+            <button class="sidebar-toggle right-toggle" id="rightToggle" title="Toggle Export Panel">
+                <span class="arrow">▶</span>
+            </button>
+
             <!-- Right Sidebar - Export -->
-            <aside class="export-panel">
+            <aside class="export-panel" id="exportPanel">
                 <div class="tool-section">
                     <h3>Export</h3>
                     <div class="export-options">
@@ -479,7 +508,7 @@
     </div>
 
     <!-- Hidden file input -->
-    <input type="file" id="fileInput" accept=".json,.png,.gif" style="display: none;">
+    <input type="file" id="fileInput" accept=".json,.hpp,.png,.gif" style="display: none;">
 
     <!-- Help Modal -->
     <div id="helpModal" class="modal" style="display: none;">
