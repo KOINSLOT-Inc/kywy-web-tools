@@ -131,7 +131,7 @@ header h1 {
 }
 
 .nav-btn:hover {
-    background: #42d969;
+    background: var(--accent-color);
     color: #000000;
 }
 
@@ -666,8 +666,8 @@ input[type="range"]::-moz-range-thumb {
 /* Edit Buttons */
 .edit-btn, .export-btn {
     width: 100%;
-    background: #28a745;
-    color: white;
+    background: var(--accent-color);
+    color: #000000;
     border: none;
     padding: 10px;
     margin-bottom: 8px;
@@ -678,7 +678,7 @@ input[type="range"]::-moz-range-thumb {
 }
 
 .edit-btn:hover, .export-btn:hover {
-    background: #218838;
+    background: var(--accent-color);
 }
 
 .edit-btn:disabled {
@@ -697,7 +697,7 @@ input[type="range"]::-moz-range-thumb {
 }
 
 .export-btn:hover {
-    background: #42d969;
+    background: var(--accent-color);
     color: #000000;
 }
 
@@ -898,6 +898,12 @@ input[type="range"]::-moz-range-thumb {
     margin-bottom: 20px;
 }
 
+/* Pen mode toggle */
+.pen-mode-toggle {
+    display: flex;
+    margin-bottom: 15px;
+}
+
 .shape-mode-toggle {
     display: flex;
     margin-bottom: 15px;
@@ -944,14 +950,14 @@ input[type="range"]::-moz-range-thumb {
 }
 
 .style-btn:hover, .fill-btn:hover {
-    background: #d1ecf1;
-    border-color: #b8daff;
+    background: #e9ecef;
+    border-color: var(--accent-color);
 }
 
 .style-btn.active, .fill-btn.active {
-    background: #28a745;
-    color: white;
-    border-color: #1e7e34;
+    background: var(--accent-color);
+    color: #000000;
+    border-color: var(--accent-color);
 }
 
 .animation-controls button {
@@ -967,7 +973,7 @@ input[type="range"]::-moz-range-thumb {
 }
 
 .animation-controls button:hover {
-    background: #42d969;
+    background: var(--accent-color);
     color: #000000;
 }
 
@@ -1582,7 +1588,7 @@ input[type="range"]::-moz-range-thumb {
     .mobile-pattern-btn.active {
         background: var(--accent-color);
         border-color: var(--accent-color);
-        color: white;
+        color: #000000;
     }
 
     /* Pattern Grid Specific Layout */

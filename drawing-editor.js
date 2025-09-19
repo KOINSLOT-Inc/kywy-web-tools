@@ -338,6 +338,12 @@ class DrawingEditor {
         // Submenus start closed by default - removed initialization toggles
         this.generateThumbnail(0);
         
+        // Initialize pen tool as default with visible options
+        this.setTool('pen');
+        
+        // Initialize pen mode display
+        this.updatePenModeButtons();
+        
         // Initialize default fill pattern
         this.setFillPattern('solid');
     }
@@ -477,6 +483,27 @@ class DrawingEditor {
                 this.setBrushShape(btn.dataset.shape);
             });
         });
+
+        // Pen mode selection (freehand vs grid)
+        const freehandMode = document.getElementById('freehandMode');
+        const gridModeBtn = document.getElementById('gridMode');
+        
+        if (freehandMode && gridModeBtn) {
+            freehandMode.addEventListener('click', () => {
+                this.gridModeEnabled = false;
+                this.updatePenModeButtons();
+            });
+            
+            gridModeBtn.addEventListener('click', () => {
+                this.gridModeEnabled = true;
+                this.updatePenModeButtons();
+                
+                // Auto-switch to pen tool when enabling grid mode
+                if (this.currentTool !== 'pen') {
+                    this.setTool('pen');
+                }
+            });
+        }
 
         // Fill pattern selection
         document.querySelectorAll('.pattern-btn').forEach(btn => {
@@ -4525,6 +4552,16 @@ class DrawingEditor {
         const config = modeConfig[this.shapeMode];
         if (iconElement) iconElement.textContent = config.icon;
         if (textElement) textElement.textContent = config.text;
+    }
+
+    updatePenModeButtons() {
+        const freehandMode = document.getElementById('freehandMode');
+        const gridModeBtn = document.getElementById('gridMode');
+        
+        if (freehandMode && gridModeBtn) {
+            freehandMode.classList.toggle('active', !this.gridModeEnabled);
+            gridModeBtn.classList.toggle('active', this.gridModeEnabled);
+        }
     }
 
     setColor(color) {
