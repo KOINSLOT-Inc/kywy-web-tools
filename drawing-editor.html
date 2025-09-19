@@ -120,13 +120,9 @@
                     
                     <h4>Pen Mode</h4>
                     <div class="pen-mode-toggle">
-                        <button id="freehandMode" class="shape-mode-btn active" data-mode="freehand">
-                            <span>✏️</span>
-                            <span>Freehand</span>
-                        </button>
-                        <button id="gridMode" class="shape-mode-btn" data-mode="grid">
-                            <span>📐</span>
-                            <span>Grid</span>
+                        <button id="penModeBtn" class="shape-mode-btn active" data-mode="freehand">
+                            <span id="penModeIcon">✏️</span>
+                            <span id="penModeText">Freehand</span>
                         </button>
                     </div>
                 </div>
@@ -134,20 +130,16 @@
                 <div class="tool-section" id="editSettings" style="display: none;">
                     <h3>Edit</h3>
                     <button id="copyBtn" class="edit-btn">📋 Copy</button>
+                    <button id="cutBtn" class="edit-btn">✂️ Cut</button>
                     <button id="pasteModeBtn" class="edit-btn" disabled>📋 Paste Mode</button>
                     
                     <div id="pasteModeOptions" style="display: none; margin-top: 8px;">
                         <h4>Paste Options</h4>
-                        <label style="display: block; margin-bottom: 4px;">
-                            <input type="checkbox" id="ignoreWhite"> Ignore White
-                        </label>
-                        <label style="display: block; margin-bottom: 8px;">
-                            <input type="checkbox" id="ignoreBlack"> Ignore Black
-                        </label>
+                        <div style="margin-bottom: 8px;">
+                            <label style="display: block; margin-bottom: 4px;">Transparency:</label>
+                            <button id="transparencyToggle" class="edit-btn" style="font-size: 12px;">🔍 Transparent White</button>
+                        </div>
                     </div>
-                    
-                    <button id="cutBtn" class="edit-btn">✂️ Cut</button>
-                    <button id="clearBtn" class="edit-btn">🗑️ Clear</button>
                     
                     <h4>Rotate Selection</h4>
                     <label>Angle: <span id="rotationAngleDisplay">0</span>°</label>

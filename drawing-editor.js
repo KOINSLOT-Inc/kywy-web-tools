@@ -149,6 +149,39 @@ class ClearCanvasCommand extends Command {
     }
 }
 
+class RotateSelectionCommand extends Command {
+    constructor(editor, canvasSnapshot, selectionBounds, frameIndex = null) {
+        super(editor, frameIndex);
+        this.canvasSnapshot = canvasSnapshot; // ImageData before rotation
+        this.selectionBounds = selectionBounds; // {startX, startY, endX, endY} before rotation
+    }
+    
+    execute() {
+        // Rotation is already applied, this is for redo
+        // We would need to reapply the same rotation, but since we don't store the angle,
+        // we can't easily redo. For now, we'll just not support redo for rotations.
+    }
+    
+    undo() {
+        const ctx = this.getFrameContext();
+        ctx.putImageData(this.canvasSnapshot, 0, 0);
+        
+        // Restore selection bounds
+        this.editor.selection = {
+            active: true,
+            startX: this.selectionBounds.startX,
+            startY: this.selectionBounds.startY,
+            endX: this.selectionBounds.endX,
+            endY: this.selectionBounds.endY
+        };
+        
+        this.editor.redrawCanvas();
+        this.editor.drawSelectionOverlay();
+        this.editor.generateThumbnail(this.frameIndex !== null ? this.frameIndex : this.editor.currentFrameIndex);
+        this.editor.generateCode();
+    }
+}
+
 // Command for canvas transform operations (flip, rotate)
 class TransformCommand extends Command {
     constructor(editor, canvasSnapshot, transformType, frameIndex = null) {
@@ -291,8 +324,7 @@ class DrawingEditor {
         this.clipboard = null;
         this.selection = null;
         this.isPasteModeActive = false;
-        this.pasteIgnoreWhite = false;
-        this.pasteIgnoreBlack = false;
+        this.pasteTransparencyMode = 'white'; // 'white', 'black', or 'none'
         
         // Paste mode drag state
         this.pasteDragActive = false;
@@ -342,7 +374,13 @@ class DrawingEditor {
         this.setTool('pen');
         
         // Initialize pen mode display
-        this.updatePenModeButtons();
+        this.updatePenModeButton();
+        
+        // Initialize brush controls display
+        this.updateBrushControlsState();
+        
+        // Initialize transparency button display
+        this.updateTransparencyButton();
         
         // Initialize default fill pattern
         this.setFillPattern('solid');
@@ -484,22 +522,43 @@ class DrawingEditor {
             });
         });
 
-        // Pen mode selection (freehand vs grid)
-        const freehandMode = document.getElementById('freehandMode');
-        const gridModeBtn = document.getElementById('gridMode');
+        // Pen mode cycling button
+        const penModeBtn = document.getElementById('penModeBtn');
         
-        if (freehandMode && gridModeBtn) {
-            freehandMode.addEventListener('click', () => {
-                this.gridModeEnabled = false;
-                this.updatePenModeButtons();
-            });
-            
-            gridModeBtn.addEventListener('click', () => {
-                this.gridModeEnabled = true;
-                this.updatePenModeButtons();
+        if (penModeBtn) {
+            penModeBtn.addEventListener('click', () => {
+                // Cycle between freehand and grid mode
+                this.gridModeEnabled = !this.gridModeEnabled;
+                
+                // If enabling grid mode and grid size is too small, set it to 8 (only on first enable)
+                if (this.gridModeEnabled && this.gridSize <= 3) {
+                    this.gridSize = 8;
+                    if (gridSizeSlider) {
+                        gridSizeSlider.value = this.gridSize;
+                    }
+                    document.getElementById('gridSizeDisplay').textContent = this.gridSize;
+                    document.getElementById('gridSizeDisplay2').textContent = this.gridSize;
+                    // Update brush size to match grid size and move its slider
+                    this.brushSize = this.gridSize;
+                    document.getElementById('brushSize').value = this.brushSize;
+                    document.getElementById('brushSizeDisplay').textContent = this.brushSize;
+                    // Also update mobile brush size controls if they exist
+                    const mobileBrushSize = document.getElementById('mobileBrushSize');
+                    const mobileBrushSizeDisplay = document.getElementById('mobileBrushSizeDisplay');
+                    if (mobileBrushSize) {
+                        mobileBrushSize.value = this.brushSize;
+                    }
+                    if (mobileBrushSizeDisplay) {
+                        mobileBrushSizeDisplay.textContent = this.brushSize;
+                    }
+                }
+                
+                this.updatePenModeButton();
+                this.updateBrushControlsState();
+                this.updateGridDisplay();
                 
                 // Auto-switch to pen tool when enabling grid mode
-                if (this.currentTool !== 'pen') {
+                if (this.gridModeEnabled && this.currentTool !== 'pen') {
                     this.setTool('pen');
                 }
             });
@@ -672,40 +731,59 @@ class DrawingEditor {
         brushSizeSlider.addEventListener('input', () => {
             this.brushSize = parseInt(brushSizeSlider.value);
             document.getElementById('brushSizeDisplay').textContent = this.brushSize;
+            
+            // In grid mode, sync grid size with brush size
+            if (this.gridModeEnabled) {
+                this.gridSize = this.brushSize;
+                if (gridSizeSlider) {
+                    gridSizeSlider.value = this.gridSize;
+                }
+                document.getElementById('gridSizeDisplay').textContent = this.gridSize;
+                document.getElementById('gridSizeDisplay2').textContent = this.gridSize;
+                this.updateGridDisplay();
+                this.updateBrushControlsState();
+            } else {
+                // Even when not in grid mode, update grid size for consistency
+                this.gridSize = this.brushSize;
+                if (gridSizeSlider) {
+                    gridSizeSlider.value = this.gridSize;
+                }
+                document.getElementById('gridSizeDisplay').textContent = this.gridSize;
+                document.getElementById('gridSizeDisplay2').textContent = this.gridSize;
+            }
         });
 
         // Grid mode controls
-        const gridModeToggle = document.getElementById('gridModeToggle');
         const gridModeSettings = document.getElementById('gridModeSettings');
         const gridSizeSlider = document.getElementById('gridSize');
-        const showGridLinesToggle = document.getElementById('showGridLines');
-        
-        if (gridModeToggle) {
-            gridModeToggle.addEventListener('change', () => {
-                this.gridModeEnabled = gridModeToggle.checked;
-                gridModeSettings.style.display = this.gridModeEnabled ? 'block' : 'none';
-                this.updateGridDisplay();
-                this.updateBrushControlsState();
-            });
-        }
         
         if (gridSizeSlider) {
             gridSizeSlider.addEventListener('input', () => {
                 this.gridSize = parseInt(gridSizeSlider.value);
                 document.getElementById('gridSizeDisplay').textContent = this.gridSize;
                 document.getElementById('gridSizeDisplay2').textContent = this.gridSize;
+                
+                // In grid mode, sync brush size with grid size
+                if (this.gridModeEnabled) {
+                    this.brushSize = this.gridSize;
+                    document.getElementById('brushSize').value = this.brushSize;
+                    document.getElementById('brushSizeDisplay').textContent = this.brushSize;
+                    // Also update mobile brush size controls if they exist
+                    const mobileBrushSize = document.getElementById('mobileBrushSize');
+                    const mobileBrushSizeDisplay = document.getElementById('mobileBrushSizeDisplay');
+                    if (mobileBrushSize) {
+                        mobileBrushSize.value = this.brushSize;
+                    }
+                    if (mobileBrushSizeDisplay) {
+                        mobileBrushSizeDisplay.textContent = this.brushSize;
+                    }
+                }
+                
                 this.updateGridDisplay();
                 this.updateBrushControlsState(); // Update brush display to show grid size
             });
         }
         
-        if (showGridLinesToggle) {
-            showGridLinesToggle.addEventListener('change', () => {
-                this.showGridLines = showGridLinesToggle.checked;
-                this.updateGridDisplay();
-            });
-        }
-
         // Percentage pattern controls
         this.setupPercentageControls();
         
@@ -1041,16 +1119,12 @@ class DrawingEditor {
         
         // Edit buttons
         document.getElementById('copyBtn').addEventListener('click', () => this.copy());
-        document.getElementById('pasteModeBtn').addEventListener('click', () => this.togglePasteMode());
         document.getElementById('cutBtn').addEventListener('click', () => this.cut());
-        document.getElementById('clearBtn').addEventListener('click', () => this.clear());
+        document.getElementById('pasteModeBtn').addEventListener('click', () => this.togglePasteMode());
         
-        // Paste mode options
-        document.getElementById('ignoreWhite').addEventListener('change', (e) => {
-            this.pasteIgnoreWhite = e.target.checked;
-        });
-        document.getElementById('ignoreBlack').addEventListener('change', (e) => {
-            this.pasteIgnoreBlack = e.target.checked;
+        // Transparency toggle
+        document.getElementById('transparencyToggle').addEventListener('click', () => {
+            this.toggleTransparencyMode();
         });
         
         // Rotation controls
@@ -1478,7 +1552,8 @@ class DrawingEditor {
     }
     
     snapToGrid(pos) {
-        const gridSize = this.gridSize;
+        // Use the current grid size for snapping in grid mode
+        const gridSize = this.gridModeEnabled ? this.gridSize : this.gridSize;
         return {
             x: Math.floor(pos.x / gridSize) * gridSize,
             y: Math.floor(pos.y / gridSize) * gridSize
@@ -1491,20 +1566,23 @@ class DrawingEditor {
         const brushShapeButtons = document.querySelectorAll('.brush-shape-btn');
         
         if (this.gridModeEnabled) {
-            // Disable brush controls when grid mode is active
+            // Keep brush controls enabled in grid mode - user should be able to adjust grid size
             if (brushSizeSlider) {
-                brushSizeSlider.disabled = true;
-                brushSizeSlider.style.opacity = '0.5';
+                brushSizeSlider.disabled = false;
+                brushSizeSlider.style.opacity = '1';
             }
             if (brushSizeDisplay) {
-                brushSizeDisplay.textContent = `${this.gridSize} (Grid)`;
+                // Show current grid size and visibility status
+                const gridVisible = (this.gridSize * this.zoom) >= 3 ? ' (Grid)' : ' (Grid - zoom to see lines)';
+                brushSizeDisplay.textContent = `${this.gridSize}${gridVisible}`;
             }
+            // Keep shape buttons enabled but they affect grid behavior
             brushShapeButtons.forEach(btn => {
-                btn.disabled = true;
-                btn.style.opacity = '0.5';
+                btn.disabled = false;
+                btn.style.opacity = '1';
             });
         } else {
-            // Re-enable brush controls when grid mode is disabled
+            // Normal brush mode
             if (brushSizeSlider) {
                 brushSizeSlider.disabled = false;
                 brushSizeSlider.style.opacity = '1';
@@ -1520,70 +1598,32 @@ class DrawingEditor {
     }
     
     updateGridDisplay() {
+        // Clear overlay and redraw base layers (which includes grid if appropriate)
+        this.overlayCtx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
+        this.drawBaseOverlays();
+        
         if (this.gridModeEnabled && this.showGridLines) {
-            // Draw persistent grid
-            this.drawPersistentGrid();
             console.log(`Grid enabled: size=${this.gridSize}, zoom=${this.zoom}`); // Debug
         } else {
-            // Clear grid
-            this.clearPersistentGrid();
             console.log('Grid disabled'); // Debug
         }
     }
     
-    drawPersistentGrid() {
-        // Clear overlay first
-        this.overlayCtx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
-        
-        // Draw base layers first
-        this.drawBaseOverlays();
-        
-        // Draw the persistent grid
-        this.overlayCtx.save();
-        
-        // Disable anti-aliasing for crisp, pixel-perfect rendering
-        this.overlayCtx.imageSmoothingEnabled = false;
-        this.overlayCtx.webkitImageSmoothingEnabled = false;
-        this.overlayCtx.mozImageSmoothingEnabled = false;
-        this.overlayCtx.msImageSmoothingEnabled = false;
-        
-        this.overlayCtx.strokeStyle = 'rgba(255, 0, 0, 0.5)'; // Made more transparent
-        this.overlayCtx.lineWidth = 0.5; // Thinner lines
-        this.overlayCtx.beginPath();
-        
-        // Ensure pixel-perfect lines
-        this.overlayCtx.translate(0.5, 0.5);
-        
-        // Draw vertical grid lines
-        for (let x = 0; x < this.canvasWidth; x += this.gridSize) {
-            this.overlayCtx.moveTo(x, 0);
-            this.overlayCtx.lineTo(x, this.canvasHeight);
-        }
-        
-        // Draw horizontal grid lines  
-        for (let y = 0; y < this.canvasHeight; y += this.gridSize) {
-            this.overlayCtx.moveTo(0, y);
-            this.overlayCtx.lineTo(this.canvasWidth, y);
-        }
-        
-        this.overlayCtx.stroke();
-        this.overlayCtx.restore();
-    }
-    
-    clearPersistentGrid() {
-        // Clear the overlay and redraw base layers only
-        this.overlayCtx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
-        this.drawBaseOverlays();
-    }
-    
     drawBaseOverlays() {
-        // Draw pixel grid if enabled (without clearing overlay)
-        this.drawPixelGridOnly();
+        // Draw grid mode lines if grid mode is enabled and zoom makes grid size >= 3 pixels on screen
+        if (this.gridModeEnabled && this.showGridLines && (this.gridSize * this.zoom) >= 3) {
+            this.drawGridLines();
+        }
+        
+        // Draw pixel grid checkerboard if enabled (independent of grid mode)
+        if (this.showPixelGrid && this.zoom >= 2) {
+            this.drawPixelGridOnly();
+        }
         
         // Note: Selection overlay is handled separately by drawSelectionOverlay()
         // to avoid circular dependencies in the overlay system
     }
-    
+
     onMouseDown(e) {
         this.lastMouseEvent = e; // Store for panning
         
@@ -2347,12 +2387,8 @@ class DrawingEditor {
         // Clear overlay completely first
         this.overlayCtx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
         
-        // Phase 1: Draw persistent grid if enabled (bottom layer)
-        if (this.gridModeEnabled && this.showGridLines) {
-            this.drawPersistentGrid();
-        } else {
-            this.drawBaseOverlays();
-        }
+        // Phase 1: Draw base overlays (which includes grid if appropriate)
+        this.drawBaseOverlays();
         
         // Phase 2: Draw pen preview (top layer)
         this.overlayCtx.save();
@@ -2382,12 +2418,9 @@ class DrawingEditor {
     }
     
     showGridCursor(x, y) {
-        // Start with persistent grid and base overlays
-        if (this.gridModeEnabled && this.showGridLines) {
-            this.drawPersistentGrid();
-        } else {
-            this.clearPersistentGrid();
-        }
+        // Start with base overlays (which includes grid if appropriate)
+        this.overlayCtx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
+        this.drawBaseOverlays();
         
         // Add grid cursor on top with pixel-perfect rendering
         this.overlayCtx.save();
@@ -2398,8 +2431,8 @@ class DrawingEditor {
         this.overlayCtx.mozImageSmoothingEnabled = false;
         this.overlayCtx.msImageSmoothingEnabled = false;
         
-        // Calculate the grid square boundaries - ensure exact alignment
-        const gridSize = this.gridSize;
+        // Calculate the grid square boundaries - use actual grid size
+        const gridSize = this.gridModeEnabled ? this.gridSize : this.gridSize;
         const gridX = Math.floor(x / gridSize) * gridSize;
         const gridY = Math.floor(y / gridSize) * gridSize;
         
@@ -2813,10 +2846,10 @@ class DrawingEditor {
                 // Determine if we should show this pixel in preview
                 let showPixel = true;
                 
-                if (this.pasteIgnoreWhite && isWhite) {
+                if (this.pasteTransparencyMode === 'white' && isWhite) {
                     showPixel = false;
                 }
-                if (this.pasteIgnoreBlack && isBlack) {
+                if (this.pasteTransparencyMode === 'black' && isBlack) {
                     showPixel = false;
                 }
                 
@@ -4338,17 +4371,17 @@ class DrawingEditor {
             this.gridModeEnabled = false;
             // Don't uncheck the checkbox - preserve user's grid preference
             // Clear any persistent grid display
-            this.clearPersistentGrid();
+            this.overlayCtx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
+            this.drawBaseOverlays();
             console.log('Grid mode disabled - switched from pen to', tool);
         }
         
-        // Re-enable grid mode when switching back to pen tool if checkbox is checked
+        // Re-enable grid mode when switching back to pen tool if it was previously enabled
         if (this.currentTool !== 'pen' && tool === 'pen') {
-            const gridModeToggle = document.getElementById('gridModeToggle');
             const gridModeSettings = document.getElementById('gridModeSettings');
             
-            if (gridModeToggle && gridModeToggle.checked) {
-                this.gridModeEnabled = true;
+            // Grid mode state is preserved in this.gridModeEnabled
+            if (this.gridModeEnabled) {
                 // Show grid mode settings
                 if (gridModeSettings) {
                     gridModeSettings.style.display = 'block';
@@ -4356,10 +4389,9 @@ class DrawingEditor {
                 // Update grid display and controls
                 this.updateGridDisplay();
                 this.updateBrushControlsState();
-                // Redraw persistent grid if enabled
-                if (this.showGridLines) {
-                    this.drawPersistentGrid();
-                }
+                this.updatePenModeButton();
+                // Redraw grid if enabled
+                this.updateGridDisplay();
                 console.log('Grid mode re-enabled - switched back to pen tool');
             }
         }
@@ -4554,13 +4586,46 @@ class DrawingEditor {
         if (textElement) textElement.textContent = config.text;
     }
 
-    updatePenModeButtons() {
-        const freehandMode = document.getElementById('freehandMode');
-        const gridModeBtn = document.getElementById('gridMode');
+    updatePenModeButton() {
+        const penModeBtn = document.getElementById('penModeBtn');
+        const penModeIcon = document.getElementById('penModeIcon');
+        const penModeText = document.getElementById('penModeText');
         
-        if (freehandMode && gridModeBtn) {
-            freehandMode.classList.toggle('active', !this.gridModeEnabled);
-            gridModeBtn.classList.toggle('active', this.gridModeEnabled);
+        if (penModeBtn && penModeIcon && penModeText) {
+            if (this.gridModeEnabled) {
+                penModeIcon.textContent = '📐';
+                penModeText.textContent = 'Grid';
+                penModeBtn.setAttribute('data-mode', 'grid');
+            } else {
+                penModeIcon.textContent = '✏️';
+                penModeText.textContent = 'Freehand';
+                penModeBtn.setAttribute('data-mode', 'freehand');
+            }
+        }
+    }
+    
+    toggleTransparencyMode() {
+        const modes = ['white', 'black', 'none'];
+        const currentIndex = modes.indexOf(this.pasteTransparencyMode);
+        const nextIndex = (currentIndex + 1) % modes.length;
+        this.pasteTransparencyMode = modes[nextIndex];
+        this.updateTransparencyButton();
+    }
+    
+    updateTransparencyButton() {
+        const toggleBtn = document.getElementById('transparencyToggle');
+        if (!toggleBtn) return;
+        
+        switch (this.pasteTransparencyMode) {
+            case 'white':
+                toggleBtn.textContent = '🔍 Transparent White';
+                break;
+            case 'black':
+                toggleBtn.textContent = '⚫ Transparent Black';
+                break;
+            case 'none':
+                toggleBtn.textContent = '🎨 No Transparency';
+                break;
         }
     }
 
@@ -4721,6 +4786,7 @@ class DrawingEditor {
         // Update grid display when zoom changes
         if (this.gridModeEnabled) {
             this.updateGridDisplay();
+            this.updateBrushControlsState(); // Update brush display to reflect grid visibility
         }
     }
     
@@ -4766,50 +4832,63 @@ class DrawingEditor {
     setBrushSize(size) {
         this.brushSize = Math.max(1, Math.min(size, 50));
         
-        // Update desktop size display
-        const desktopSizeDisplay = document.getElementById('brushSizeDisplay');
-        if (desktopSizeDisplay) {
-            desktopSizeDisplay.textContent = this.brushSize;
-        }
+        // Update brush controls display (handles both normal and grid mode)
+        this.updateBrushControlsState();
     }
     
     togglePixelGrid() {
         this.showPixelGrid = document.getElementById('pixelGrid').checked;
-        
-        // If grid mode is active, update the grid display to coordinate both grids
-        if (this.gridModeEnabled && this.showGridLines) {
-            this.updateGridDisplay();
-        } else {
-            // Otherwise, just draw the standalone pixel grid
-            this.drawPixelGrid();
-        }
+        this.drawPixelGrid();
     }
     
     drawPixelGrid() {
-        // This function now only handles standalone pixel grid drawing
-        // When grid mode is active, pixel grid is drawn by drawBaseOverlays()
-        if (!this.showPixelGrid) {
-            return;
-        }
-
-        // If grid mode is active, don't draw standalone pixel grid
-        // It will be handled by the grid mode drawing functions
-        if (this.gridModeEnabled && this.showGridLines) {
-            return;
-        }
-
-        // Draw grid only if zoom is high enough to make it visible
-        if (this.zoom < 2) {
+        // This function handles pixel grid overlay
+        if (!this.showPixelGrid || this.zoom < 2) {
+            // Clear overlay if pixel grid is disabled or zoom too low
+            this.overlayCtx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
+            this.drawBaseOverlays(); // Redraw any other overlays (like grid mode lines)
             return;
         }
         
-        // Clear overlay first only if we're drawing standalone
+        // Clear overlay and redraw all base overlays (including pixel grid)
         this.overlayCtx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
-        
-        // Draw the pixel grid
-        this.drawPixelGridOnly();
+        this.drawBaseOverlays();
     }
-    
+
+    drawGridLines() {
+        // Draw grid lines based on the current grid size
+        // Only called when grid mode is enabled and grid size * zoom >= 3
+        
+        this.overlayCtx.save();
+        this.overlayCtx.strokeStyle = 'rgba(0, 120, 255, 0.6)'; // Blue grid lines
+        this.overlayCtx.lineWidth = 1;
+        this.overlayCtx.globalCompositeOperation = 'source-over';
+        
+        // Use the actual grid size setting
+        const gridSpacing = this.gridSize;
+        
+        // Ensure pixel-perfect lines
+        this.overlayCtx.translate(0.5, 0.5);
+        
+        // Draw vertical lines at grid intervals
+        for (let x = 0; x < this.canvasWidth; x += gridSpacing) {
+            this.overlayCtx.beginPath();
+            this.overlayCtx.moveTo(x, 0);
+            this.overlayCtx.lineTo(x, this.canvasHeight);
+            this.overlayCtx.stroke();
+        }
+        
+        // Draw horizontal lines at grid intervals
+        for (let y = 0; y < this.canvasHeight; y += gridSpacing) {
+            this.overlayCtx.beginPath();
+            this.overlayCtx.moveTo(0, y);
+            this.overlayCtx.lineTo(this.canvasWidth, y);
+            this.overlayCtx.stroke();
+        }
+        
+        this.overlayCtx.restore();
+    }
+
     drawPixelGridOnly() {
         // Helper function to draw just the pixel grid without clearing
         if (!this.showPixelGrid || this.zoom < 2) {
@@ -5839,7 +5918,7 @@ class DrawingEditor {
         this.generateThumbnail(this.currentFrameIndex);
         this.generateCode();
     }
-    
+
     togglePasteMode() {
         if (!this.clipboard) {
             alert('No content to paste. Copy or cut something first.');
@@ -5958,10 +6037,10 @@ class DrawingEditor {
                 // Determine if we should paste this pixel
                 let pastePixel = true;
                 
-                if (this.pasteIgnoreWhite && isWhite) {
+                if (this.pasteTransparencyMode === 'white' && isWhite) {
                     pastePixel = false;
                 }
-                if (this.pasteIgnoreBlack && isBlack) {
+                if (this.pasteTransparencyMode === 'black' && isBlack) {
                     pastePixel = false;
                 }
                 
@@ -6637,8 +6716,12 @@ Instructions:
         
         if (width === 0 || height === 0) return;
         
-        // Get the selected area
+        // Capture canvas state before rotation for undo
         const currentCtx = this.frames[this.currentFrameIndex].getContext('2d');
+        const canvasSnapshot = currentCtx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
+        const selectionBounds = { startX, startY, endX, endY };
+        
+        // Get the selected area
         const imageData = currentCtx.getImageData(minX, minY, width, height);
         
         // Calculate rotation
@@ -6699,6 +6782,13 @@ Instructions:
         
         this.redrawCanvas();
         this.drawSelectionOverlay();
+        this.generateThumbnail(this.currentFrameIndex);
+        this.generateCode();
+        
+        // Add undo command
+        const command = new RotateSelectionCommand(this, canvasSnapshot, selectionBounds, this.currentFrameIndex);
+        this.undoStack.push(command);
+        this.redoStack = []; // Clear redo stack
     }
 
     // Helper method to update color button states
@@ -7444,10 +7534,22 @@ Instructions:
             const imageData = ctx.getImageData(x, y, 1, 1);
             const data = imageData.data;
             
-            // Set the color
+            // Handle different color formats
             if (color === 'white') {
                 data[0] = 255; data[1] = 255; data[2] = 255; data[3] = 255;
-            } else { // black
+            } else if (color === 'black') {
+                data[0] = 0; data[1] = 0; data[2] = 0; data[3] = 255;
+            } else if (color.startsWith('rgba(')) {
+                // Parse RGBA color string like "rgba(255, 255, 255, 1)"
+                const rgba = color.match(/rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)/);
+                if (rgba) {
+                    data[0] = parseInt(rgba[1]); // red
+                    data[1] = parseInt(rgba[2]); // green  
+                    data[2] = parseInt(rgba[3]); // blue
+                    data[3] = Math.round(parseFloat(rgba[4]) * 255); // alpha
+                }
+            } else {
+                // Default to black for unrecognized formats
                 data[0] = 0; data[1] = 0; data[2] = 0; data[3] = 255;
             }
             
@@ -8825,10 +8927,6 @@ class MobileInterface {
         
         document.getElementById('mobileCutBtn')?.addEventListener('click', () => {
             document.getElementById('cutBtn')?.click();
-        });
-        
-        document.getElementById('mobileClearSelectionBtn')?.addEventListener('click', () => {
-            document.getElementById('clearBtn')?.click();
         });
 
         // Rotation
