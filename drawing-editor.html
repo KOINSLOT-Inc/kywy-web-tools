@@ -37,7 +37,7 @@
                 <!-- Mobile Top Dropdowns -->
                 <div class="mobile-top-bar">
                     <div class="mobile-dropdown">
-                        <button class="mobile-dropdown-btn" id="mobileMenuDropdown">📤 Menu ▼</button>
+                        <button class="mobile-dropdown-btn" id="mobileMenuDropdown">☰</button>
                         <div class="mobile-dropdown-content" id="mobileMainMenu">
                             <button id="mobileBackToMenu">🏠 Back to Menu</button>
                             <button id="mobileHelpBtn">❓ Help</button>
@@ -69,7 +69,6 @@
             
             <!-- Left Sidebar - Tools -->
             <aside class="tools-panel" id="toolsPanel">
-                <button class="mobile-panel-close" id="toolsPanelClose">✕ Close Tools</button>
                 <div class="tool-section">
                     <h3>Canvas Size</h3>
                     <select id="canvasSize">
@@ -474,7 +473,6 @@
 
             <!-- Right Sidebar - Export -->
             <aside class="export-panel" id="exportPanel">
-                <button class="mobile-panel-close" id="exportPanelClose">✕ Close Export</button>
                 <div class="tool-section">
                     <h3>Export</h3>
                     <div class="export-options">
@@ -772,6 +770,10 @@
                 <button class="mobile-control-btn" id="mobileFitBtn">📱 Fit</button>
                 <button class="mobile-control-btn" id="mobileCenterBtn">🎯 Center</button>
                 <button class="mobile-control-btn" id="mobileGridBtn">📐 Grid</button>
+                <!-- Color Toggle -->
+                <div class="mobile-color-toggle">
+                    <button class="mobile-color-toggle-btn" id="mobileColorToggle" data-color="black">⬛</button>
+                </div>
             </div>
             
             <!-- Zoom Controls -->
@@ -779,13 +781,6 @@
                 <button class="mobile-zoom-btn" id="mobileZoomOut">−</button>
                 <span class="mobile-zoom-display" id="mobileZoomDisplay">100%</span>
                 <button class="mobile-zoom-btn" id="mobileZoomIn">+</button>
-            </div>
-            
-            <!-- Color Toggle -->
-            <div class="mobile-tool-controls">
-                <div class="mobile-color-toggle">
-                    <button class="mobile-color-toggle-btn" id="mobileColorToggle" data-color="black">⬛</button>
-                </div>
             </div>
             </div>
         </div>
