@@ -144,6 +144,9 @@
                     <h4>Rotate Selection</h4>
                     <label>Angle: <span id="rotationAngleDisplay">0</span>°</label>
                     <input type="range" id="rotationAngle" min="-180" max="180" value="0" step="15">
+                    <div id="rotationWarning" style="display: none; color: #ff6b35; font-size: 11px; margin: 4px 0; padding: 2px 4px; background: rgba(255, 107, 53, 0.1); border-radius: 3px;">
+                        ⚠️ Non-90° rotation is destructive to pixel art
+                    </div>
                     <button id="rotateBtn" class="edit-btn">🔄 Rotate</button>
                     <button id="resetRotationBtn" class="edit-btn">↺ Reset</button>
                 </div>

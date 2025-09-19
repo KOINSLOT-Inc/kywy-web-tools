@@ -382,6 +382,9 @@ class DrawingEditor {
         // Initialize transparency button display
         this.updateTransparencyButton();
         
+        // Initialize rotation warning display
+        this.updateRotationWarning(0);
+        
         // Initialize default fill pattern
         this.setFillPattern('solid');
     }
@@ -1130,6 +1133,7 @@ class DrawingEditor {
         // Rotation controls
         document.getElementById('rotationAngle').addEventListener('input', (e) => {
             document.getElementById('rotationAngleDisplay').textContent = e.target.value;
+            this.updateRotationWarning(parseInt(e.target.value));
         });
         document.getElementById('rotateBtn').addEventListener('click', () => {
             const angle = parseInt(document.getElementById('rotationAngle').value);
@@ -1138,6 +1142,7 @@ class DrawingEditor {
         document.getElementById('resetRotationBtn').addEventListener('click', () => {
             document.getElementById('rotationAngle').value = '0';
             document.getElementById('rotationAngleDisplay').textContent = '0';
+            this.updateRotationWarning(0);
         });
         
         // Export buttons
@@ -4628,6 +4633,20 @@ class DrawingEditor {
                 break;
         }
     }
+    
+    updateRotationWarning(angle) {
+        const warningElement = document.getElementById('rotationWarning');
+        if (!warningElement) return;
+        
+        const normalizedAngle = ((angle % 360) + 360) % 360;
+        const isNon90Degree = normalizedAngle % 90 !== 0;
+        
+        if (isNon90Degree && angle !== 0) {
+            warningElement.style.display = 'block';
+        } else {
+            warningElement.style.display = 'none';
+        }
+    }
 
     setColor(color) {
         this.currentColor = color;
@@ -5826,7 +5845,7 @@ class DrawingEditor {
     cut() {
         if (!this.selection || !this.selection.active) return;
         
-        // Store the cut content for dragging
+        // Store the cut content for clipboard
         const { startX, startY, endX, endY } = this.selection;
         const minX = Math.min(startX, endX);
         const minY = Math.min(startY, endY);
@@ -5843,18 +5862,39 @@ class DrawingEditor {
         const cutCtx = cutCanvas.getContext('2d', { willReadFrequently: true });
         cutCtx.putImageData(imageData, 0, 0);
         
-        // Store in selection for dragging
-        this.selection.cutContent = cutCanvas;
+        // Set up clipboard for paste mode
+        this.clipboard = {
+            data: cutCanvas,
+            isSelection: true,
+            width: width,
+            height: height
+        };
         
-        // Copy to clipboard
-        this.clipboard = cutCanvas;
-        this.updateEditButtonStates();
-        
-        // Clear the original area
+        // Clear the original area immediately
         this.clearSelection();
         
-        // Keep selection active for dragging
+        // Automatically enter paste mode
+        this.setTool('select');
+        this.isPasteModeActive = true;
+        
+        // Update paste mode button and show options
+        const pasteModeBtn = document.getElementById('pasteModeBtn');
+        const pasteModeOptions = document.getElementById('pasteModeOptions');
+        
+        pasteModeBtn.classList.add('active');
+        pasteModeBtn.textContent = 'Exit Paste Mode';
+        pasteModeOptions.style.display = 'block';
+        pasteModeBtn.disabled = false;
+        
+        // Update edit button states
+        this.updateEditButtonStates();
+        
+        // Clear selection since content was cut
+        this.selection = null;
         this.drawSelectionOverlay();
+        
+        // Provide user feedback
+        console.log('Content cut and ready to paste. Click to place the cut content.');
     }
     
     clear() {
@@ -6716,6 +6756,13 @@ Instructions:
         
         if (width === 0 || height === 0) return;
         
+        // Prevent rotation if selection is too large (causes performance issues)
+        const maxDimension = Math.max(width, height);
+        if (maxDimension > 200) {
+            alert('Selection too large for rotation. Please select a smaller area.');
+            return;
+        }
+        
         // Capture canvas state before rotation for undo
         const currentCtx = this.frames[this.currentFrameIndex].getContext('2d');
         const canvasSnapshot = currentCtx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
@@ -6724,60 +6771,39 @@ Instructions:
         // Get the selected area
         const imageData = currentCtx.getImageData(minX, minY, width, height);
         
-        // Calculate rotation
-        const angleRad = degrees * Math.PI / 180;
-        const cos = Math.cos(angleRad);
-        const sin = Math.sin(angleRad);
+        // Perform pixel-perfect rotation
+        const rotatedPixels = this.rotatePixelsPerfect(imageData, degrees);
         
-        // Calculate new dimensions after rotation
-        const newWidth = Math.abs(width * cos) + Math.abs(height * sin);
-        const newHeight = Math.abs(width * sin) + Math.abs(height * cos);
-        
-        // Create rotated canvas
-        const rotatedCanvas = document.createElement('canvas');
-        rotatedCanvas.width = Math.ceil(newWidth);
-        rotatedCanvas.height = Math.ceil(newHeight);
-        const rotatedCtx = rotatedCanvas.getContext('2d');
-        rotatedCtx.imageSmoothingEnabled = false;
-        
-        // Fill with white background
-        rotatedCtx.fillStyle = '#ffffff';
-        rotatedCtx.fillRect(0, 0, rotatedCanvas.width, rotatedCanvas.height);
-        
-        // Create temp canvas for the original selection
-        const tempCanvas = document.createElement('canvas');
-        tempCanvas.width = width;
-        tempCanvas.height = height;
-        const tempCtx = tempCanvas.getContext('2d');
-        tempCtx.putImageData(imageData, 0, 0);
-        
-        // Rotate around center
-        rotatedCtx.translate(rotatedCanvas.width / 2, rotatedCanvas.height / 2);
-        rotatedCtx.rotate(angleRad);
-        rotatedCtx.drawImage(tempCanvas, -width / 2, -height / 2);
+        if (!rotatedPixels) {
+            alert('Rotation failed. Invalid angle or selection.');
+            return;
+        }
         
         // Clear the original selection area
         currentCtx.fillStyle = '#ffffff';
         currentCtx.fillRect(minX, minY, width, height);
         
-        // Place the rotated selection (if it fits)
-        const newMinX = minX - (rotatedCanvas.width - width) / 2;
-        const newMinY = minY - (rotatedCanvas.height - height) / 2;
+        // Calculate original center coordinates for proper centering
+        const originalCenterX = minX + width / 2;
+        const originalCenterY = minY + height / 2;
         
-        if (newMinX >= 0 && newMinY >= 0 && 
-            newMinX + rotatedCanvas.width <= this.canvasWidth && 
-            newMinY + rotatedCanvas.height <= this.canvasHeight) {
+        // Find the best position to place the rotated content
+        const placementResult = this.findBestPlacement(rotatedPixels, originalCenterX, originalCenterY);
+        
+        if (placementResult) {
+            // Place the rotated pixels
+            this.placeRotatedPixels(currentCtx, rotatedPixels, placementResult.x, placementResult.y);
             
-            currentCtx.drawImage(rotatedCanvas, newMinX, newMinY);
-            
-            // Update selection bounds
-            this.selection.startX = newMinX;
-            this.selection.startY = newMinY;
-            this.selection.endX = newMinX + rotatedCanvas.width;
-            this.selection.endY = newMinY + rotatedCanvas.height;
+            // Update selection bounds to tight bounding box
+            this.selection.startX = placementResult.bounds.minX;
+            this.selection.startY = placementResult.bounds.minY;
+            this.selection.endX = placementResult.bounds.maxX;
+            this.selection.endY = placementResult.bounds.maxY;
         } else {
-            // If rotation doesn't fit, place as much as possible
-            currentCtx.drawImage(rotatedCanvas, minX, minY);
+            alert('Rotated selection does not fit on canvas.');
+            // Restore original content
+            currentCtx.putImageData(canvasSnapshot, 0, 0);
+            return;
         }
         
         this.redrawCanvas();
@@ -6789,6 +6815,131 @@ Instructions:
         const command = new RotateSelectionCommand(this, canvasSnapshot, selectionBounds, this.currentFrameIndex);
         this.undoStack.push(command);
         this.redoStack = []; // Clear redo stack
+    }
+    
+    // Pixel-perfect rotation using nearest neighbor approach
+    rotatePixelsPerfect(imageData, degrees) {
+        const width = imageData.width;
+        const height = imageData.height;
+        const data = imageData.data;
+        
+        // Only support specific angles for pixel-perfect rotation
+        const normalizedAngle = ((degrees % 360) + 360) % 360;
+        
+        // Create array of non-white pixels with their positions
+        const pixels = [];
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                const idx = (y * width + x) * 4;
+                const r = data[idx];
+                const g = data[idx + 1];
+                const b = data[idx + 2];
+                const a = data[idx + 3];
+                
+                // Only include non-white pixels (allowing for slight variations)
+                if (a > 0 && (r < 240 || g < 240 || b < 240)) {
+                    // Convert to black or white only
+                    const isBlack = (r + g + b) < 384; // Average < 128
+                    pixels.push({
+                        x: x - width / 2,
+                        y: y - height / 2,
+                        color: isBlack ? 'black' : 'white'
+                    });
+                }
+            }
+        }
+        
+        if (pixels.length === 0) return null;
+        
+        // Rotate each pixel
+        const angleRad = normalizedAngle * Math.PI / 180;
+        const cos = Math.cos(angleRad);
+        const sin = Math.sin(angleRad);
+        
+        const rotatedPixels = pixels.map(pixel => {
+            const newX = Math.round(pixel.x * cos - pixel.y * sin);
+            const newY = Math.round(pixel.x * sin + pixel.y * cos);
+            return {
+                x: newX,
+                y: newY,
+                color: pixel.color
+            };
+        });
+        
+        return rotatedPixels;
+    }
+    
+    // Find the best placement for rotated pixels
+    findBestPlacement(rotatedPixels, originalCenterX, originalCenterY) {
+        if (rotatedPixels.length === 0) return null;
+        
+        // Calculate bounding box of rotated pixels
+        let minX = rotatedPixels[0].x;
+        let maxX = rotatedPixels[0].x;
+        let minY = rotatedPixels[0].y;
+        let maxY = rotatedPixels[0].y;
+        
+        rotatedPixels.forEach(pixel => {
+            minX = Math.min(minX, pixel.x);
+            maxX = Math.max(maxX, pixel.x);
+            minY = Math.min(minY, pixel.y);
+            maxY = Math.max(maxY, pixel.y);
+        });
+        
+        const rotatedWidth = maxX - minX + 1;
+        const rotatedHeight = maxY - minY + 1;
+        
+        // Try to center around original position
+        let offsetX = originalCenterX - (maxX + minX) / 2;
+        let offsetY = originalCenterY - (maxY + minY) / 2;
+        
+        // Adjust to stay within canvas bounds
+        const finalMinX = Math.round(minX + offsetX);
+        const finalMaxX = Math.round(maxX + offsetX);
+        const finalMinY = Math.round(minY + offsetY);
+        const finalMaxY = Math.round(maxY + offsetY);
+        
+        if (finalMinX < 0) offsetX -= finalMinX;
+        if (finalMaxX >= this.canvasWidth) offsetX -= (finalMaxX - this.canvasWidth + 1);
+        if (finalMinY < 0) offsetY -= finalMinY;
+        if (finalMaxY >= this.canvasHeight) offsetY -= (finalMaxY - this.canvasHeight + 1);
+        
+        // Final bounds check
+        const adjustedMinX = Math.round(minX + offsetX);
+        const adjustedMaxX = Math.round(maxX + offsetX);
+        const adjustedMinY = Math.round(minY + offsetY);
+        const adjustedMaxY = Math.round(maxY + offsetY);
+        
+        if (adjustedMinX < 0 || adjustedMaxX >= this.canvasWidth || 
+            adjustedMinY < 0 || adjustedMaxY >= this.canvasHeight) {
+            return null; // Doesn't fit
+        }
+        
+        return {
+            x: Math.round(offsetX),
+            y: Math.round(offsetY),
+            bounds: {
+                minX: adjustedMinX,
+                maxX: adjustedMaxX + 1, // +1 for selection box
+                minY: adjustedMinY,
+                maxY: adjustedMaxY + 1  // +1 for selection box
+            }
+        };
+    }
+    
+    // Place rotated pixels on canvas
+    placeRotatedPixels(ctx, rotatedPixels, offsetX, offsetY) {
+        rotatedPixels.forEach(pixel => {
+            const canvasX = Math.round(pixel.x + offsetX);
+            const canvasY = Math.round(pixel.y + offsetY);
+            
+            if (canvasX >= 0 && canvasX < this.canvasWidth && 
+                canvasY >= 0 && canvasY < this.canvasHeight) {
+                
+                ctx.fillStyle = pixel.color;
+                ctx.fillRect(canvasX, canvasY, 1, 1);
+            }
+        });
     }
 
     // Helper method to update color button states
