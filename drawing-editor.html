@@ -37,14 +37,6 @@
                 <!-- Mobile Top Dropdowns -->
                 <div class="mobile-top-bar">
                     <div class="mobile-dropdown">
-                        <button class="mobile-dropdown-btn" id="mobileToolSettingsDropdown">⚙️ Tool ▼</button>
-                        <div class="mobile-dropdown-content" id="mobileToolSettingsMenu">
-                            <div id="mobileToolSettingsContent">
-                                <!-- Tool settings will be dynamically populated -->
-                            </div>
-                        </div>
-                    </div>
-                    <div class="mobile-dropdown">
                         <button class="mobile-dropdown-btn" id="mobileMenuDropdown">📤 Menu ▼</button>
                         <div class="mobile-dropdown-content" id="mobileMainMenu">
                             <button id="mobileBackToMenu">🏠 Back to Menu</button>
@@ -56,8 +48,15 @@
                             <button id="mobileNewBtn">📄 New</button>
                             <button id="mobileSaveBtn">💾 Save</button>
                             <button id="mobileLoadBtn">📂 Load</button>
+                            <button id="mobileThemeBtn">🎨 Theme</button>
                         </div>
                     </div>
+                </div>
+                
+                <!-- Mobile Panel Toggle Buttons -->
+                <div class="mobile-panel-toggles">
+                    <button class="mobile-panel-toggle" id="mobileToolsToggle">🛠️ Tools</button>
+                    <button class="mobile-panel-toggle" id="mobileExportToggle">📤 Export</button>
                 </div>
             </div>
         </header>
@@ -70,6 +69,7 @@
             
             <!-- Left Sidebar - Tools -->
             <aside class="tools-panel" id="toolsPanel">
+                <button class="mobile-panel-close" id="toolsPanelClose">✕ Close Tools</button>
                 <div class="tool-section">
                     <h3>Canvas Size</h3>
                     <select id="canvasSize">
@@ -474,6 +474,7 @@
 
             <!-- Right Sidebar - Export -->
             <aside class="export-panel" id="exportPanel">
+                <button class="mobile-panel-close" id="exportPanelClose">✕ Close Export</button>
                 <div class="tool-section">
                     <h3>Export</h3>
                     <div class="export-options">
@@ -768,7 +769,7 @@
         <div class="mobile-bottom-controls">
             <!-- View Controls -->
             <div class="mobile-view-controls">
-                <button class="mobile-control-btn" id="mobileFitBtn">� Fit</button>
+                <button class="mobile-control-btn" id="mobileFitBtn">📱 Fit</button>
                 <button class="mobile-control-btn" id="mobileCenterBtn">🎯 Center</button>
                 <button class="mobile-control-btn" id="mobileGridBtn">📐 Grid</button>
             </div>
@@ -780,9 +781,11 @@
                 <button class="mobile-zoom-btn" id="mobileZoomIn">+</button>
             </div>
             
-            <!-- Color and Size -->
+            <!-- Color Toggle -->
             <div class="mobile-tool-controls">
-                <input type="color" class="mobile-color-picker" id="mobileColorPicker" value="#000000">
+                <div class="mobile-color-toggle">
+                    <button class="mobile-color-toggle-btn" id="mobileColorToggle" data-color="black">⬛</button>
+                </div>
             </div>
             </div>
         </div>

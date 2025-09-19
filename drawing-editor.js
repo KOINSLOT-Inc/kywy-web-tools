@@ -4857,7 +4857,12 @@ class DrawingEditor {
     }
     
     togglePixelGrid() {
-        this.showPixelGrid = document.getElementById('pixelGrid').checked;
+        this.showPixelGrid = !this.showPixelGrid;
+        // Update the desktop checkbox to match
+        const pixelGridCheckbox = document.getElementById('pixelGrid');
+        if (pixelGridCheckbox) {
+            pixelGridCheckbox.checked = this.showPixelGrid;
+        }
         this.drawPixelGrid();
     }
     
@@ -8641,42 +8646,20 @@ class MobileInterface {
     }
     
     initializeDropdowns() {
-        // Tool Settings dropdown
-        const toolSettingsBtn = document.getElementById('mobileToolSettingsDropdown');
-        const toolSettingsMenu = document.getElementById('mobileToolSettingsMenu');
-        
         // Menu dropdown
         const menuBtn = document.getElementById('mobileMenuDropdown');
         const menuMenu = document.getElementById('mobileMainMenu');
         
-        // Toggle dropdowns
-        toolSettingsBtn?.addEventListener('click', (e) => {
-            e.stopPropagation();
-            
-            // Update tool settings content before showing
-            this.updateToolSettingsContent();
-            
-            toolSettingsMenu?.classList.toggle('active');
-            toolSettingsBtn?.classList.toggle('active');
-            // Close other dropdown
-            menuMenu?.classList.remove('active');
-            menuBtn?.classList.remove('active');
-        });
-        
+        // Toggle menu dropdown
         menuBtn?.addEventListener('click', (e) => {
             e.stopPropagation();
             menuMenu?.classList.toggle('active');
             menuBtn?.classList.toggle('active');
-            // Close other dropdown
-            toolSettingsMenu?.classList.remove('active');
-            toolSettingsBtn?.classList.remove('active');
         });
         
-        // Close dropdowns when clicking outside
+        // Close dropdown when clicking outside
         document.addEventListener('click', () => {
-            toolSettingsMenu?.classList.remove('active');
             menuMenu?.classList.remove('active');
-            toolSettingsBtn?.classList.remove('active');
             menuBtn?.classList.remove('active');
         });
         
@@ -8692,6 +8675,67 @@ class MobileInterface {
         document.getElementById('mobileNewBtn')?.addEventListener('click', () => document.getElementById('newBtn')?.click());
         document.getElementById('mobileSaveBtn')?.addEventListener('click', () => document.getElementById('saveBtn')?.click());
         document.getElementById('mobileLoadBtn')?.addEventListener('click', () => document.getElementById('loadBtn')?.click());
+        document.getElementById('mobileThemeBtn')?.addEventListener('click', () => {
+            if (typeof toggleTheme === 'function') {
+                toggleTheme();
+            }
+        });
+        
+        // Mobile panel toggle buttons for full-screen overlays
+        document.getElementById('mobileToolsToggle')?.addEventListener('click', () => {
+            const toolsPanel = document.getElementById('toolsPanel');
+            const exportPanel = document.getElementById('exportPanel');
+            const btn = document.getElementById('mobileToolsToggle');
+            
+            if (toolsPanel && btn) {
+                // Close export panel if open
+                exportPanel?.classList.remove('open');
+                document.getElementById('mobileExportToggle')?.classList.remove('active');
+                
+                // Toggle tools panel
+                const isOpen = toolsPanel.classList.contains('open');
+                if (isOpen) {
+                    toolsPanel.classList.remove('open');
+                    btn.classList.remove('active');
+                } else {
+                    toolsPanel.classList.add('open');
+                    btn.classList.add('active');
+                }
+            }
+        });
+        
+        document.getElementById('mobileExportToggle')?.addEventListener('click', () => {
+            const exportPanel = document.getElementById('exportPanel');
+            const toolsPanel = document.getElementById('toolsPanel');
+            const btn = document.getElementById('mobileExportToggle');
+            
+            if (exportPanel && btn) {
+                // Close tools panel if open
+                toolsPanel?.classList.remove('open');
+                document.getElementById('mobileToolsToggle')?.classList.remove('active');
+                
+                // Toggle export panel
+                const isOpen = exportPanel.classList.contains('open');
+                if (isOpen) {
+                    exportPanel.classList.remove('open');
+                    btn.classList.remove('active');
+                } else {
+                    exportPanel.classList.add('open');
+                    btn.classList.add('active');
+                }
+            }
+        });
+        
+        // Close button handlers
+        document.getElementById('toolsPanelClose')?.addEventListener('click', () => {
+            document.getElementById('toolsPanel')?.classList.remove('open');
+            document.getElementById('mobileToolsToggle')?.classList.remove('active');
+        });
+        
+        document.getElementById('exportPanelClose')?.addEventListener('click', () => {
+            document.getElementById('exportPanel')?.classList.remove('open');
+            document.getElementById('mobileExportToggle')?.classList.remove('active');
+        });
     }
     
     initializeBottomToolbar() {
@@ -8713,11 +8757,22 @@ class MobileInterface {
         });
         
         document.getElementById('mobileCenterBtn')?.addEventListener('click', () => {
-            this.editor.centerView();
+            this.editor.centerCanvas();
         });
         
         document.getElementById('mobileGridBtn')?.addEventListener('click', () => {
-            this.editor.toggleGrid();
+            this.editor.togglePixelGrid();
+            // Update button appearance
+            const gridBtn = document.getElementById('mobileGridBtn');
+            if (gridBtn) {
+                if (this.editor.showPixelGrid) {
+                    gridBtn.style.background = 'var(--primary-color)';
+                    gridBtn.style.color = 'white';
+                } else {
+                    gridBtn.style.background = 'var(--button-bg)';
+                    gridBtn.style.color = 'var(--text-color)';
+                }
+            }
         });
         
         // Tool selection buttons
@@ -8729,10 +8784,22 @@ class MobileInterface {
             });
         });
         
-        // Color picker
-        const colorPicker = document.getElementById('mobileColorPicker');
-        colorPicker?.addEventListener('change', (e) => {
-            this.editor.setCurrentColor(e.target.value);
+        // Mobile color toggle button
+        const colorToggle = document.getElementById('mobileColorToggle');
+        
+        colorToggle?.addEventListener('click', () => {
+            const currentColor = colorToggle.dataset.color;
+            if (currentColor === 'black') {
+                // Switch to white
+                this.editor.currentColor = 'white';
+                colorToggle.dataset.color = 'white';
+                colorToggle.textContent = '⬜';
+            } else {
+                // Switch to black
+                this.editor.currentColor = 'black';
+                colorToggle.dataset.color = 'black';
+                colorToggle.textContent = '⬛';
+            }
         });
         
         // Initial state
