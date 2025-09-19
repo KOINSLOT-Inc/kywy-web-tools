@@ -1267,6 +1267,7 @@ class DrawingEditor {
         document.getElementById('prevFrame').addEventListener('click', () => this.previousFrame());
         document.getElementById('nextFrame').addEventListener('click', () => this.nextFrame());
         document.getElementById('addFrame').addEventListener('click', () => this.addFrame());
+        document.getElementById('copyFrame').addEventListener('click', () => this.copyFrame());
         document.getElementById('deleteFrame').addEventListener('click', () => this.deleteFrame());
         
         // Animation controls
@@ -5244,6 +5245,27 @@ class DrawingEditor {
     // Frame management methods will be added in the next part
     addFrame() {
         const newFrame = this.createEmptyFrame();
+        this.frames.splice(this.currentFrameIndex + 1, 0, newFrame);
+        this.currentFrameIndex++;
+        this.updateUI();
+        this.redrawCanvas();
+        this.generateThumbnail(this.currentFrameIndex);
+        this.generateCode(); // Update code when frames change
+    }
+    
+    copyFrame() {
+        // Get the current frame's canvas data
+        const currentCanvas = this.frames[this.currentFrameIndex];
+        const currentCtx = currentCanvas.getContext('2d');
+        
+        // Create a new frame with the same dimensions
+        const newFrame = this.createEmptyFrame();
+        const newCtx = newFrame.getContext('2d');
+        
+        // Copy the current frame's content to the new frame
+        newCtx.drawImage(currentCanvas, 0, 0);
+        
+        // Insert the copied frame after the current frame
         this.frames.splice(this.currentFrameIndex + 1, 0, newFrame);
         this.currentFrameIndex++;
         this.updateUI();
