@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>KYWY UF2 Files</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 40px; }
+    .file { margin: 10px 0; padding: 10px; border: 1px solid #ccc; }
+    .repo { font-weight: bold; color: #007bff; }
+    .tag { color: #28a745; }
+    .size { color: #666; font-size: 0.9em; }
+  </style>
+</head>
+<body>
+  <h1>KYWY UF2 Files</h1>
+  <p>Last updated: $(date)</p>
+  <div id="files"></div>
+  <script>
+    fetch('./releases.json')
+      .then(r => r.json())
+      .then(files => {
+        const container = document.getElementById('files');
+        files.forEach(file => {
+          const div = document.createElement('div');
+          div.className = 'file';
+          div.innerHTML = \`
+            <div class="repo">\${file.repo}</div>
+            <div class="tag">\${file.tag}</div>
+            <div><a href="\${file.url}">\${file.name}</a> <span class="size">(\${(file.size/1024).toFixed(1)} KB)</span></div>
+            <div class="size">Published: \${new Date(file.published_at).toLocaleDateString()}</div>
+          \`;
+          container.appendChild(div);
+        });
+      });
+  </script>
+</body>
+</html>
