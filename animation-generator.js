@@ -326,7 +326,7 @@ class AnimationGenerator {
     }
     
     applyEdgeDetection(imageData) {
-        // Simple Sobel edge detection
+        // Simple Sobel edge detection (inverted)
         const { width, height, data } = imageData;
         const output = new Uint8ClampedArray(data.length);
         
@@ -347,12 +347,29 @@ class AnimationGenerator {
                 }
                 
                 const magnitude = Math.sqrt(gx * gx + gy * gy);
+                const edgeValue = Math.min(255, magnitude);
+                const invertedEdgeValue = 255 - edgeValue; // Invert the edge detection
+                
                 const idx = (y * width + x) * 4;
                 
-                output[idx] = magnitude;
-                output[idx + 1] = magnitude;
-                output[idx + 2] = magnitude;
+                output[idx] = invertedEdgeValue;
+                output[idx + 1] = invertedEdgeValue;
+                output[idx + 2] = invertedEdgeValue;
                 output[idx + 3] = 255;
+            }
+        }
+        
+        // Handle border pixels by inverting them
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                if (y === 0 || y === height - 1 || x === 0 || x === width - 1) {
+                    const idx = (y * width + x) * 4;
+                    const invertedPixel = 255 - data[idx]; // Invert border pixels
+                    output[idx] = invertedPixel;
+                    output[idx + 1] = invertedPixel;
+                    output[idx + 2] = invertedPixel;
+                    output[idx + 3] = 255;
+                }
             }
         }
         

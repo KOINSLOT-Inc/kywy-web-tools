@@ -1716,37 +1716,57 @@ class DrawingEditor {
             sobelData[i + 3] = 0; // A (will be set properly below)
         }
 
+        // Helper function to get binary value at position
+        const getBinaryValue = (x, y) => {
+            const idx = (y * width + x) * 4;
+            // Use the mask to determine if this is emoji content (255) or background (0)
+            return (mask && mask[idx + 3] > 0) ? 255 : 0;
+        };
+
         for (let y = 1; y < height - 1; y++) {
             for (let x = 1; x < width - 1; x++) {
                 const index = (y * width + x) * 4;
 
-                // Check mask - if current pixel is masked out, keep it transparent
+                // Check mask - if current pixel is masked out, set to white background
                 if (mask && mask[index + 3] === 0) {
-                    sobelData[index] = 0;
-                    sobelData[index + 1] = 0;
-                    sobelData[index + 2] = 0;
-                    sobelData[index + 3] = 0;
+                    sobelData[index] = 255;
+                    sobelData[index + 1] = 255;
+                    sobelData[index + 2] = 255;
+                    sobelData[index + 3] = 255; // Opaque white background
                     continue;
                 }
 
                 if (binaryData[index + 3] === 0) {
-                    // Keep transparent pixels transparent
+                    // Keep transparent pixels as white background
                     sobelData[index] = 255;
                     sobelData[index + 1] = 255;
                     sobelData[index + 2] = 255;
-                    sobelData[index + 3] = 0;
+                    sobelData[index + 3] = 255; // Opaque white background
                     continue;
                 }
 
-                // Helper function to get binary value, respecting mask
-                const getBinaryValue = (nx, ny) => {
-                    const nIndex = (ny * width + nx) * 4;
-                    // If neighboring pixel is masked out, treat as same as current pixel
-                    if (mask && mask[nIndex + 3] === 0) {
-                        return binaryData[index]; // Use current pixel value
-                    }
-                    return binaryData[nIndex];
-                };
+                // Only apply edge detection to pixels that are completely surrounded by emoji content
+                // This prevents detecting edges at the emoji boundaries
+                const isSurroundedByEmoji = 
+                    getBinaryValue(x - 1, y - 1) > 0 &&
+                    getBinaryValue(x, y - 1) > 0 &&
+                    getBinaryValue(x + 1, y - 1) > 0 &&
+                    getBinaryValue(x - 1, y) > 0 &&
+                    getBinaryValue(x + 1, y) > 0 &&
+                    getBinaryValue(x - 1, y + 1) > 0 &&
+                    getBinaryValue(x, y + 1) > 0 &&
+                    getBinaryValue(x + 1, y + 1) > 0;
+
+                if (!isSurroundedByEmoji) {
+                    // For boundary pixels or pixels near boundaries, just copy the binary value (inverted)
+                    const binaryValue = binaryData[index];
+                    const invertedBinaryValue = 255 - binaryValue;
+                    sobelData[index] = invertedBinaryValue;
+                    sobelData[index + 1] = invertedBinaryValue;
+                    sobelData[index + 2] = invertedBinaryValue;
+                    sobelData[index + 3] = binaryData[index + 3];
+                    continue;
+                }
 
                 // Sobel X kernel on binary data
                 const gx = 
@@ -1775,13 +1795,35 @@ class DrawingEditor {
                 // Calculate gradient magnitude
                 const magnitude = Math.sqrt(gx * gx + gy * gy);
                 
-                // For binary images, any gradient > 0 indicates an edge
-                const edge = magnitude > 0 ? 0 : 255; // Black edges on white background
+                // Use brightness to control edge steepness/sensitivity
+                // Brightness -100 to 100 maps to scaling factor 0.1 to 3.0
+                const steepnessFactor = 0.1 + (this.emojiBrightness + 100) * 2.9 / 200;
+                const scaledMagnitude = Math.min(255, magnitude * steepnessFactor);
+                
+                // Use scaled magnitude for smoother edge detection (no binary thresholding)
+                const edge = scaledMagnitude;
+                
+                // Invert the edge detection result (dark edges on light background become light edges on dark background)
+                const invertedEdge = 255 - edge;
 
-                sobelData[index] = edge;
-                sobelData[index + 1] = edge;
-                sobelData[index + 2] = edge;
+                sobelData[index] = invertedEdge;
+                sobelData[index + 1] = invertedEdge;
+                sobelData[index + 2] = invertedEdge;
                 sobelData[index + 3] = binaryData[index + 3]; // Preserve alpha
+            }
+        }
+
+        // Handle border pixels to remove box effect - make them match the original background
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                if (y === 0 || y === height - 1 || x === 0 || x === width - 1) {
+                    const index = (y * width + x) * 4;
+                    // Make border pixels match the original white background (no edge detection)
+                    sobelData[index] = data[index];     // Original R
+                    sobelData[index + 1] = data[index + 1]; // Original G
+                    sobelData[index + 2] = data[index + 2]; // Original B
+                    sobelData[index + 3] = data[index + 3]; // Original A
+                }
             }
         }
 
@@ -9293,21 +9335,27 @@ Instructions:
                 
                 const magnitude = Math.sqrt(gx * gx + gy * gy);
                 const edgeValue = Math.min(255, magnitude);
+                const invertedEdgeValue = 255 - edgeValue; // Invert the edge detection
                 
                 const idx = (y * width + x) * 4;
-                output[idx] = edgeValue;
-                output[idx + 1] = edgeValue;
-                output[idx + 2] = edgeValue;
+                output[idx] = invertedEdgeValue;
+                output[idx + 1] = invertedEdgeValue;
+                output[idx + 2] = invertedEdgeValue;
                 output[idx + 3] = 255;
             }
         }
         
-        for (let i = 0; i < data.length; i += 4) {
-            if (output[i] === 0 && output[i + 1] === 0 && output[i + 2] === 0) {
-                output[i] = data[i];
-                output[i + 1] = data[i + 1];
-                output[i + 2] = data[i + 2];
-                output[i + 3] = 255;
+        // Handle border pixels (no edge detection applied)
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                if (y === 0 || y === height - 1 || x === 0 || x === width - 1) {
+                    const idx = (y * width + x) * 4;
+                    const invertedPixel = 255 - data[idx]; // Invert border pixels too
+                    output[idx] = invertedPixel;
+                    output[idx + 1] = invertedPixel;
+                    output[idx + 2] = invertedPixel;
+                    output[idx + 3] = 255;
+                }
             }
         }
         

@@ -297,24 +297,28 @@ class ImageToHppConverter {
                 // Calculate gradient magnitude
                 const magnitude = Math.sqrt(gx * gx + gy * gy);
                 const edgeValue = Math.min(255, magnitude);
+                const invertedEdgeValue = 255 - edgeValue; // Invert the edge detection
                 
                 const idx = (y * width + x) * 4;
-                output[idx] = edgeValue;     // R
-                output[idx + 1] = edgeValue; // G
-                output[idx + 2] = edgeValue; // B
+                output[idx] = invertedEdgeValue;     // R
+                output[idx + 1] = invertedEdgeValue; // G
+                output[idx + 2] = invertedEdgeValue; // B
                 output[idx + 3] = 255;       // A
             }
         }
         
-        // Copy alpha channel and handle edges
-        for (let i = 0; i < data.length; i += 4) {
-            if (output[i] === 0 && output[i + 1] === 0 && output[i + 2] === 0) {
-                // Border pixels - copy original
-                output[i] = data[i];
-                output[i + 1] = data[i + 1];
-                output[i + 2] = data[i + 2];
+        // Handle border pixels by inverting them
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                if (y === 0 || y === height - 1 || x === 0 || x === width - 1) {
+                    const idx = (y * width + x) * 4;
+                    const invertedPixel = 255 - data[idx]; // Invert border pixels
+                    output[idx] = invertedPixel;
+                    output[idx + 1] = invertedPixel;
+                    output[idx + 2] = invertedPixel;
+                    output[idx + 3] = 255;
+                }
             }
-            output[i + 3] = 255;
         }
         
         return new ImageData(output, width, height);
