@@ -2721,37 +2721,8 @@ class DrawingEditor {
         // Clear overlay completely first
         this.overlayCtx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
         
-        // Phase 1: Draw base overlays (bottom layer) - includes pixel grid if enabled
+        // Phase 1: Draw base overlays (bottom layer) - includes pixel grid and grid lines if enabled
         this.drawBaseOverlays();
-        
-        // Phase 2: Draw grid mode lines if enabled
-        if (this.gridModeEnabled && this.showGridLines) {
-            // Draw grid lines
-            this.overlayCtx.save();
-            
-            // Disable anti-aliasing for crisp, pixel-perfect rendering
-            this.overlayCtx.imageSmoothingEnabled = false;
-            this.overlayCtx.webkitImageSmoothingEnabled = false;
-            this.overlayCtx.mozImageSmoothingEnabled = false;
-            this.overlayCtx.msImageSmoothingEnabled = false;
-            
-            this.overlayCtx.strokeStyle = 'rgba(255, 0, 0, 0.5)'; // Made more transparent
-            this.overlayCtx.lineWidth = 0.5; // Thinner lines
-            this.overlayCtx.beginPath();
-            this.overlayCtx.translate(0.5, 0.5);
-            
-            for (let x = 0; x < this.canvasWidth; x += this.gridSize) {
-                this.overlayCtx.moveTo(x, 0);
-                this.overlayCtx.lineTo(x, this.canvasHeight);
-            }
-            for (let y = 0; y < this.canvasHeight; y += this.gridSize) {
-                this.overlayCtx.moveTo(0, y);
-                this.overlayCtx.lineTo(this.canvasWidth, y);
-            }
-            
-            this.overlayCtx.stroke();
-            this.overlayCtx.restore();
-        }
         
         // Phase 2: Draw selection overlay if active (middle layer)
         if (this.selection && this.selection.active) {
@@ -5568,44 +5539,10 @@ class DrawingEditor {
         // Clear overlay and restore all overlay elements in proper order
         this.overlayCtx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
         
-        // 1. Base overlays (pixel grid, selection)
+        // 1. Base overlays (pixel grid, grid lines, selection)
         this.drawBaseOverlays();
         
-        // 2. Grid mode lines (if enabled)
-        if (this.gridModeEnabled && this.showGridLines) {
-            // Draw grid lines on top of base overlays
-            this.overlayCtx.save();
-            
-            // Disable anti-aliasing for crisp, pixel-perfect rendering
-            this.overlayCtx.imageSmoothingEnabled = false;
-            this.overlayCtx.webkitImageSmoothingEnabled = false;
-            this.overlayCtx.mozImageSmoothingEnabled = false;
-            this.overlayCtx.msImageSmoothingEnabled = false;
-            
-            this.overlayCtx.strokeStyle = 'rgba(255, 0, 0, 0.5)'; // Made more transparent
-            this.overlayCtx.lineWidth = 0.5; // Thinner lines
-            this.overlayCtx.beginPath();
-            
-            // Ensure pixel-perfect lines
-            this.overlayCtx.translate(0.5, 0.5);
-            
-            // Draw vertical grid lines
-            for (let x = 0; x < this.canvasWidth; x += this.gridSize) {
-                this.overlayCtx.moveTo(x, 0);
-                this.overlayCtx.lineTo(x, this.canvasHeight);
-            }
-            
-            // Draw horizontal grid lines  
-            for (let y = 0; y < this.canvasHeight; y += this.gridSize) {
-                this.overlayCtx.moveTo(0, y);
-                this.overlayCtx.lineTo(this.canvasWidth, y);
-            }
-            
-            this.overlayCtx.stroke();
-            this.overlayCtx.restore();
-        }
-        
-        // 3. Selection overlay (if active and using select tool) - draw directly to avoid circular dependency
+        // 2. Selection overlay (if active and using select tool) - draw directly to avoid circular dependency
         if (this.selection && this.selection.active && this.currentTool === 'select') {
             const { startX, startY, endX, endY } = this.selection;
             const minX = Math.min(startX, endX);
