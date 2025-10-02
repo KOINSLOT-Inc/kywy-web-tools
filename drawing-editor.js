@@ -5252,6 +5252,16 @@ class DrawingEditor {
         const newFrame = this.createEmptyFrame();
         this.frames.splice(this.currentFrameIndex + 1, 0, newFrame);
         this.currentFrameIndex++;
+        
+        // If this is the first frame added (now we have 2 frames), switch to animation format
+        if (this.frames.length === 2) {
+            const exportFormatSelect = document.getElementById('exportFormat');
+            if (exportFormatSelect) {
+                exportFormatSelect.value = 'animation';
+                this.updateAssetNameDefault('animation');
+            }
+        }
+        
         this.updateUI();
         this.redrawCanvas();
         this.generateThumbnail(this.currentFrameIndex);
@@ -5273,6 +5283,16 @@ class DrawingEditor {
         // Insert the copied frame after the current frame
         this.frames.splice(this.currentFrameIndex + 1, 0, newFrame);
         this.currentFrameIndex++;
+        
+        // If this is the first frame added (now we have 2 frames), switch to animation format
+        if (this.frames.length === 2) {
+            const exportFormatSelect = document.getElementById('exportFormat');
+            if (exportFormatSelect) {
+                exportFormatSelect.value = 'animation';
+                this.updateAssetNameDefault('animation');
+            }
+        }
+        
         this.updateUI();
         this.redrawCanvas();
         this.generateThumbnail(this.currentFrameIndex);
