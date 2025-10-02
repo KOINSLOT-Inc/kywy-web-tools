@@ -546,3 +546,38 @@ a:hover {
     background-color: #ffffff !important;
     border: 2px solid #000000 !important;
 }
+
+/* Apple 2 emoji picker styles */
+.emoji-picker {
+    background: #ffffff !important;
+    border: 2px solid #000000 !important;
+    border-radius: 0 !important;
+}
+
+.emoji-categories {
+    background: #cccccc !important;
+    border-bottom: 2px solid #000000 !important;
+}
+
+.emoji-cat-btn:hover {
+    background: #aaaaaa !important;
+}
+
+.emoji-btn:hover {
+    background: #aaaaaa !important;
+}
+
+.emoji-dither-btn {
+    background: #cccccc !important;
+    border: 2px solid #000000 !important;
+    color: #000000 !important;
+    border-radius: 0 !important;
+}
+
+.emoji-dither-btn:hover {
+    background: #aaaaaa !important;
+}
+
+.emoji-dither-btn.active {
+    background: #888888 !important;
+}

@@ -497,3 +497,38 @@ body:not(.menu-page) h5,
 body:not(.menu-page) h6 {
     color: #ffffff !important;
 }
+
+/* Amiga emoji picker styles */
+.emoji-picker {
+    background: #dddddd !important;
+    border: 2px solid #666666 !important;
+    border-radius: 4px !important;
+}
+
+.emoji-categories {
+    background: #bbbbbb !important;
+    border-bottom: 2px solid #666666 !important;
+}
+
+.emoji-cat-btn:hover {
+    background: #cccccc !important;
+}
+
+.emoji-btn:hover {
+    background: #cccccc !important;
+}
+
+.emoji-dither-btn {
+    background: #bbbbbb !important;
+    border: 2px solid #666666 !important;
+    color: black !important;
+    border-radius: 4px !important;
+}
+
+.emoji-dither-btn:hover {
+    background: #cccccc !important;
+}
+
+.emoji-dither-btn.active {
+    background: #999999 !important;
+}

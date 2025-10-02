@@ -444,3 +444,38 @@ a:visited {
 ::-webkit-scrollbar-button:active {
     border: 2px inset #d4d0c8 !important;
 }
+
+/* Windows 95 emoji picker styles */
+.emoji-picker {
+    background: white !important;
+    border: 2px inset #c0c0c0 !important;
+    border-radius: 0 !important;
+}
+
+.emoji-categories {
+    background: #d4d0c8 !important;
+    border-bottom: 1px solid #808080 !important;
+}
+
+.emoji-cat-btn:hover {
+    background: #e6e2da !important;
+}
+
+.emoji-btn:hover {
+    background: #e6e2da !important;
+}
+
+.emoji-dither-btn {
+    background: #d4d0c8 !important;
+    border: 2px outset #c0c0c0 !important;
+    color: black !important;
+    border-radius: 0 !important;
+}
+
+.emoji-dither-btn:hover {
+    background: #e6e2da !important;
+}
+
+.emoji-dither-btn.active {
+    background: #b0b0b0 !important;
+}

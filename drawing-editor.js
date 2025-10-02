@@ -357,15 +357,32 @@ class DrawingEditor {
         this.mirrorVertical = false;
         
         // Text tool properties
-        this.textInput = 'KYWY';
+        this.textInput = '';
         this.fontFamily = "Arial"; // Default to common system font
-        this.fontSize = 12;
+        this.fontSize = 48;
         this.textBold = false;
         this.textItalic = false;
         this.textColor = 'black';
         this.isPlacingText = false;
         this.textPreviewCanvas = null;
         this.textPreviewData = null;
+        
+        // Emoji properties
+        this.emojiBrightness = -20; // -100 to 100
+        this.emojiContrast = 100; // 50 to 200 (percentage)
+        this.emojiMode = 'thresholding'; // 'dithering', 'thresholding', or 'edge'
+        this.ditheringType = 'floyd-steinberg'; // 'floyd-steinberg', 'atkinson', 'bilayer'
+        this.emojiCategories = {
+            faces: ['😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣', '😊', '😇', '🙂', '🙃', '😉', '😌', '😍', '🥰', '😘', '😗', '😙', '😚', '😋', '😛', '😝', '😜', '🤪', '🤨', '🧐', '🤓', '😎', '🤩', '🥳'],
+            people: ['👶', '🧒', '👦', '👧', '🧑', '👱', '👨', '🧔', '👩', '🧓', '👴', '👵', '👱‍♀️', '👱‍♂️', '🙎‍♀️', '🙎‍♂️', '🙍‍♀️', '🙍‍♂️', '🙇‍♀️', '🙇‍♂️', '🤦‍♀️', '🤦‍♂️', '🤷‍♀️', '🤷‍♂️', '👨‍⚕️', '👩‍⚕️', '👨‍🌾', '👩‍🌾', '👨‍🍳', '👩‍🍳'],
+            nature: ['🐶', '🐱', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼', '🐨', '🐯', '🦁', '🐮', '🐷', '🐸', '🐵', '🙈', '🙉', '🙊', '🐒', '🐔', '🐧', '🐦', '🐤', '🐣', '🐥', '🦆', '🦅', '🦉', '🦇', '🐺'],
+            food: ['🍎', '🍊', '🍋', '🍌', '🍉', '🍇', '🍓', '🍈', '🍒', '🍑', '🥭', '🍍', '🥥', '🥝', '🍅', '🍆', '🥑', '🥦', '🥬', '🥒', '🌶️', '🌽', '🥕', '🧄', '🧅', '🥔', '🍠', '🥐', '🍞', '🥖'],
+            activities: ['⚽', '🏀', '🏈', '⚾', '🥎', '🎾', '🏐', '🏉', '🥏', '🎱', '🪀', '🏓', '🏸', '🏒', '🏑', '🥍', '🏏', '🪃', '🥅', '⛳', '🪁', '🏹', '🎣', '🤿', '🥊', '🥋', '🎽', '🛹', '🛷', '⛸️'],
+            travel: ['🚗', '🚕', '🚙', '🚌', '🚎', '🏎️', '🚓', '🚑', '🚒', '🚐', '🛻', '🚚', '🚛', '🚜', '🏍️', '🛵', '🚲', '🛴', '🛺', '🚨', '🚔', '🚍', '🚘', '🚖', '🚡', '🚠', '🚟', '🚃', '🚋', '🚞'],
+            objects: ['💡', '🔦', '🕯️', '🪔', '🧯', '🛢️', '💸', '💵', '💴', '💶', '💷', '💰', '💳', '💎', '⚖️', '🪜', '🧰', '🔧', '🔨', '⚒️', '🛠️', '⛏️', '🔩', '⚙️', '🪚', '🔫', '💣', '🧨', '🪓', '🔪'],
+            symbols: ['❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎', '💔', '❣️', '💕', '💞', '💓', '💗', '💖', '💘', '💝', '💟', '☮️', '✝️', '☪️', '🕉️', '☸️', '✡️', '🔯', '🕎', '☯️', '☦️', '🛐']
+        };
+        this.currentEmojiCategory = 'faces';
         
         // Undo/Redo system
         this.undoStack = [];
@@ -1019,6 +1036,91 @@ class DrawingEditor {
             });
         });
 
+        // Emoji picker toggle
+        const emojiToggle = document.getElementById('emojiToggle');
+        const emojiPicker = document.getElementById('emojiPicker');
+        if (emojiToggle && emojiPicker) {
+            emojiToggle.addEventListener('click', () => {
+                const isVisible = emojiPicker.style.display !== 'none';
+                emojiPicker.style.display = isVisible ? 'none' : 'block';
+                emojiToggle.classList.toggle('active', !isVisible);
+                if (!isVisible) {
+                    this.populateEmojiGrid();
+                }
+            });
+        }
+
+        // Emoji category buttons
+        document.querySelectorAll('.emoji-cat-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.emoji-cat-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                this.currentEmojiCategory = btn.dataset.category;
+                this.populateEmojiGrid();
+            });
+        });
+
+        // Emoji brightness control
+        const emojiBrightness = document.getElementById('emojiBrightness');
+        if (emojiBrightness) {
+            emojiBrightness.addEventListener('input', (e) => {
+                this.emojiBrightness = parseInt(e.target.value);
+                document.getElementById('emojiBrightnessDisplay').textContent = this.emojiBrightness;
+                this.updateTextPreview();
+            });
+        }
+
+        // Emoji contrast control
+        const emojiContrast = document.getElementById('emojiContrast');
+        if (emojiContrast) {
+            emojiContrast.addEventListener('input', (e) => {
+                this.emojiContrast = parseInt(e.target.value);
+                document.getElementById('emojiContrastDisplay').textContent = this.emojiContrast;
+                this.updateTextPreview();
+            });
+        }
+
+        // Dithering type selector
+        const ditheringTypeSelect = document.getElementById('ditheringTypeSelect');
+        if (ditheringTypeSelect) {
+            ditheringTypeSelect.value = this.ditheringType;
+            ditheringTypeSelect.addEventListener('change', (e) => {
+                this.ditheringType = e.target.value;
+                this.updateTextPreview();
+            });
+        }
+
+        // Emoji processing mode toggle
+        const emojiDitheringToggle = document.getElementById('emojiDitheringToggle');
+        if (emojiDitheringToggle) {
+            emojiDitheringToggle.addEventListener('click', () => {
+                // Cycle through modes: dithering -> thresholding -> edge -> dithering
+                switch (this.emojiMode) {
+                    case 'dithering':
+                        this.emojiMode = 'thresholding';
+                        emojiDitheringToggle.textContent = '⬜ Thresholding';
+                        break;
+                    case 'thresholding':
+                        this.emojiMode = 'edge';
+                        emojiDitheringToggle.textContent = '🔍 Edge Detection';
+                        break;
+                    case 'edge':
+                        this.emojiMode = 'dithering';
+                        emojiDitheringToggle.textContent = '🎨 Dithering';
+                        break;
+                }
+                
+                // Show/hide dithering options based on mode
+                const ditheringOptionsContainer = document.getElementById('ditheringOptionsContainer');
+                if (ditheringOptionsContainer) {
+                    ditheringOptionsContainer.style.display = this.emojiMode === 'dithering' ? 'block' : 'none';
+                }
+                
+                emojiDitheringToggle.classList.add('active');
+                this.updateTextPreview();
+            });
+        }
+
         // Initialize text button states
         this.initializeTextButtonStates();
     }
@@ -1040,39 +1142,770 @@ class DrawingEditor {
         document.querySelectorAll('#textSettings .color-btn').forEach(btn => {
             btn.classList.toggle('active', btn.dataset.color === this.textColor);
         });
+
+        // Initialize emoji brightness and contrast displays
+        const brightnessDisplay = document.getElementById('emojiBrightnessDisplay');
+        if (brightnessDisplay) {
+            brightnessDisplay.textContent = this.emojiBrightness;
+        }
+        
+        const contrastDisplay = document.getElementById('emojiContrastDisplay');
+        if (contrastDisplay) {
+            contrastDisplay.textContent = this.emojiContrast;
+        }
+
+        // Initialize dithering type selector
+        const ditheringTypeSelect = document.getElementById('ditheringTypeSelect');
+        if (ditheringTypeSelect) {
+            ditheringTypeSelect.value = this.ditheringType;
+        }
+
+        // Initialize emoji processing mode button state
+        const ditheringToggle = document.getElementById('emojiDitheringToggle');
+        if (ditheringToggle) {
+            ditheringToggle.classList.add('active');
+            switch (this.emojiMode) {
+                case 'dithering':
+                    ditheringToggle.textContent = '🎨 Dithering';
+                    break;
+                case 'thresholding':
+                    ditheringToggle.textContent = '⬜ Thresholding';
+                    break;
+                case 'edge':
+                    ditheringToggle.textContent = '🔍 Edge Detection';
+                    break;
+            }
+        }
+        
+        // Initialize dithering options container visibility
+        const ditheringOptionsContainer = document.getElementById('ditheringOptionsContainer');
+        if (ditheringOptionsContainer) {
+            ditheringOptionsContainer.style.display = this.emojiMode === 'dithering' ? 'block' : 'none';
+        }
+    }
+
+    populateEmojiGrid() {
+        const emojiGrid = document.getElementById('emojiGrid');
+        if (!emojiGrid || !this.emojiCategories[this.currentEmojiCategory]) {
+            return;
+        }
+
+        // Clear existing emojis
+        emojiGrid.innerHTML = '';
+
+        // Add emojis for current category
+        this.emojiCategories[this.currentEmojiCategory].forEach(emoji => {
+            const emojiBtn = document.createElement('button');
+            emojiBtn.className = 'emoji-btn';
+            emojiBtn.textContent = emoji;
+            emojiBtn.title = emoji;
+            
+            emojiBtn.addEventListener('click', () => {
+                // Insert emoji at cursor position in text input
+                const textInput = document.getElementById('textInput');
+                if (textInput) {
+                    const start = textInput.selectionStart;
+                    const end = textInput.selectionEnd;
+                    const currentText = textInput.value;
+                    
+                    const newText = currentText.substring(0, start) + emoji + currentText.substring(end);
+                    textInput.value = newText;
+                    this.textInput = newText;
+                    
+                    // Set cursor position after the inserted emoji
+                    const newPosition = start + emoji.length;
+                    textInput.setSelectionRange(newPosition, newPosition);
+                    textInput.focus();
+                    
+                    // Update text preview
+                    this.updateTextPreview();
+                }
+                
+                // Close emoji picker
+                const emojiPicker = document.getElementById('emojiPicker');
+                const emojiToggle = document.getElementById('emojiToggle');
+                if (emojiPicker && emojiToggle) {
+                    emojiPicker.style.display = 'none';
+                    emojiToggle.classList.remove('active');
+                }
+            });
+            
+            emojiGrid.appendChild(emojiBtn);
+        });
     }
 
     // Helper method to render text with controlled letter spacing
     renderTextWithSpacing(ctx, text, x, y, minLetterSpacing = 1) {
         let currentX = x;
         
-        for (let i = 0; i < text.length; i++) {
-            const char = text[i];
-            
-            // Skip spaces - handle them with a fixed width
-            if (char === ' ') {
-                currentX += Math.max(this.fontSize * 0.3, minLetterSpacing * 2); // Space width
-                continue;
+        // Split text into segments (regular text and emojis)
+        const segments = this.parseTextWithEmojis(text);
+        
+        for (let segment of segments) {
+            if (segment.isEmoji) {
+                // Render emoji
+                currentX += this.renderEmoji(ctx, segment.text, currentX, y);
+            } else {
+                // Render regular text character by character
+                for (let i = 0; i < segment.text.length; i++) {
+                    const char = segment.text[i];
+                    
+                    // Skip spaces - handle them with a fixed width
+                    if (char === ' ') {
+                        currentX += Math.max(this.fontSize * 0.3, minLetterSpacing * 2);
+                        continue;
+                    }
+                    
+                    // Render the character
+                    ctx.fillText(char, Math.round(currentX), y);
+                    
+                    // Measure character width and add spacing
+                    const charWidth = ctx.measureText(char).width;
+                    currentX += Math.ceil(charWidth) + minLetterSpacing;
+                }
             }
-            
-            // Render the character
-            ctx.fillText(char, Math.round(currentX), y);
-            
-            // Measure character width and add spacing
-            const charWidth = ctx.measureText(char).width;
-            currentX += Math.ceil(charWidth) + minLetterSpacing;
         }
         
         return currentX - x; // Return total width
     }
 
-    // Floyd-Steinberg dithering algorithm for converting colored content to black and white
+    // Helper method to measure text width with spacing
+    measureTextWithSpacing(ctx, text, minLetterSpacing = 1) {
+        let totalWidth = 0;
+        
+        // Split text into segments (regular text and emojis)
+        const segments = this.parseTextWithEmojis(text);
+        
+        for (let segment of segments) {
+            if (segment.isEmoji) {
+                // Measure emoji width
+                totalWidth += this.measureEmojiWidth(ctx, segment.text);
+            } else {
+                // Measure regular text
+                for (let i = 0; i < segment.text.length; i++) {
+                    const char = segment.text[i];
+                    
+                    if (char === ' ') {
+                        totalWidth += Math.max(this.fontSize * 0.3, minLetterSpacing * 2);
+                        continue;
+                    }
+                    
+                    const charWidth = ctx.measureText(char).width;
+                    totalWidth += Math.ceil(charWidth) + minLetterSpacing;
+                }
+            }
+        }
+        
+        // Remove the extra spacing after the last character
+        return Math.max(0, totalWidth - minLetterSpacing);
+    }
+
+    // Helper method to parse text and identify emojis vs regular text
+    parseTextWithEmojis(text) {
+        const segments = [];
+        
+        // Convert string to array of code points to handle surrogate pairs properly
+        const codePoints = Array.from(text);
+        let i = 0;
+        
+        while (i < codePoints.length) {
+            const char = codePoints[i];
+            
+            if (this.isEmoji(char)) {
+                // Handle emoji (might include modifiers and ZWJ sequences)
+                const emojiResult = this.getEmojiSequence(codePoints, i);
+                segments.push({
+                    text: emojiResult.emoji,
+                    isEmoji: true
+                });
+                i += emojiResult.length;
+            } else {
+                // Handle regular text
+                let regularText = '';
+                while (i < codePoints.length && !this.isEmoji(codePoints[i])) {
+                    regularText += codePoints[i];
+                    i++;
+                }
+                if (regularText) {
+                    segments.push({
+                        text: regularText,
+                        isEmoji: false
+                    });
+                }
+            }
+        }
+        
+        return segments;
+    }
+
+    // Helper method to detect if a character is an emoji
+    isEmoji(char) {
+        const code = char.codePointAt(0);
+        
+        // Comprehensive emoji detection using proper Unicode ranges
+        return (
+            // Basic emoticons and symbols
+            (code >= 0x2600 && code <= 0x26FF) ||
+            (code >= 0x2700 && code <= 0x27BF) ||
+            // Emoticons
+            (code >= 0x1F600 && code <= 0x1F64F) ||
+            // Transport and map symbols
+            (code >= 0x1F680 && code <= 0x1F6FF) ||
+            // Miscellaneous symbols and pictographs
+            (code >= 0x1F300 && code <= 0x1F5FF) ||
+            // Supplemental symbols and pictographs
+            (code >= 0x1F900 && code <= 0x1F9FF) ||
+            // Regional indicator symbols (flags)
+            (code >= 0x1F1E0 && code <= 0x1F1FF) ||
+            // Symbols and pictographs extended-A
+            (code >= 0x1FA70 && code <= 0x1FAFF) ||
+            // Additional ranges
+            (code >= 0x1F004 && code <= 0x1F0CF) ||
+            (code >= 0x1F170 && code <= 0x1F251) ||
+            (code >= 0x1F780 && code <= 0x1F7FF) ||
+            (code >= 0x1F800 && code <= 0x1F8FF) ||
+            // Skin tone modifiers
+            (code >= 0x1F3FB && code <= 0x1F3FF) ||
+            // Variation selectors
+            (code === 0xFE0F) ||
+            // Zero-width joiner
+            (code === 0x200D) ||
+            // Some additional common emoji characters
+            (code === 0x203C) || // ‼
+            (code === 0x2049) || // ⁉
+            (code === 0x2122) || // ™
+            (code === 0x2139) || // ℹ
+            (code === 0x2194) || // ↔
+            (code === 0x2195) || // ↕
+            (code >= 0x2196 && code <= 0x2199) || // ↖↗↘↙
+            (code >= 0x21A9 && code <= 0x21AA) || // ↩↪
+            (code >= 0x231A && code <= 0x231B) || // ⌚⌛
+            (code >= 0x2328 && code <= 0x232A) || // ⌨〈〉
+            (code >= 0x23CF && code <= 0x23CF) || // ⏏
+            (code >= 0x23E9 && code <= 0x23F3) || // ⏩⏪⏫⏬⏭⏮⏯⏰⏱⏲⏳
+            (code >= 0x23F8 && code <= 0x23FA) || // ⏸⏹⏺
+            (code >= 0x24C2 && code <= 0x24C2) || // Ⓜ
+            (code >= 0x25AA && code <= 0x25AB) || // ▪▫
+            (code >= 0x25B6 && code <= 0x25B6) || // ▶
+            (code >= 0x25C0 && code <= 0x25C0) || // ◀
+            (code >= 0x25FB && code <= 0x25FE) || // ◻◼◽◾
+            (code >= 0x2B00 && code <= 0x2BFF) // Additional symbols
+        );
+    }
+
+    // Helper method to get complete emoji sequence including modifiers and ZWJ sequences
+    getEmojiSequence(codePoints, startIndex) {
+        let i = startIndex;
+        let emoji = '';
+        
+        // Start with the base emoji
+        emoji += codePoints[i];
+        i++;
+        
+        // Continue collecting modifiers, variation selectors, and ZWJ sequences
+        while (i < codePoints.length) {
+            const char = codePoints[i];
+            const code = char.codePointAt(0);
+            
+            // Skin tone modifiers
+            if (code >= 0x1F3FB && code <= 0x1F3FF) {
+                emoji += char;
+                i++;
+            }
+            // Variation selector for emoji presentation
+            else if (code === 0xFE0F) {
+                emoji += char;
+                i++;
+            }
+            // Zero-width joiner sequences
+            else if (code === 0x200D) {
+                emoji += char;
+                i++;
+                // Add the next character after ZWJ if it exists and is an emoji-related character
+                if (i < codePoints.length) {
+                    const nextChar = codePoints[i];
+                    emoji += nextChar;
+                    i++;
+                    
+                    // Check for variation selector after the ZWJ sequence component
+                    if (i < codePoints.length && codePoints[i].codePointAt(0) === 0xFE0F) {
+                        emoji += codePoints[i];
+                        i++;
+                    }
+                }
+            }
+            else {
+                break;
+            }
+        }
+        
+        return {
+            emoji: emoji,
+            length: i - startIndex
+        };
+    }
+
+    // Helper method to render a single emoji with brightness/contrast adjustments and optional dithering
+    renderEmoji(ctx, emoji, x, y) {
+        // Create temporary canvas for emoji rendering and processing
+        const tempCanvas = document.createElement('canvas');
+        const tempCtx = tempCanvas.getContext('2d');
+        
+        // Configure font first to measure text
+        const emojiFont = `${this.fontSize}px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Android Emoji", "EmojiSymbols", "EmojiOne Mozilla", "Twemoji Mozilla", "Segoe UI Symbol", sans-serif`;
+        tempCtx.font = emojiFont;
+        
+        // Measure text to get appropriate canvas size
+        const metrics = tempCtx.measureText(emoji);
+        const textWidth = Math.max(metrics.width, this.fontSize);
+        const textHeight = this.fontSize * 1.2; // Account for ascenders/descenders
+        
+        // Set canvas size with some padding
+        const padding = 4;
+        tempCanvas.width = textWidth + padding * 2;
+        tempCanvas.height = textHeight + padding * 2;
+        
+        // Reconfigure after setting canvas size
+        tempCtx.font = emojiFont;
+        tempCtx.textBaseline = 'middle';
+        tempCtx.textAlign = 'center';
+        tempCtx.fillStyle = '#000000';
+        
+        // Clear temp canvas with white background
+        tempCtx.fillStyle = 'white';
+        tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+        
+        // Render emoji centered in the canvas
+        tempCtx.fillStyle = '#000000';
+        tempCtx.fillText(emoji, tempCanvas.width / 2, tempCanvas.height / 2);
+        
+        // Create alpha mask by comparing with original white background
+        const originalImageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+        const maskCanvas = document.createElement('canvas');
+        const maskCtx = maskCanvas.getContext('2d');
+        maskCanvas.width = tempCanvas.width;
+        maskCanvas.height = tempCanvas.height;
+        
+        // Create mask: white background pixels become transparent, emoji pixels become opaque
+        const maskImageData = maskCtx.createImageData(tempCanvas.width, tempCanvas.height);
+        for (let i = 0; i < originalImageData.data.length; i += 4) {
+            const r = originalImageData.data[i];
+            const g = originalImageData.data[i + 1];
+            const b = originalImageData.data[i + 2];
+            
+            // If pixel is still white (background), make it transparent
+            // If pixel has been modified by emoji rendering, make it opaque
+            if (r === 255 && g === 255 && b === 255) {
+                maskImageData.data[i] = 0;     // R
+                maskImageData.data[i + 1] = 0; // G
+                maskImageData.data[i + 2] = 0; // B
+                maskImageData.data[i + 3] = 0; // A (transparent)
+            } else {
+                maskImageData.data[i] = 255;     // R
+                maskImageData.data[i + 1] = 255; // G
+                maskImageData.data[i + 2] = 255; // B
+                maskImageData.data[i + 3] = 255; // A (opaque)
+            }
+        }
+        maskCtx.putImageData(maskImageData, 0, 0);
+        
+        // Get image data for processing
+        const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+        
+        // Apply brightness and processing based on selected mode
+        let processedImageData;
+        switch (this.emojiMode) {
+            case 'dithering':
+                processedImageData = this.processEmojiImage(imageData, maskImageData);
+                break;
+            case 'thresholding':
+                processedImageData = this.thresholdEmojiImage(imageData, maskImageData);
+                break;
+            case 'edge':
+                processedImageData = this.applyEdgeDetection(imageData, maskImageData);
+                break;
+            default:
+                processedImageData = this.processEmojiImage(imageData, maskImageData);
+        }
+        
+        // Put processed data back to temp canvas
+        tempCtx.putImageData(processedImageData, 0, 0);
+        
+        // Draw processed emoji to main canvas, scaled to fit fontSize x fontSize
+        ctx.drawImage(tempCanvas, 0, 0, tempCanvas.width, tempCanvas.height, x, y, this.fontSize, this.fontSize);
+        
+        return this.fontSize + 2; // Return width for spacing
+    }    // Process emoji image with brightness, contrast, and dithering
+    processEmojiImage(imageData, maskData) {
+        const data = imageData.data;
+        const width = imageData.width;
+        const height = imageData.height;
+        const mask = maskData ? maskData.data : null;
+
+        // First pass: convert to grayscale and apply brightness/contrast
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                const index = (y * width + x) * 4;
+
+                // Check mask - if masked pixel is transparent, keep original pixel transparent
+                if (mask && mask[index + 3] === 0) {
+                    data[index] = 0;     // R
+                    data[index + 1] = 0; // G
+                    data[index + 2] = 0; // B
+                    data[index + 3] = 0; // A
+                    continue;
+                }
+
+                const r = data[index];
+                const g = data[index + 1];
+                const b = data[index + 2];
+                const alpha = data[index + 3];
+
+                // Skip fully transparent pixels
+                if (alpha < 10) {
+                    data[index] = 0;     // R
+                    data[index + 1] = 0; // G
+                    data[index + 2] = 0; // B
+                    data[index + 3] = 0; // A
+                    continue;
+                }
+
+                // Calculate luminance (proper grayscale conversion)
+                let gray = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
+
+                // Apply brightness adjustment (-100 to +100, scaled to 0-255)
+                gray = Math.max(0, Math.min(255, gray + (this.emojiBrightness * 255 / 100)));
+
+                // Apply contrast adjustment (50% to 200%)
+                const contrastFactor = this.emojiContrast / 100;
+                gray = Math.max(0, Math.min(255, ((gray - 128) * contrastFactor) + 128));
+
+                // Store the adjusted gray value
+                data[index] = gray;     // R
+                data[index + 1] = gray; // G
+                data[index + 2] = gray; // B
+                // Keep original alpha
+            }
+        }
+
+        // Second pass: apply improved dithering
+        return this.applyImprovedDithering(imageData, maskData);
+    }
+
+    // Apply simple thresholding to emoji image (no dithering)
+    thresholdEmojiImage(imageData, maskData) {
+        const data = imageData.data;
+        const width = imageData.width;
+        const height = imageData.height;
+        const mask = maskData ? maskData.data : null;
+
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                const index = (y * width + x) * 4;
+
+                // Check mask - if masked pixel is transparent, keep pixel transparent
+                if (mask && mask[index + 3] === 0) {
+                    data[index] = 0;     // R
+                    data[index + 1] = 0; // G
+                    data[index + 2] = 0; // B
+                    data[index + 3] = 0; // A
+                    continue;
+                }
+
+                const r = data[index];
+                const g = data[index + 1];
+                const b = data[index + 2];
+                const alpha = data[index + 3];
+
+                // Skip fully transparent pixels
+                if (alpha === 0) {
+                    continue;
+                }
+
+                // Calculate luminance (proper grayscale conversion)
+                let gray = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
+
+                // Apply brightness adjustment (-100 to +100, scaled to 0-255)
+                gray = Math.max(0, Math.min(255, gray + (this.emojiBrightness * 255 / 100)));
+
+                // Apply contrast adjustment (50% to 200%)
+                const contrastFactor = this.emojiContrast / 100;
+                gray = Math.max(0, Math.min(255, ((gray - 128) * contrastFactor) + 128));
+
+                // Simple thresholding: if above 128, white; else black
+                const threshold = 128;
+                const newGray = gray > threshold ? 255 : 0;
+
+                // Set the pixel, preserving original alpha
+                data[index] = newGray;     // R
+                data[index + 1] = newGray; // G
+                data[index + 2] = newGray; // B
+                // Keep original alpha value
+            }
+        }
+
+        return imageData;
+    }
+
+    // Apply edge detection using Sobel operator
+    applyEdgeDetection(imageData, maskData) {
+        const data = imageData.data;
+        const width = imageData.width;
+        const height = imageData.height;
+        const mask = maskData ? maskData.data : null;
+        
+        // First pass: convert to binary (thresholded) image first
+        const binaryData = new Uint8ClampedArray(data.length);
+        
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                const index = (y * width + x) * 4;
+                
+                // Check mask - if masked pixel is transparent, keep it transparent
+                if (mask && mask[index + 3] === 0) {
+                    binaryData[index] = 0;     // R
+                    binaryData[index + 1] = 0; // G
+                    binaryData[index + 2] = 0; // B
+                    binaryData[index + 3] = 0; // A
+                    continue;
+                }
+                
+                const r = data[index];
+                const g = data[index + 1];
+                const b = data[index + 2];
+                const alpha = data[index + 3];
+
+                if (alpha === 0) {
+                    // Keep transparent pixels transparent
+                    binaryData[index] = 255;
+                    binaryData[index + 1] = 255;
+                    binaryData[index + 2] = 255;
+                    binaryData[index + 3] = 0;
+                    continue;
+                }
+
+                // Calculate luminance
+                let gray = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
+
+                // Apply brightness adjustment
+                gray = Math.max(0, Math.min(255, gray + (this.emojiBrightness * 255 / 100)));
+
+                // Apply contrast adjustment
+                const contrastFactor = this.emojiContrast / 100;
+                gray = Math.max(0, Math.min(255, ((gray - 128) * contrastFactor) + 128));
+
+                // Strong threshold to create binary image
+                const binaryThreshold = 128;
+                const binary = gray > binaryThreshold ? 255 : 0;
+
+                binaryData[index] = binary;
+                binaryData[index + 1] = binary;
+                binaryData[index + 2] = binary;
+                binaryData[index + 3] = alpha;
+            }
+        }
+
+        // Second pass: apply Sobel edge detection on the binary image
+        const sobelData = new Uint8ClampedArray(data.length);
+        
+        // Initialize with black background
+        for (let i = 0; i < sobelData.length; i += 4) {
+            sobelData[i] = 0;     // R
+            sobelData[i + 1] = 0; // G  
+            sobelData[i + 2] = 0; // B
+            sobelData[i + 3] = 0; // A (will be set properly below)
+        }
+
+        for (let y = 1; y < height - 1; y++) {
+            for (let x = 1; x < width - 1; x++) {
+                const index = (y * width + x) * 4;
+
+                // Check mask - if current pixel is masked out, keep it transparent
+                if (mask && mask[index + 3] === 0) {
+                    sobelData[index] = 0;
+                    sobelData[index + 1] = 0;
+                    sobelData[index + 2] = 0;
+                    sobelData[index + 3] = 0;
+                    continue;
+                }
+
+                if (binaryData[index + 3] === 0) {
+                    // Keep transparent pixels transparent
+                    sobelData[index] = 255;
+                    sobelData[index + 1] = 255;
+                    sobelData[index + 2] = 255;
+                    sobelData[index + 3] = 0;
+                    continue;
+                }
+
+                // Helper function to get binary value, respecting mask
+                const getBinaryValue = (nx, ny) => {
+                    const nIndex = (ny * width + nx) * 4;
+                    // If neighboring pixel is masked out, treat as same as current pixel
+                    if (mask && mask[nIndex + 3] === 0) {
+                        return binaryData[index]; // Use current pixel value
+                    }
+                    return binaryData[nIndex];
+                };
+
+                // Sobel X kernel on binary data
+                const gx = 
+                    -1 * getBinaryValue(x - 1, y - 1) +
+                     0 * getBinaryValue(x, y - 1) +
+                     1 * getBinaryValue(x + 1, y - 1) +
+                    -2 * getBinaryValue(x - 1, y) +
+                     0 * getBinaryValue(x, y) +
+                     2 * getBinaryValue(x + 1, y) +
+                    -1 * getBinaryValue(x - 1, y + 1) +
+                     0 * getBinaryValue(x, y + 1) +
+                     1 * getBinaryValue(x + 1, y + 1);
+
+                // Sobel Y kernel on binary data
+                const gy = 
+                    -1 * getBinaryValue(x - 1, y - 1) +
+                    -2 * getBinaryValue(x, y - 1) +
+                    -1 * getBinaryValue(x + 1, y - 1) +
+                     0 * getBinaryValue(x - 1, y) +
+                     0 * getBinaryValue(x, y) +
+                     0 * getBinaryValue(x + 1, y) +
+                     1 * getBinaryValue(x - 1, y + 1) +
+                     2 * getBinaryValue(x, y + 1) +
+                     1 * getBinaryValue(x + 1, y + 1);
+
+                // Calculate gradient magnitude
+                const magnitude = Math.sqrt(gx * gx + gy * gy);
+                
+                // For binary images, any gradient > 0 indicates an edge
+                const edge = magnitude > 0 ? 0 : 255; // Black edges on white background
+
+                sobelData[index] = edge;
+                sobelData[index + 1] = edge;
+                sobelData[index + 2] = edge;
+                sobelData[index + 3] = binaryData[index + 3]; // Preserve alpha
+            }
+        }
+
+        // Copy sobel data back to imageData
+        for (let i = 0; i < data.length; i++) {
+            data[i] = sobelData[i];
+        }
+
+        return imageData;
+    }
+
+    // Improved Floyd-Steinberg dithering with better error distribution
+    applyImprovedDithering(imageData, maskData) {
+        const data = imageData.data;
+        const width = imageData.width;
+        const height = imageData.height;
+        const mask = maskData ? maskData.data : null;
+        
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                const index = (y * width + x) * 4;
+                
+                // Skip pixels that are masked out (transparent areas)
+                if (mask && mask[index + 3] === 0) {
+                    continue;
+                }
+                
+                // Skip fully transparent pixels
+                if (data[index + 3] === 0) continue;
+                
+                const oldGray = data[index]; // All RGB values are the same after preprocessing
+                const originalAlpha = data[index + 3]; // Preserve original alpha
+                
+                // Apply fixed threshold for consistent dithering
+                const threshold = 128;
+                const newGray = oldGray > threshold ? 255 : 0;
+                const error = oldGray - newGray;
+                
+                // Set the pixel, preserving original alpha
+                data[index] = newGray;     // R
+                data[index + 1] = newGray; // G
+                data[index + 2] = newGray; // B
+                // Keep original alpha value
+                
+                // Distribute error to neighboring pixels with improved coefficients
+                this.distributeError(data, width, height, x, y, error, this.ditheringType, maskData);
+            }
+        }
+        
+        return imageData;
+    }
+
+    // Helper method to distribute dithering error to neighboring pixels
+    distributeError(data, width, height, x, y, error, ditheringType, maskData) {
+        const mask = maskData ? maskData.data : null;
+        
+        const distribute = (dx, dy, factor) => {
+            const nx = x + dx;
+            const ny = y + dy;
+            if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+                const index = (ny * width + nx) * 4;
+                // Don't distribute to masked-out pixels (transparent areas)
+                if (mask && mask[index + 3] === 0) {
+                    return;
+                }
+                if (data[index + 3] > 0) { // Only distribute to pixels with some opacity
+                    const adjustment = error * factor;
+                    data[index] = Math.max(0, Math.min(255, data[index] + adjustment));
+                    data[index + 1] = Math.max(0, Math.min(255, data[index + 1] + adjustment));
+                    data[index + 2] = Math.max(0, Math.min(255, data[index + 2] + adjustment));
+                }
+            }
+        };
+
+        switch (ditheringType) {
+            case 'floyd-steinberg':
+                // Standard Floyd-Steinberg error distribution pattern
+                distribute(1, 0, 7/16);    // Right
+                distribute(-1, 1, 3/16);   // Bottom-left
+                distribute(0, 1, 5/16);    // Bottom
+                distribute(1, 1, 1/16);    // Bottom-right
+                break;
+                
+            case 'atkinson':
+                // Atkinson dithering - distributes to 6 pixels with 1/8 each
+                distribute(1, 0, 1/8);     // Right
+                distribute(2, 0, 1/8);     // Right-right
+                distribute(-1, 1, 1/8);    // Bottom-left
+                distribute(0, 1, 1/8);     // Bottom
+                distribute(1, 1, 1/8);     // Bottom-right
+                distribute(0, 2, 1/8);     // Bottom-bottom
+                break;
+                
+            case 'bilayer':
+                // Bilayer dithering - simpler 2-pixel distribution
+                distribute(1, 0, 1/2);     // Right
+                distribute(0, 1, 1/2);     // Bottom
+                break;
+                
+            default:
+                // Default to Floyd-Steinberg
+                distribute(1, 0, 7/16);
+                distribute(-1, 1, 3/16);
+                distribute(0, 1, 5/16);
+                distribute(1, 1, 1/16);
+        }
+    }
+
+    // Helper method to measure emoji width
+    measureEmojiWidth(ctx, emoji) {
+        ctx.save();
+        const emojiFont = `${this.fontSize * 1.2}px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif`;
+        ctx.font = emojiFont;
+        const width = Math.max(ctx.measureText(emoji).width, this.fontSize);
+        ctx.restore();
+        return width + 2; // Add small spacing
+    }
+
+    // Apply Floyd-Steinberg dithering to convert color image to monochrome
     applyFloydSteinbergDithering(imageData) {
         const data = imageData.data;
         const width = imageData.width;
         const height = imageData.height;
         
-        // Convert to grayscale and apply dithering
         for (let y = 0; y < height; y++) {
             for (let x = 0; x < width; x++) {
                 const idx = (y * width + x) * 4;
@@ -1080,72 +1913,49 @@ class DrawingEditor {
                 // Skip transparent pixels
                 if (data[idx + 3] === 0) continue;
                 
-                // Convert to grayscale using luminance formula
-                const gray = Math.round(0.299 * data[idx] + 0.587 * data[idx + 1] + 0.114 * data[idx + 2]);
-                
-                // Determine if pixel should be black or white
-                const oldPixel = gray;
+                // Calculate grayscale value
+                const oldPixel = (data[idx] + data[idx + 1] + data[idx + 2]) / 3;
                 const newPixel = oldPixel < 128 ? 0 : 255;
                 const error = oldPixel - newPixel;
                 
-                // Set the new pixel value
+                // Set new pixel value
                 data[idx] = newPixel;     // R
                 data[idx + 1] = newPixel; // G
                 data[idx + 2] = newPixel; // B
                 // Keep original alpha
                 
-                // Distribute error to neighboring pixels (Floyd-Steinberg weights)
-                this.distributeError(data, width, height, x, y, error);
-            }
-        }
-    }
-    
-    distributeError(data, width, height, x, y, error) {
-        const distributions = [
-            { dx: 1, dy: 0, weight: 7/16 },  // Right
-            { dx: -1, dy: 1, weight: 3/16 }, // Bottom-left
-            { dx: 0, dy: 1, weight: 5/16 },  // Bottom
-            { dx: 1, dy: 1, weight: 1/16 }   // Bottom-right
-        ];
-        
-        distributions.forEach(({ dx, dy, weight }) => {
-            const nx = x + dx;
-            const ny = y + dy;
-            
-            if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
-                const idx = (ny * width + nx) * 4;
+                // Distribute error to neighboring pixels
+                if (x + 1 < width) {
+                    const rightIdx = (y * width + (x + 1)) * 4;
+                    data[rightIdx] = Math.max(0, Math.min(255, data[rightIdx] + error * 7 / 16));
+                    data[rightIdx + 1] = Math.max(0, Math.min(255, data[rightIdx + 1] + error * 7 / 16));
+                    data[rightIdx + 2] = Math.max(0, Math.min(255, data[rightIdx + 2] + error * 7 / 16));
+                }
                 
-                // Only distribute to non-transparent pixels
-                if (data[idx + 3] > 0) {
-                    const currentGray = Math.round(0.299 * data[idx] + 0.587 * data[idx + 1] + 0.114 * data[idx + 2]);
-                    const newGray = Math.max(0, Math.min(255, currentGray + error * weight));
+                if (y + 1 < height) {
+                    if (x - 1 >= 0) {
+                        const bottomLeftIdx = ((y + 1) * width + (x - 1)) * 4;
+                        data[bottomLeftIdx] = Math.max(0, Math.min(255, data[bottomLeftIdx] + error * 3 / 16));
+                        data[bottomLeftIdx + 1] = Math.max(0, Math.min(255, data[bottomLeftIdx + 1] + error * 3 / 16));
+                        data[bottomLeftIdx + 2] = Math.max(0, Math.min(255, data[bottomLeftIdx + 2] + error * 3 / 16));
+                    }
                     
-                    data[idx] = newGray;     // R
-                    data[idx + 1] = newGray; // G
-                    data[idx + 2] = newGray; // B
+                    const bottomIdx = ((y + 1) * width + x) * 4;
+                    data[bottomIdx] = Math.max(0, Math.min(255, data[bottomIdx] + error * 5 / 16));
+                    data[bottomIdx + 1] = Math.max(0, Math.min(255, data[bottomIdx + 1] + error * 5 / 16));
+                    data[bottomIdx + 2] = Math.max(0, Math.min(255, data[bottomIdx + 2] + error * 5 / 16));
+                    
+                    if (x + 1 < width) {
+                        const bottomRightIdx = ((y + 1) * width + (x + 1)) * 4;
+                        data[bottomRightIdx] = Math.max(0, Math.min(255, data[bottomRightIdx] + error * 1 / 16));
+                        data[bottomRightIdx + 1] = Math.max(0, Math.min(255, data[bottomRightIdx + 1] + error * 1 / 16));
+                        data[bottomRightIdx + 2] = Math.max(0, Math.min(255, data[bottomRightIdx + 2] + error * 1 / 16));
+                    }
                 }
             }
-        });
-    }
-
-    // Helper method to measure text width with spacing
-    measureTextWithSpacing(ctx, text, minLetterSpacing = 1) {
-        let totalWidth = 0;
-        
-        for (let i = 0; i < text.length; i++) {
-            const char = text[i];
-            
-            if (char === ' ') {
-                totalWidth += Math.max(this.fontSize * 0.3, minLetterSpacing * 2);
-                continue;
-            }
-            
-            const charWidth = ctx.measureText(char).width;
-            totalWidth += Math.ceil(charWidth) + minLetterSpacing;
         }
         
-        // Remove the extra spacing after the last character
-        return Math.max(0, totalWidth - minLetterSpacing);
+        return imageData;
     }
 
     async detectSystemFonts() {
@@ -1323,14 +2133,13 @@ class DrawingEditor {
         // Get the canvas container for panning/zooming events
         const canvasContainer = document.querySelector('.canvas-container');
         
-        // Canvas mouse events - attach to container to allow drawing outside canvas bounds
-        canvasContainer.addEventListener('mousedown', (e) => this.onMouseDown(e));
-        canvasContainer.addEventListener('mousemove', (e) => this.onMouseMove(e));
-        canvasContainer.addEventListener('mouseup', (e) => this.onMouseUp(e));
-        canvasContainer.addEventListener('mouseleave', (e) => this.onMouseLeave(e));
-        
-        // Also attach events to individual canvases for compatibility
+        // Canvas mouse events - add to both drawing and overlay canvas
         [this.drawingCanvas, this.overlayCanvas].forEach(canvas => {
+            canvas.addEventListener('mousedown', (e) => this.onMouseDown(e));
+            canvas.addEventListener('mousemove', (e) => this.onMouseMove(e));
+            canvas.addEventListener('mouseup', (e) => this.onMouseUp(e));
+            canvas.addEventListener('mouseleave', (e) => this.onMouseLeave(e));
+            
             // Add touch events
             canvas.addEventListener('touchstart', (e) => this.onTouchStart(e), { passive: false });
             canvas.addEventListener('touchmove', (e) => this.onTouchMove(e), { passive: false });
@@ -1423,15 +2232,41 @@ class DrawingEditor {
             
             if (this.isDrawing && this.currentTool === 'pen' && !this.shiftKey && this.penMode !== 'line') {
                 // Only handle normal pen drawing here, not straight lines (shift mode or line mode)
-                const pos = this.getMousePos(e);
+                // Check if mouse is over one of our canvases
+                const canvasRect = this.drawingCanvas.getBoundingClientRect();
+                const x = e.clientX - canvasRect.left;
+                const y = e.clientY - canvasRect.top;
+                
+                // Convert to canvas coordinates
+                const canvasX = Math.floor(x / this.zoom);
+                const canvasY = Math.floor(y / this.zoom);
+                
+                // Check if current position is within canvas bounds
+                const isWithinBounds = canvasX >= 0 && canvasX < this.canvasWidth && canvasY >= 0 && canvasY < this.canvasHeight;
                 
                 if (this.lastPos) {
-                    // Draw line from last position to current position (allowing off-canvas drawing)
-                    this.drawLine(this.lastPos.x, this.lastPos.y, pos.x, pos.y);
+                    // Check if either the start or end point is within canvas bounds
+                    const startInBounds = this.lastPos.x >= 0 && this.lastPos.x < this.canvasWidth && 
+                                         this.lastPos.y >= 0 && this.lastPos.y < this.canvasHeight;
+                    const endInBounds = canvasX >= 0 && canvasX < this.canvasWidth && 
+                                       canvasY >= 0 && canvasY < this.canvasHeight;
+                    
+                    // Only draw if at least one endpoint is within bounds (this creates a line that crosses the canvas)
+                    if (startInBounds || endInBounds) {
+                        const clamped = this.clampLineToCanvas(this.lastPos.x, this.lastPos.y, canvasX, canvasY);
+                        
+                        // Only draw if there's actually a visible line segment within canvas
+                        if (clamped.x1 !== clamped.x2 || clamped.y1 !== clamped.y2) {
+                            this.drawLine(clamped.x1, clamped.y1, clamped.x2, clamped.y2);
+                        }
+                    }
+                    
+                    // Always update last position regardless of bounds - this keeps the "virtual" drawing continuous
+                    this.lastPos = {x: canvasX, y: canvasY};
+                } else {
+                    // Start tracking position regardless of bounds
+                    this.lastPos = {x: canvasX, y: canvasY};
                 }
-                
-                // Always update last position
-                this.lastPos = pos;
             }
 
             // Handle drawing previews for other tools
@@ -1937,17 +2772,13 @@ class DrawingEditor {
     }
     
     getMousePos(e) {
-        // Calculate position relative to the actual canvas, not the container
-        // This ensures proper alignment while still allowing container-level event capture
-        const canvasRect = this.drawingCanvas.getBoundingClientRect();
-        
-        // Calculate raw position relative to canvas
-        const rawX = (e.clientX - canvasRect.left) / this.zoom;
-        const rawY = (e.clientY - canvasRect.top) / this.zoom;
+        const rect = this.drawingCanvas.getBoundingClientRect();
+        const scaleX = this.canvasWidth / rect.width;
+        const scaleY = this.canvasHeight / rect.height;
         
         let pos = {
-            x: Math.floor(rawX),
-            y: Math.floor(rawY)
+            x: Math.floor((e.clientX - rect.left) * scaleX),
+            y: Math.floor((e.clientY - rect.top) * scaleY)
         };
         
         // Apply grid snapping if grid mode is enabled
@@ -2505,21 +3336,24 @@ class DrawingEditor {
         
         if (this.mirrorHorizontal) {
             const mirrorX = centerX - (x - centerX);
-            // Allow mirrored drawing outside canvas bounds
-            this.drawGridSquare(mirrorX, y, ctx, color);
+            if (mirrorX >= 0 && mirrorX < this.canvasWidth) {
+                this.drawGridSquare(mirrorX, y, ctx, color);
+            }
         }
         
         if (this.mirrorVertical) {
             const mirrorY = centerY - (y - centerY);
-            // Allow mirrored drawing outside canvas bounds
-            this.drawGridSquare(x, mirrorY, ctx, color);
+            if (mirrorY >= 0 && mirrorY < this.canvasHeight) {
+                this.drawGridSquare(x, mirrorY, ctx, color);
+            }
         }
         
         if (this.mirrorHorizontal && this.mirrorVertical) {
             const mirrorX = centerX - (x - centerX);
             const mirrorY = centerY - (y - centerY);
-            // Allow mirrored drawing outside canvas bounds
-            this.drawGridSquare(mirrorX, mirrorY, ctx, color);
+            if (mirrorX >= 0 && mirrorX < this.canvasWidth && mirrorY >= 0 && mirrorY < this.canvasHeight) {
+                this.drawGridSquare(mirrorX, mirrorY, ctx, color);
+            }
         }
     }
     
@@ -3829,14 +4663,11 @@ class DrawingEditor {
     }
     
     setPreviewPixel(x, y) {
-        // Allow preview pixels outside canvas bounds
-        if (x < 0 || x >= this.canvasWidth || y < 0 || y >= this.canvasHeight) {
-            // Don't draw outside canvas bounds for previews
-            return;
+        if (x >= 0 && x < this.canvasWidth && y >= 0 && y < this.canvasHeight) {
+            // Use red color for polygon preview
+            this.overlayCtx.fillStyle = '#ff0000';
+            this.overlayCtx.fillRect(x, y, 1, 1);
         }
-        // Use red color for polygon preview
-        this.overlayCtx.fillStyle = '#ff0000';
-        this.overlayCtx.fillRect(x, y, 1, 1);
     }
     
     showMirroredShapePreview(shapeType, startX, startY, radius, endX, endY) {
@@ -4465,36 +5296,32 @@ class DrawingEditor {
     }
     
     setPixelInFrame(x, y, ctx) {
-        // Allow drawing outside canvas bounds - extend canvas if needed
-        if (x < 0 || x >= this.canvasWidth || y < 0 || y >= this.canvasHeight) {
-            // Don't draw outside bounds for now, but could be extended to auto-expand canvas
-            return;
+        if (x >= 0 && x < this.canvasWidth && y >= 0 && y < this.canvasHeight) {
+            // Use direct pixel manipulation for 100% opacity
+            const imageData = ctx.getImageData(x, y, 1, 1);
+            const data = imageData.data;
+            
+            // Convert color to RGB
+            let r, g, b;
+            if (this.currentColor === 'black') {
+                r = g = b = 0;
+            } else if (this.currentColor === 'white') {
+                r = g = b = 255;
+            } else {
+                // Handle hex colors
+                const hex = this.currentColor.replace('#', '');
+                r = parseInt(hex.substr(0, 2), 16);
+                g = parseInt(hex.substr(2, 2), 16);
+                b = parseInt(hex.substr(4, 2), 16);
+            }
+            
+            data[0] = r;
+            data[1] = g;
+            data[2] = b;
+            data[3] = 255; // Full opacity
+            
+            ctx.putImageData(imageData, x, y);
         }
-        
-        // Use direct pixel manipulation for 100% opacity
-        const imageData = ctx.getImageData(x, y, 1, 1);
-        const data = imageData.data;
-        
-        // Convert color to RGB
-        let r, g, b;
-        if (this.currentColor === 'black') {
-            r = g = b = 0;
-        } else if (this.currentColor === 'white') {
-            r = g = b = 255;
-        } else {
-            // Handle hex colors
-            const hex = this.currentColor.replace('#', '');
-            r = parseInt(hex.substr(0, 2), 16);
-            g = parseInt(hex.substr(2, 2), 16);
-            b = parseInt(hex.substr(4, 2), 16);
-        }
-        
-        data[0] = r;
-        data[1] = g;
-        data[2] = b;
-        data[3] = 255; // Full opacity
-        
-        ctx.putImageData(imageData, x, y);
     }
 
     // Polygon drawing methods
@@ -5269,36 +6096,29 @@ class DrawingEditor {
         
         tempCtx.restore();
         
-        // Get image data and apply dithering for better emoji support
+        // Get image data and binarize
         const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
-        
-        // Apply Floyd-Steinberg dithering to convert colors to black and white
-        this.applyFloydSteinbergDithering(imageData);
-        
-        // Apply final binarization with text color
         const data = imageData.data;
+        
+        // Binarize with lower threshold for better text detection
         for (let i = 0; i < data.length; i += 4) {
+            const r = data[i];
+            const g = data[i + 1];
+            const b = data[i + 2];
             const alpha = data[i + 3];
             
-            if (alpha > 10) {
-                // Check if pixel is black or white from dithering
-                const isBlack = data[i] < 128; // Since dithering produces 0 or 255
-                
-                if (isBlack) {
-                    // Make it black for preview
-                    data[i] = 0;     // R
-                    data[i + 1] = 0; // G
-                    data[i + 2] = 0; // B
-                    data[i + 3] = 255; // A
-                } else {
-                    // Make it transparent (white areas become transparent)
-                    data[i] = 0;     // R
-                    data[i + 1] = 0; // G
-                    data[i + 2] = 0; // B
-                    data[i + 3] = 0; // A
-                }
+            // Calculate grayscale and apply threshold
+            const gray = (r + g + b) / 3;
+            const threshold = 200; // Higher threshold to capture more anti-aliased pixels
+            
+            if (alpha > 10 && gray < threshold) {
+                // Make it black
+                data[i] = 0;     // R
+                data[i + 1] = 0; // G
+                data[i + 2] = 0; // B
+                data[i + 3] = 255; // A
             } else {
-                // Already transparent
+                // Make it transparent
                 data[i] = 0;     // R
                 data[i + 1] = 0; // G
                 data[i + 2] = 0; // B
@@ -5396,42 +6216,35 @@ class DrawingEditor {
         
         tempCtx.restore();
         
-        // Get image data and apply dithering for better emoji support
+        // Get image data and binarize
         const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
-        
-        // Apply Floyd-Steinberg dithering to convert colors to black and white
-        this.applyFloydSteinbergDithering(imageData);
-        
-        // Apply final binarization with text color
         const data = imageData.data;
+        
+        // Binarize with lower threshold for better text detection
         for (let i = 0; i < data.length; i += 4) {
+            const r = data[i];
+            const g = data[i + 1];
+            const b = data[i + 2];
             const alpha = data[i + 3];
             
-            if (alpha > 10) {
-                // Check if pixel is black or white from dithering
-                const isBlack = data[i] < 128; // Since dithering produces 0 or 255
-                
-                if (isBlack) {
-                    // Make it the selected text color
-                    if (this.textColor === 'white') {
-                        data[i] = 255;     // R
-                        data[i + 1] = 255; // G
-                        data[i + 2] = 255; // B
-                    } else {
-                        data[i] = 0;     // R
-                        data[i + 1] = 0; // G
-                        data[i + 2] = 0; // B
-                    }
-                    data[i + 3] = 255; // A
+            // Calculate grayscale and apply threshold
+            const gray = (r + g + b) / 3;
+            const threshold = 200; // Higher threshold to capture more anti-aliased pixels
+            
+            if (alpha > 10 && gray < threshold) {
+                // Make it the selected text color
+                if (this.textColor === 'white') {
+                    data[i] = 255;     // R
+                    data[i + 1] = 255; // G
+                    data[i + 2] = 255; // B
                 } else {
-                    // Make it transparent (white areas become transparent)
                     data[i] = 0;     // R
                     data[i + 1] = 0; // G
                     data[i + 2] = 0; // B
-                    data[i + 3] = 0; // A
                 }
+                data[i + 3] = 255; // A
             } else {
-                // Already transparent
+                // Make it transparent
                 data[i] = 0;     // R
                 data[i + 1] = 0; // G
                 data[i + 2] = 0; // B

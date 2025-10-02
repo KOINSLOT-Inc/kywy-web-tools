@@ -399,15 +399,34 @@
                     <h3>Text Settings</h3>
                     <div class="text-controls">
                         <label>Text:</label>
-                        <textarea id="textInput" placeholder="Enter text... (use Enter for new lines)" maxlength="500" rows="3">KYWY</textarea>
+                        <textarea id="textInput" placeholder="Enter text... (use Enter for new lines)" maxlength="500" rows="3"></textarea>
+                        
+                        <div class="emoji-section">
+                            <button id="emojiToggle" class="emoji-toggle-btn">😀 Add Emoji</button>
+                            <div id="emojiPicker" class="emoji-picker" style="display: none;">
+                                <div class="emoji-categories">
+                                    <button class="emoji-cat-btn active" data-category="faces">😀</button>
+                                    <button class="emoji-cat-btn" data-category="people">👥</button>
+                                    <button class="emoji-cat-btn" data-category="nature">🌸</button>
+                                    <button class="emoji-cat-btn" data-category="food">🍕</button>
+                                    <button class="emoji-cat-btn" data-category="activities">⚽</button>
+                                    <button class="emoji-cat-btn" data-category="travel">🚗</button>
+                                    <button class="emoji-cat-btn" data-category="objects">💡</button>
+                                    <button class="emoji-cat-btn" data-category="symbols">❤️</button>
+                                </div>
+                                <div id="emojiGrid" class="emoji-grid">
+                                    <!-- Emojis will be populated dynamically -->
+                                </div>
+                            </div>
+                        </div>
                         
                         <label>Font:</label>
                         <select id="fontFamily">
                             <!-- System fonts will be populated dynamically -->
                         </select>
                         
-                        <label>Size: <span id="fontSizeDisplay">12</span>px</label>
-                        <input type="range" id="fontSize" min="4" max="64" value="12" step="1">
+                        <label>Size: <span id="fontSizeDisplay">48</span>px</label>
+                        <input type="range" id="fontSize" min="4" max="100" value="48" step="1">
                         
                         <label>Style:</label>
                         <div class="text-style">
@@ -419,6 +438,25 @@
                         <div class="color-picker">
                             <button id="textBlackColor" class="color-btn active" data-color="black">⬛ Black</button>
                             <button id="textWhiteColor" class="color-btn" data-color="white">⬜ White</button>
+                        </div>
+                        
+                        <div class="emoji-adjustments">
+                            <label>Emoji Brightness: <span id="emojiBrightnessDisplay">-20</span></label>
+                            <input type="range" id="emojiBrightness" min="-100" max="100" value="-20" step="10">
+                            
+                            <button id="emojiDitheringToggle" class="emoji-dither-btn active">🎨 Dithering On</button>
+                            
+                            <div id="ditheringOptionsContainer" style="display: none;">
+                                <label>Emoji Contrast: <span id="emojiContrastDisplay">100</span>%</label>
+                                <input type="range" id="emojiContrast" min="50" max="200" value="100" step="10">
+                                
+                                <label>Dithering Type:</label>
+                                <select id="ditheringTypeSelect">
+                                    <option value="floyd-steinberg">Floyd-Steinberg</option>
+                                    <option value="atkinson">Atkinson</option>
+                                    <option value="bilayer">Bilayer</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
                 </div>

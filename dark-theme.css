@@ -560,3 +560,36 @@ body.menu-page, .desktop {
     background: #222222 !important;
     border: 1px inset #444444 !important;
 }
+
+/* Dark theme emoji picker styles */
+.emoji-picker {
+    background: #2a2a2a !important;
+    border: 1px solid #555555 !important;
+}
+
+.emoji-categories {
+    background: #333333 !important;
+    border-bottom: 1px solid #555555 !important;
+}
+
+.emoji-cat-btn:hover {
+    background: #444444 !important;
+}
+
+.emoji-btn:hover {
+    background: #444444 !important;
+}
+
+.emoji-dither-btn {
+    background: #2a2a2a !important;
+    border: 1px solid #555555 !important;
+    color: #ffffff !important;
+}
+
+.emoji-dither-btn:hover {
+    background: #444444 !important;
+}
+
+.emoji-dither-btn.active {
+    background: #666666 !important;
+}

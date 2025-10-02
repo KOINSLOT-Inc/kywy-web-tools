@@ -495,3 +495,38 @@ a:hover {
     border: 2px solid #ffffff !important;
     box-shadow: 1px 1px 0px #000000 !important;
 }
+
+/* NES emoji picker styles */
+.emoji-picker {
+    background: #000000 !important;
+    border: 2px solid #ffffff !important;
+    border-radius: 0 !important;
+}
+
+.emoji-categories {
+    background: #404040 !important;
+    border-bottom: 2px solid #ffffff !important;
+}
+
+.emoji-cat-btn:hover {
+    background: #606060 !important;
+}
+
+.emoji-btn:hover {
+    background: #606060 !important;
+}
+
+.emoji-dither-btn {
+    background: #404040 !important;
+    border: 2px solid #ffffff !important;
+    color: #ffffff !important;
+    border-radius: 0 !important;
+}
+
+.emoji-dither-btn:hover {
+    background: #606060 !important;
+}
+
+.emoji-dither-btn.active {
+    background: #808080 !important;
+}

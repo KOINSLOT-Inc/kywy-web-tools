@@ -960,6 +960,140 @@ input[type="range"]::-moz-range-thumb {
     border-color: var(--accent-color);
 }
 
+/* Emoji Picker Styles */
+.emoji-section {
+    margin: 10px 0;
+}
+
+.emoji-toggle-btn {
+    width: 100%;
+    background: #e9ecef;
+    color: #333;
+    border: 2px solid #dee2e6;
+    padding: 8px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+    margin-bottom: 10px;
+}
+
+.emoji-toggle-btn:hover {
+    background: #e9ecef;
+    border-color: var(--accent-color);
+}
+
+.emoji-toggle-btn.active {
+    background: var(--accent-color);
+    color: #000000;
+    border-color: var(--accent-color);
+}
+
+.emoji-picker {
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: var(--bg-color);
+    max-height: 200px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.emoji-categories {
+    display: flex;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--panel-bg);
+}
+
+.emoji-cat-btn {
+    flex: 1;
+    background: none;
+    border: none;
+    padding: 8px 4px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background-color 0.2s;
+}
+
+.emoji-cat-btn:hover {
+    background: var(--border-color);
+}
+
+.emoji-cat-btn.active {
+    background: var(--accent-color);
+}
+
+.emoji-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 2px;
+    padding: 8px;
+}
+
+.emoji-btn {
+    background: none;
+    border: none;
+    padding: 4px;
+    cursor: pointer;
+    font-size: 18px;
+    border-radius: 3px;
+    transition: background-color 0.2s;
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.emoji-btn:hover {
+    background: var(--border-color);
+}
+
+.emoji-adjustments {
+    margin-top: 10px;
+}
+
+.emoji-adjustments label {
+    display: block;
+    margin-bottom: 5px;
+    font-size: 0.9rem;
+}
+
+.emoji-adjustments input[type="range"] {
+    width: 100%;
+    margin-bottom: 10px;
+}
+
+.emoji-adjustments select {
+    width: 100%;
+    padding: 6px;
+    background: var(--bg-color);
+    border: 1px solid var(--border-color);
+    color: var(--text-color);
+    margin-bottom: 10px;
+    font-size: 0.9rem;
+}
+
+.emoji-dither-btn {
+    width: 100%;
+    padding: 8px;
+    background: var(--bg-color);
+    border: 1px solid var(--border-color);
+    color: var(--text-color);
+    cursor: pointer;
+    font-size: 0.9rem;
+    margin-bottom: 10px;
+}
+
+.emoji-dither-btn:hover {
+    background: var(--accent-color);
+}
+
+.emoji-dither-btn.active {
+    background: var(--accent-color);
+    font-weight: bold;
+}
+
 .animation-controls button {
     width: 100%;
     background: var(--accent-color);
