@@ -271,6 +271,9 @@ class DrawingEditor {
         this.gridSize = 8;
         this.showGridLines = true;
         
+        // Pen mode properties
+        this.penMode = 'freehand'; // 'freehand', 'line', 'grid'
+        
         // Fill pattern properties
         this.fillPattern = 'solid'; // default to solid fill
         this.gradientType = null; // 'linear' or 'radial'
@@ -550,8 +553,17 @@ class DrawingEditor {
         
         if (penModeBtn) {
             penModeBtn.addEventListener('click', () => {
-                // Cycle between freehand and grid mode
-                this.gridModeEnabled = !this.gridModeEnabled;
+                // Cycle between freehand, line, and grid mode
+                if (this.penMode === 'freehand') {
+                    this.penMode = 'line';
+                    this.gridModeEnabled = false;
+                } else if (this.penMode === 'line') {
+                    this.penMode = 'grid';
+                    this.gridModeEnabled = true;
+                } else {
+                    this.penMode = 'freehand';
+                    this.gridModeEnabled = false;
+                }
                 
                 // If enabling grid mode and grid size is too small, set it to 8 (only on first enable)
                 if (this.gridModeEnabled && this.gridSize <= 3) {
@@ -1358,8 +1370,8 @@ class DrawingEditor {
                 }
             }
             
-            if (this.isDrawing && this.currentTool === 'pen' && !this.shiftKey) {
-                // Only handle normal pen drawing here, not straight lines (shift mode)
+            if (this.isDrawing && this.currentTool === 'pen' && !this.shiftKey && this.penMode !== 'line') {
+                // Only handle normal pen drawing here, not straight lines (shift mode or line mode)
                 // Check if mouse is over one of our canvases
                 const canvasRect = this.drawingCanvas.getBoundingClientRect();
                 const x = e.clientX - canvasRect.left;
@@ -1401,8 +1413,8 @@ class DrawingEditor {
             if (this.isDrawing) {
                 const pos = this.getMousePos(e);
                 
-                // Handle straight line preview for pen tool with shift
-                if (this.currentTool === 'pen' && this.shiftKey && this.startPos) {
+                // Handle straight line preview for pen tool with shift or in line mode
+                if (this.currentTool === 'pen' && (this.shiftKey || this.penMode === 'line') && this.startPos) {
                     this.drawStraightLinePreview(this.startPos.x, this.startPos.y, pos.x, pos.y);
                 }
                 
@@ -2013,8 +2025,8 @@ class DrawingEditor {
             case 'pen':
                 // Start stroke for undo system
                 this.startStroke();
-                // Only draw initial pixel if not holding Shift (for straight lines)
-                if (!this.shiftKey) {
+                // Only draw initial pixel if not holding Shift (for straight lines) and not in line mode
+                if (!this.shiftKey && this.penMode !== 'line') {
                     this.drawPixel(pos.x, pos.y);
                 }
                 break;
@@ -2266,7 +2278,7 @@ class DrawingEditor {
         
         switch (this.currentTool) {
             case 'pen':
-                if (this.shiftKey && this.startPos) {
+                if ((this.shiftKey && this.startPos) || (this.penMode === 'line' && this.startPos)) {
                     // Draw straight line from start position - only preview, don't draw to canvas yet
                     this.drawStraightLinePreview(this.startPos.x, this.startPos.y, pos.x, pos.y);
                 } else {
@@ -2348,7 +2360,7 @@ class DrawingEditor {
         }
         
         // If we were drawing a straight line, finalize it
-        if (this.currentTool === 'pen' && this.shiftKey && this.startPos) {
+        if (this.currentTool === 'pen' && ((this.shiftKey && this.startPos) || (this.penMode === 'line' && this.startPos))) {
             const pos = this.getMousePos(e);
             this.drawStraightLine(this.startPos.x, this.startPos.y, pos.x, pos.y);
             // Clear the overlay after drawing the final line and restore base layers
@@ -5706,10 +5718,14 @@ class DrawingEditor {
         const penModeText = document.getElementById('penModeText');
         
         if (penModeBtn && penModeIcon && penModeText) {
-            if (this.gridModeEnabled) {
+            if (this.penMode === 'grid') {
                 penModeIcon.textContent = '📐';
                 penModeText.textContent = 'Grid';
                 penModeBtn.setAttribute('data-mode', 'grid');
+            } else if (this.penMode === 'line') {
+                penModeIcon.textContent = '↔️';
+                penModeText.textContent = 'Line';
+                penModeBtn.setAttribute('data-mode', 'line');
             } else {
                 penModeIcon.textContent = '✏️';
                 penModeText.textContent = 'Freehand';
