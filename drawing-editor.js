@@ -1040,13 +1040,19 @@ class DrawingEditor {
         const emojiToggle = document.getElementById('emojiToggle');
         const emojiPicker = document.getElementById('emojiPicker');
         if (emojiToggle && emojiPicker) {
-            emojiToggle.addEventListener('click', () => {
+            emojiToggle.addEventListener('click', (e) => {
+                e.stopPropagation(); // Prevent document click handlers from interfering
                 const isVisible = emojiPicker.style.display !== 'none';
                 emojiPicker.style.display = isVisible ? 'none' : 'block';
                 emojiToggle.classList.toggle('active', !isVisible);
                 if (!isVisible) {
                     this.populateEmojiGrid();
                 }
+            });
+            
+            // Prevent clicks inside the picker from closing it
+            emojiPicker.addEventListener('click', (e) => {
+                e.stopPropagation();
             });
         }
 
@@ -1206,7 +1212,10 @@ class DrawingEditor {
             emojiBtn.textContent = emoji;
             emojiBtn.title = emoji;
             
-            emojiBtn.addEventListener('click', () => {
+            emojiBtn.addEventListener('click', (e) => {
+                // Prevent click from bubbling up to document handlers
+                e.stopPropagation();
+                
                 // Insert emoji at cursor position in text input
                 const textInput = document.getElementById('textInput');
                 if (textInput) {
@@ -1225,14 +1234,6 @@ class DrawingEditor {
                     
                     // Update text preview
                     this.updateTextPreview();
-                }
-                
-                // Close emoji picker
-                const emojiPicker = document.getElementById('emojiPicker');
-                const emojiToggle = document.getElementById('emojiToggle');
-                if (emojiPicker && emojiToggle) {
-                    emojiPicker.style.display = 'none';
-                    emojiToggle.classList.remove('active');
                 }
             });
             
@@ -1466,10 +1467,9 @@ class DrawingEditor {
         const textWidth = Math.max(metrics.width, this.fontSize);
         const textHeight = this.fontSize * 1.2; // Account for ascenders/descenders
         
-        // Set canvas size with some padding
-        const padding = 4;
-        tempCanvas.width = textWidth + padding * 2;
-        tempCanvas.height = textHeight + padding * 2;
+        // Set canvas size without padding
+        tempCanvas.width = textWidth;
+        tempCanvas.height = textHeight;
         
         // Reconfigure after setting canvas size
         tempCtx.font = emojiFont;
@@ -1538,10 +1538,7 @@ class DrawingEditor {
         tempCtx.putImageData(processedImageData, 0, 0);
         
         // Draw processed emoji to main canvas, scaled to fit fontSize x fontSize
-        // Align emoji to text baseline (top) by adjusting y position
-        // The emoji should be drawn at the same baseline as text for consistent alignment
-        const emojiY = y; // Use y directly since textBaseline is 'top'
-        ctx.drawImage(tempCanvas, 0, 0, tempCanvas.width, tempCanvas.height, x, emojiY, this.fontSize, this.fontSize);
+        ctx.drawImage(tempCanvas, 0, 0, tempCanvas.width, tempCanvas.height, x, y, this.fontSize, this.fontSize);
         
         return this.fontSize + 2; // Return width for spacing
     }    // Process emoji image with brightness, contrast, and dithering
@@ -1663,35 +1660,32 @@ class DrawingEditor {
         const height = imageData.height;
         const mask = maskData ? maskData.data : null;
         
-        // First pass: convert to binary (thresholded) image first
-        const binaryData = new Uint8ClampedArray(data.length);
+        // Store the original alpha channel to preserve emoji shape
+        const originalAlpha = new Uint8ClampedArray(data.length / 4);
+        for (let i = 0; i < originalAlpha.length; i++) {
+            originalAlpha[i] = mask ? mask[i * 4 + 3] : data[i * 4 + 3];
+        }
+        
+        // First pass: convert to grayscale with brightness/contrast adjustments
+        const grayData = new Uint8ClampedArray(data.length);
         
         for (let y = 0; y < height; y++) {
             for (let x = 0; x < width; x++) {
                 const index = (y * width + x) * 4;
+                const pixelIndex = y * width + x;
                 
-                // Check mask - if masked pixel is transparent, keep it transparent
-                if (mask && mask[index + 3] === 0) {
-                    binaryData[index] = 0;     // R
-                    binaryData[index + 1] = 0; // G
-                    binaryData[index + 2] = 0; // B
-                    binaryData[index + 3] = 0; // A
+                // Skip masked out pixels (transparent areas) - keep them transparent
+                if (originalAlpha[pixelIndex] === 0) {
+                    grayData[index] = 0;
+                    grayData[index + 1] = 0;
+                    grayData[index + 2] = 0;
+                    grayData[index + 3] = 0;
                     continue;
                 }
                 
                 const r = data[index];
                 const g = data[index + 1];
                 const b = data[index + 2];
-                const alpha = data[index + 3];
-
-                if (alpha === 0) {
-                    // Keep transparent pixels transparent
-                    binaryData[index] = 255;
-                    binaryData[index + 1] = 255;
-                    binaryData[index + 2] = 255;
-                    binaryData[index + 3] = 0;
-                    continue;
-                }
 
                 // Calculate luminance
                 let gray = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
@@ -1703,146 +1697,88 @@ class DrawingEditor {
                 const contrastFactor = this.emojiContrast / 100;
                 gray = Math.max(0, Math.min(255, ((gray - 128) * contrastFactor) + 128));
 
-                // Strong threshold to create binary image
-                const binaryThreshold = 128;
-                const binary = gray > binaryThreshold ? 255 : 0;
-
-                binaryData[index] = binary;
-                binaryData[index + 1] = binary;
-                binaryData[index + 2] = binary;
-                binaryData[index + 3] = alpha;
+                grayData[index] = gray;
+                grayData[index + 1] = gray;
+                grayData[index + 2] = gray;
+                grayData[index + 3] = 255; // Temporary full alpha for processing
             }
         }
 
-        // Second pass: apply Sobel edge detection on the binary image
+        // Second pass: apply Sobel edge detection
         const sobelData = new Uint8ClampedArray(data.length);
         
-        // Initialize with black background
-        for (let i = 0; i < sobelData.length; i += 4) {
-            sobelData[i] = 0;     // R
-            sobelData[i + 1] = 0; // G  
-            sobelData[i + 2] = 0; // B
-            sobelData[i + 3] = 0; // A (will be set properly below)
-        }
-
-        // Helper function to check if a pixel has emoji content (is opaque)
-        const hasEmojiContent = (x, y) => {
-            if (x < 0 || x >= width || y < 0 || y >= height) return false;
+        // Helper function to get gray value at position, treating outside as 128 (middle gray)
+        const getGrayValue = (x, y) => {
+            if (x < 0 || x >= width || y < 0 || y >= height) return 128;
+            const pixelIndex = y * width + x;
+            if (originalAlpha[pixelIndex] === 0) return 128; // Treat transparent as middle gray
             const idx = (y * width + x) * 4;
-            // Check if pixel is opaque in the original binary data
-            return binaryData[idx + 3] > 0;
+            return grayData[idx];
         };
 
-        // Helper function to get binary value at position
-        const getBinaryValue = (x, y) => {
-            if (x < 0 || x >= width || y < 0 || y >= height) return 0;
-            const idx = (y * width + x) * 4;
-            return binaryData[idx];
-        };
-
-        for (let y = 1; y < height - 1; y++) {
-            for (let x = 1; x < width - 1; x++) {
+        // Process all pixels, but force edge pixels to be transparent
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
                 const index = (y * width + x) * 4;
+                const pixelIndex = y * width + x;
 
-                // Check mask - if current pixel is masked out, set to white background
-                if (mask && mask[index + 3] === 0) {
-                    sobelData[index] = 255;
-                    sobelData[index + 1] = 255;
-                    sobelData[index + 2] = 255;
-                    sobelData[index + 3] = 255; // Opaque white background
+                // Force all pixels on the edge of the canvas to be transparent
+                const borderWidth = 5; // Remove 5 pixels from all edges
+                if (x < borderWidth || x >= width - borderWidth || y < borderWidth || y >= height - borderWidth) {
+                    sobelData[index] = 0;
+                    sobelData[index + 1] = 0;
+                    sobelData[index + 2] = 0;
+                    sobelData[index + 3] = 0;
                     continue;
                 }
 
-                if (binaryData[index + 3] === 0) {
-                    // Keep transparent pixels as white background
-                    sobelData[index] = 255;
-                    sobelData[index + 1] = 255;
-                    sobelData[index + 2] = 255;
-                    sobelData[index + 3] = 255; // Opaque white background
+                // Use the ORIGINAL alpha - if it was transparent, keep it transparent
+                if (originalAlpha[pixelIndex] === 0) {
+                    sobelData[index] = 0;
+                    sobelData[index + 1] = 0;
+                    sobelData[index + 2] = 0;
+                    sobelData[index + 3] = 0;
                     continue;
                 }
 
-                // Only apply edge detection to pixels that are completely surrounded by emoji content
-                // This prevents detecting edges at the emoji boundaries
-                const isSurroundedByEmoji = 
-                    hasEmojiContent(x - 1, y - 1) &&
-                    hasEmojiContent(x, y - 1) &&
-                    hasEmojiContent(x + 1, y - 1) &&
-                    hasEmojiContent(x - 1, y) &&
-                    hasEmojiContent(x + 1, y) &&
-                    hasEmojiContent(x - 1, y + 1) &&
-                    hasEmojiContent(x, y + 1) &&
-                    hasEmojiContent(x + 1, y + 1);
-
-                if (!isSurroundedByEmoji) {
-                    // For boundary pixels, make them white background instead of showing edges
-                    sobelData[index] = 255;
-                    sobelData[index + 1] = 255;
-                    sobelData[index + 2] = 255;
-                    sobelData[index + 3] = 255; // Opaque white background
-                    continue;
-                }
-
-                // Sobel X kernel on binary data
+                // Sobel X kernel
                 const gx = 
-                    -1 * getBinaryValue(x - 1, y - 1) +
-                     0 * getBinaryValue(x, y - 1) +
-                     1 * getBinaryValue(x + 1, y - 1) +
-                    -2 * getBinaryValue(x - 1, y) +
-                     0 * getBinaryValue(x, y) +
-                     2 * getBinaryValue(x + 1, y) +
-                    -1 * getBinaryValue(x - 1, y + 1) +
-                     0 * getBinaryValue(x, y + 1) +
-                     1 * getBinaryValue(x + 1, y + 1);
+                    -1 * getGrayValue(x - 1, y - 1) +
+                     0 * getGrayValue(x, y - 1) +
+                     1 * getGrayValue(x + 1, y - 1) +
+                    -2 * getGrayValue(x - 1, y) +
+                     0 * getGrayValue(x, y) +
+                     2 * getGrayValue(x + 1, y) +
+                    -1 * getGrayValue(x - 1, y + 1) +
+                     0 * getGrayValue(x, y + 1) +
+                     1 * getGrayValue(x + 1, y + 1);
 
-                // Sobel Y kernel on binary data
+                // Sobel Y kernel
                 const gy = 
-                    -1 * getBinaryValue(x - 1, y - 1) +
-                    -2 * getBinaryValue(x, y - 1) +
-                    -1 * getBinaryValue(x + 1, y - 1) +
-                     0 * getBinaryValue(x - 1, y) +
-                     0 * getBinaryValue(x, y) +
-                     0 * getBinaryValue(x + 1, y) +
-                     1 * getBinaryValue(x - 1, y + 1) +
-                     2 * getBinaryValue(x, y + 1) +
-                     1 * getBinaryValue(x + 1, y + 1);
+                    -1 * getGrayValue(x - 1, y - 1) +
+                    -2 * getGrayValue(x, y - 1) +
+                    -1 * getGrayValue(x + 1, y - 1) +
+                     0 * getGrayValue(x - 1, y) +
+                     0 * getGrayValue(x, y) +
+                     0 * getGrayValue(x + 1, y) +
+                     1 * getGrayValue(x - 1, y + 1) +
+                     2 * getGrayValue(x, y + 1) +
+                     1 * getGrayValue(x + 1, y + 1);
 
                 // Calculate gradient magnitude
                 const magnitude = Math.sqrt(gx * gx + gy * gy);
                 
                 // Use brightness to control edge steepness/sensitivity
-                // Brightness -100 to 100 maps to scaling factor 0.1 to 3.0
                 const steepnessFactor = 0.1 + (this.emojiBrightness + 100) * 2.9 / 200;
                 const scaledMagnitude = Math.min(255, magnitude * steepnessFactor);
                 
-                // Use scaled magnitude for smoother edge detection (no binary thresholding)
-                const edge = scaledMagnitude;
-                
-                // Invert the edge detection result (dark edges on light background become light edges on dark background)
-                const invertedEdge = 255 - edge;
+                // Invert the edge detection result
+                const invertedEdge = 255 - scaledMagnitude;
 
                 sobelData[index] = invertedEdge;
                 sobelData[index + 1] = invertedEdge;
                 sobelData[index + 2] = invertedEdge;
-                sobelData[index + 3] = binaryData[index + 3]; // Preserve alpha
-            }
-        }
-
-        // Handle border pixels to remove box effect - make them white background
-        for (let y = 0; y < height; y++) {
-            for (let x = 0; x < width; x++) {
-                if (y === 0 || y === height - 1 || x === 0 || x === width - 1) {
-                    const index = (y * width + x) * 4;
-                    // Check if this is actually part of the emoji content or just padding
-                    if (mask && mask[index + 3] === 0) {
-                        // It's background/padding - make it white
-                        sobelData[index] = 255;
-                        sobelData[index + 1] = 255;
-                        sobelData[index + 2] = 255;
-                        sobelData[index + 3] = 255; // Opaque white
-                    }
-                    // If it's emoji content at the edge, keep the edge detection result
-                }
+                sobelData[index + 3] = originalAlpha[pixelIndex]; // Use ORIGINAL alpha
             }
         }
 
