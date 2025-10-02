@@ -1537,7 +1537,10 @@ class DrawingEditor {
         tempCtx.putImageData(processedImageData, 0, 0);
         
         // Draw processed emoji to main canvas, scaled to fit fontSize x fontSize
-        ctx.drawImage(tempCanvas, 0, 0, tempCanvas.width, tempCanvas.height, x, y, this.fontSize, this.fontSize);
+        // Align emoji to text baseline (top) by adjusting y position
+        // The emoji should be drawn at the same baseline as text for consistent alignment
+        const emojiY = y; // Use y directly since textBaseline is 'top'
+        ctx.drawImage(tempCanvas, 0, 0, tempCanvas.width, tempCanvas.height, x, emojiY, this.fontSize, this.fontSize);
         
         return this.fontSize + 2; // Return width for spacing
     }    // Process emoji image with brightness, contrast, and dithering
