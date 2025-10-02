@@ -1115,6 +1115,12 @@ class DrawingEditor {
                     ditheringOptionsContainer.style.display = this.emojiMode === 'dithering' ? 'block' : 'none';
                 }
                 
+                // Show/hide brightness control based on mode (hide in edge detection mode)
+                const brightnessContainer = document.getElementById('emojiBrightnessContainer');
+                if (brightnessContainer) {
+                    brightnessContainer.style.display = this.emojiMode === 'edge' ? 'none' : 'block';
+                }
+                
                 emojiDitheringToggle.classList.add('active');
                 this.updateTextPreview();
             });
@@ -2177,8 +2183,6 @@ class DrawingEditor {
         // Canvas mouse events - add to both drawing and overlay canvas
         [this.drawingCanvas, this.overlayCanvas].forEach(canvas => {
             canvas.addEventListener('mousedown', (e) => this.onMouseDown(e));
-            canvas.addEventListener('mousemove', (e) => this.onMouseMove(e));
-            canvas.addEventListener('mouseup', (e) => this.onMouseUp(e));
             canvas.addEventListener('mouseleave', (e) => this.onMouseLeave(e));
             
             // Add touch events
@@ -2201,13 +2205,22 @@ class DrawingEditor {
             });
         });
         
+        // Add global mousemove and mouseup to allow drawing outside canvas
+        document.addEventListener('mousemove', (e) => this.onMouseMove(e));
+        document.addEventListener('mouseup', (e) => this.onMouseUp(e));
+        
         // Add scroll wheel zooming to the canvas container - this allows zooming anywhere in the container
         if (canvasContainer) {
             canvasContainer.addEventListener('wheel', (e) => this.onMouseWheel(e), { passive: false });
             
-            // Add panning support to the canvas container
+            // Add mousedown to container to allow starting shapes from outside canvas
             canvasContainer.addEventListener('mousedown', (e) => {
-                if (e.button === 1 || (e.button === 2 && !this.isDrawing)) { // Middle or right click
+                // Only handle left click for drawing tools, skip if clicking on canvas (already handled above)
+                if (e.button === 0 && e.target === canvasContainer) {
+                    this.onMouseDown(e);
+                }
+                // Handle middle or right click for panning
+                else if (e.button === 1 || (e.button === 2 && !this.isDrawing)) {
                     e.preventDefault();
                     this.startPanning(e);
                 }

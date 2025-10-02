@@ -508,6 +508,13 @@ a:hover {
     border-bottom: 2px solid #ffffff !important;
 }
 
+.emoji-cat-btn {
+    border: none !important;
+    box-shadow: none !important;
+    padding: 2px 1px !important;
+    background: none !important;
+}
+
 .emoji-cat-btn:hover {
     background: #606060 !important;
 }

@@ -363,9 +363,9 @@
                         
                         <label>Position:</label>
                         <div class="thickness-style">
-                            <button id="outsideStyle" class="style-btn active" data-style="outside">⊡ Outside</button>
-                            <button id="insideStyle" class="style-btn" data-style="inside">⊞ Inside</button>
-                            <button id="centeredStyle" class="style-btn" data-style="centered">⊟ Centered</button>
+                            <button id="outsideStyle" class="style-btn active" data-style="outside">⊡ Out</button>
+                            <button id="insideStyle" class="style-btn" data-style="inside">⊞ In</button>
+                            <button id="centeredStyle" class="style-btn" data-style="centered">⊟ Center</button>
                         </div>
                     </div>
                 </div>
@@ -405,10 +405,9 @@
                             <button id="emojiToggle" class="emoji-toggle-btn">😀 Add Emoji</button>
                             <div id="emojiPicker" class="emoji-picker" style="display: none;">
                                 <div class="emoji-categories">
-                                    <button class="emoji-cat-btn active" data-category="faces">😀</button>
-                                    <button class="emoji-cat-btn" data-category="people">👥</button>
-                                    <button class="emoji-cat-btn" data-category="nature">🌸</button>
-                                    <button class="emoji-cat-btn" data-category="food">🍕</button>
+                                    <button class="emoji-cat-btn active" data-category="food">🍕</button>
+                                    <button class="emoji-cat-btn" data-category="faces">😀</button>
+                                    <button class="emoji-cat-btn" data-category="nature">🌱</button>
                                     <button class="emoji-cat-btn" data-category="activities">⚽</button>
                                     <button class="emoji-cat-btn" data-category="travel">🚗</button>
                                     <button class="emoji-cat-btn" data-category="objects">💡</button>
@@ -441,10 +440,13 @@
                         </div>
                         
                         <div class="emoji-adjustments">
-                            <label>Emoji Brightness: <span id="emojiBrightnessDisplay">-20</span></label>
-                            <input type="range" id="emojiBrightness" min="-100" max="100" value="-20" step="1">
+                            <label>Emoji mode</label>
+                            <button id="emojiDitheringToggle" class="emoji-dither-btn active">⬜ Thresholding</button>
                             
-                            <button id="emojiDitheringToggle" class="emoji-dither-btn active">🎨 Dithering On</button>
+                            <div id="emojiBrightnessContainer">
+                                <label>Emoji Brightness: <span id="emojiBrightnessDisplay">-20</span></label>
+                                <input type="range" id="emojiBrightness" min="-100" max="100" value="-20" step="1">
+                            </div>
                             
                             <div id="ditheringOptionsContainer" style="display: none;">
                                 <label>Emoji Contrast: <span id="emojiContrastDisplay">100</span>%</label>

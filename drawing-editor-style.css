@@ -994,25 +994,30 @@ input[type="range"]::-moz-range-thumb {
     border-radius: 6px;
     background: var(--bg-color);
     max-height: 200px;
-    overflow-y: auto;
-    overflow-x: hidden;
+    overflow: visible;
     width: 100%;
+    max-width: 240px;
     box-sizing: border-box;
+    position: relative;
 }
 
 .emoji-categories {
     display: flex;
+    flex-wrap: wrap;
     border-bottom: 1px solid var(--border-color);
     background: var(--panel-bg);
 }
 
 .emoji-cat-btn {
-    flex: 1;
+    flex: 1 1 25%;
+    min-width: 28px;
+    max-width: 50%;
     background: none;
     border: none;
-    padding: 8px 4px;
+    padding: 4px 2px;
     cursor: pointer;
     font-size: 16px;
+    line-height: 1.2;
     transition: background-color 0.2s;
 }
 
@@ -1026,15 +1031,19 @@ input[type="range"]::-moz-range-thumb {
 
 .emoji-grid {
     display: grid;
-    grid-template-columns: repeat(6, 1fr);
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 2px;
-    padding: 8px;
+    padding: 8px 2px 8px 8px;
+    max-height: 150px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    box-sizing: border-box;
 }
 
 .emoji-btn {
     background: none;
     border: none;
-    padding: 4px;
+    padding: 2px;
     cursor: pointer;
     font-size: 18px;
     border-radius: 3px;
@@ -1043,6 +1052,8 @@ input[type="range"]::-moz-range-thumb {
     display: flex;
     align-items: center;
     justify-content: center;
+    min-width: 0;
+    overflow: hidden;
 }
 
 .emoji-btn:hover {

@@ -512,6 +512,13 @@ a:hover {
     border-bottom: 1px solid #3c7fb1 !important;
 }
 
+.emoji-cat-btn {
+    border: none !important;
+    box-shadow: none !important;
+    padding: 2px 1px !important;
+    background: none !important;
+}
+
 .emoji-cat-btn:hover {
     background: linear-gradient(to bottom, #ffffff 0%, #eef4ff 20%, #d4e4f7 80%, #8bb0d6 100%) !important;
 }
