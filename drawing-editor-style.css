@@ -937,7 +937,7 @@ input[type="range"]::-moz-range-thumb {
     border-color: var(--accent-color);
 }
 
-.style-btn, .fill-btn {
+.style-btn, .text-style-btn, .fill-btn {
     flex: 1;
     background: #e9ecef;
     color: #333;
@@ -949,12 +949,12 @@ input[type="range"]::-moz-range-thumb {
     transition: all 0.2s;
 }
 
-.style-btn:hover, .fill-btn:hover {
+.style-btn:hover, .text-style-btn:hover, .fill-btn:hover {
     background: #e9ecef;
     border-color: var(--accent-color);
 }
 
-.style-btn.active, .fill-btn.active {
+.style-btn.active, .text-style-btn.active, .fill-btn.active {
     background: var(--accent-color);
     color: #000000;
     border-color: var(--accent-color);
@@ -1188,6 +1188,33 @@ input[type="range"]::-moz-range-thumb {
 }
 
 .iphone-input::placeholder {
+    color: #9ca3af;
+    opacity: 1;
+}
+
+/* Textarea styling for text tool */
+textarea {
+    width: 100%;
+    padding: 12px 16px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 14px;
+    background: #ffffff;
+    transition: all 0.2s ease;
+    outline: none;
+    resize: vertical;
+    min-height: 60px;
+    max-height: 150px;
+    font-family: inherit;
+    line-height: 1.4;
+}
+
+textarea:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+textarea::placeholder {
     color: #9ca3af;
     opacity: 1;
 }

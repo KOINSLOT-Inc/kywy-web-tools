@@ -92,10 +92,12 @@
                     <h3>Tools</h3>
                     <div class="tools-grid">
                         <button class="tool-btn" data-tool="pen" title="Pen Tool (P)">✏️ Pen</button>
+                        <button class="tool-btn" data-tool="hand" title="Pan Tool (H)">✋ Hand</button>
                         <button class="tool-btn" data-tool="circle" title="Circle Tool (C)">⭕ Circle</button>
                         <button class="tool-btn" data-tool="square" title="Rectangle Tool (R)">🟥 Rectangle</button>
+                        <button class="tool-btn" data-tool="polygon" title="Polygon Tool (G)">⬢ Polygon</button>
                         <button class="tool-btn" data-tool="bucket" title="Bucket Fill (F)">🪣 Fill</button>
-                        <button class="tool-btn" data-tool="hand" title="Pan Tool (H)">✋ Hand</button>
+                        <button class="tool-btn" data-tool="text" title="Text Tool (T)">🔤 Text</button>
                         <button class="tool-btn" data-tool="select" title="Select Tool (S)">🔲 Select</button>
                     </div>
                 </div>
@@ -364,6 +366,59 @@
                             <button id="outsideStyle" class="style-btn active" data-style="outside">⊡ Outside</button>
                             <button id="insideStyle" class="style-btn" data-style="inside">⊞ Inside</button>
                             <button id="centeredStyle" class="style-btn" data-style="centered">⊟ Centered</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tool-section" id="polygonSettings" style="display: none;">
+                    <h3>Polygon Color</h3>
+                    <div class="color-picker">
+                        <button id="polygonBlackColor" class="color-btn active" data-color="black">⬛ Black</button>
+                        <button id="polygonWhiteColor" class="color-btn" data-color="white">⬜ White</button>
+                    </div>
+                    
+                    <h4>Sides</h4>
+                    <label>Count: <span id="polygonSidesDisplay">6</span> sides</label>
+                    <input type="range" id="polygonSides" min="3" max="20" value="6" step="1">
+                    
+                    <h4>Fill Style</h4>
+                    <div class="fill-style">
+                        <button id="polygonOutlineOnly" class="fill-btn active" data-fill="outline">⬜ Outline</button>
+                        <button id="polygonFilledShape" class="fill-btn" data-fill="filled">⬛ Filled</button>
+                    </div>
+                    
+                    
+                    <div id="polygonThickness" class="thickness-section">
+                        <h4>Stroke Thickness</h4>
+                        <label>Width: <span id="polygonThicknessDisplay">1</span>px</label>
+                        <input type="range" id="polygonThicknessSlider" min="1" max="50" value="1">
+                    </div>
+                </div>
+
+                <div class="tool-section" id="textSettings" style="display: none;">
+                    <h3>Text Settings</h3>
+                    <div class="text-controls">
+                        <label>Text:</label>
+                        <textarea id="textInput" placeholder="Enter text... (use Enter for new lines)" maxlength="500" rows="3">KYWY</textarea>
+                        
+                        <label>Font:</label>
+                        <select id="fontFamily">
+                            <!-- System fonts will be populated dynamically -->
+                        </select>
+                        
+                        <label>Size: <span id="fontSizeDisplay">12</span>px</label>
+                        <input type="range" id="fontSize" min="4" max="64" value="12" step="1">
+                        
+                        <label>Style:</label>
+                        <div class="text-style">
+                            <button id="boldToggle" class="text-style-btn" data-style="bold">B Bold</button>
+                            <button id="italicToggle" class="text-style-btn" data-style="italic">I Italic</button>
+                        </div>
+                        
+                        <label>Color:</label>
+                        <div class="color-picker">
+                            <button id="textBlackColor" class="color-btn active" data-color="black">⬛ Black</button>
+                            <button id="textWhiteColor" class="color-btn" data-color="white">⬜ White</button>
                         </div>
                     </div>
                 </div>

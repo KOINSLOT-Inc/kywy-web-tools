@@ -256,6 +256,12 @@ class DrawingEditor {
         // Shape drawing mode: 'corner', 'center', 'perfect-corner', 'perfect-center'
         this.shapeMode = 'corner';
         
+        // Polygon properties
+        this.polygonSides = 6;
+        this.polygonFillMode = 'outline'; // 'outline', 'filled'
+        this.polygonThickness = 1;
+        // Polygon now uses the same mode system as circle/rectangle tools
+        
         // Grid properties
         this.showPixelGrid = false;
         this.showGrid = false;
@@ -347,6 +353,17 @@ class DrawingEditor {
         this.mirrorHorizontal = false;
         this.mirrorVertical = false;
         
+        // Text tool properties
+        this.textInput = 'KYWY';
+        this.fontFamily = "Arial"; // Default to common system font
+        this.fontSize = 12;
+        this.textBold = false;
+        this.textItalic = false;
+        this.textColor = 'black';
+        this.isPlacingText = false;
+        this.textPreviewCanvas = null;
+        this.textPreviewData = null;
+        
         // Undo/Redo system
         this.undoStack = [];
         this.redoStack = [];
@@ -387,6 +404,9 @@ class DrawingEditor {
         
         // Initialize default fill pattern
         this.setFillPattern('solid');
+        
+        // Auto-detect system fonts on initialization
+        setTimeout(() => this.detectSystemFonts(), 500);
     }
     
     initializeCanvas() {
@@ -792,6 +812,9 @@ class DrawingEditor {
         
         // Pattern adjustment controls
         this.setupPatternControls();
+        
+        // Text controls
+        this.setupTextControls();
     }
 
     setupPatternControls() {
@@ -922,7 +945,307 @@ class DrawingEditor {
                 }
             });
         }
-    }    initializeEvents() {
+    }
+
+    setupTextControls() {
+        // Text input
+        const textInput = document.getElementById('textInput');
+        if (textInput) {
+            textInput.addEventListener('input', (e) => {
+                this.textInput = e.target.value;
+                this.updateTextPreview();
+            });
+        }
+
+        // Font family
+        const fontFamily = document.getElementById('fontFamily');
+        if (fontFamily) {
+            fontFamily.addEventListener('change', (e) => {
+                this.fontFamily = e.target.value;
+                this.updateTextPreview();
+            });
+        }
+
+        // Font size
+        const fontSize = document.getElementById('fontSize');
+        if (fontSize) {
+            fontSize.addEventListener('input', (e) => {
+                this.fontSize = parseInt(e.target.value);
+                document.getElementById('fontSizeDisplay').textContent = this.fontSize;
+                this.updateTextPreview();
+            });
+        }
+
+        // Bold toggle
+        const boldToggle = document.getElementById('boldToggle');
+        if (boldToggle) {
+            boldToggle.addEventListener('click', () => {
+                this.textBold = !this.textBold;
+                boldToggle.classList.toggle('active', this.textBold);
+                this.updateTextPreview();
+            });
+        }
+
+        // Italic toggle
+        const italicToggle = document.getElementById('italicToggle');
+        if (italicToggle) {
+            italicToggle.addEventListener('click', () => {
+                this.textItalic = !this.textItalic;
+                italicToggle.classList.toggle('active', this.textItalic);
+                this.updateTextPreview();
+            });
+        }
+
+        // Text color selection
+        document.querySelectorAll('#textSettings .color-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                // Remove active from all text color buttons
+                document.querySelectorAll('#textSettings .color-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                this.textColor = btn.dataset.color;
+                this.updateTextPreview();
+            });
+        });
+
+        // Initialize text button states
+        this.initializeTextButtonStates();
+    }
+
+    initializeTextButtonStates() {
+        // Initialize bold button state
+        const boldToggle = document.getElementById('boldToggle');
+        if (boldToggle) {
+            boldToggle.classList.toggle('active', this.textBold);
+        }
+
+        // Initialize italic button state
+        const italicToggle = document.getElementById('italicToggle');
+        if (italicToggle) {
+            italicToggle.classList.toggle('active', this.textItalic);
+        }
+
+        // Initialize color button state
+        document.querySelectorAll('#textSettings .color-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.color === this.textColor);
+        });
+    }
+
+    // Helper method to render text with controlled letter spacing
+    renderTextWithSpacing(ctx, text, x, y, minLetterSpacing = 1) {
+        let currentX = x;
+        
+        for (let i = 0; i < text.length; i++) {
+            const char = text[i];
+            
+            // Skip spaces - handle them with a fixed width
+            if (char === ' ') {
+                currentX += Math.max(this.fontSize * 0.3, minLetterSpacing * 2); // Space width
+                continue;
+            }
+            
+            // Render the character
+            ctx.fillText(char, Math.round(currentX), y);
+            
+            // Measure character width and add spacing
+            const charWidth = ctx.measureText(char).width;
+            currentX += Math.ceil(charWidth) + minLetterSpacing;
+        }
+        
+        return currentX - x; // Return total width
+    }
+
+    // Helper method to measure text width with spacing
+    measureTextWithSpacing(ctx, text, minLetterSpacing = 1) {
+        let totalWidth = 0;
+        
+        for (let i = 0; i < text.length; i++) {
+            const char = text[i];
+            
+            if (char === ' ') {
+                totalWidth += Math.max(this.fontSize * 0.3, minLetterSpacing * 2);
+                continue;
+            }
+            
+            const charWidth = ctx.measureText(char).width;
+            totalWidth += Math.ceil(charWidth) + minLetterSpacing;
+        }
+        
+        // Remove the extra spacing after the last character
+        return Math.max(0, totalWidth - minLetterSpacing);
+    }
+
+    async detectSystemFonts() {
+        try {
+            // List of common system fonts to test
+            const commonFonts = [
+                // Windows fonts
+                'Arial', 'Arial Black', 'Calibri', 'Cambria', 'Comic Sans MS', 'Consolas', 
+                'Courier New', 'Georgia', 'Impact', 'Lucida Console', 'Lucida Sans Unicode',
+                'Microsoft Sans Serif', 'Palatino Linotype', 'Segoe UI', 'Tahoma', 
+                'Times New Roman', 'Trebuchet MS', 'Verdana',
+                
+                // macOS fonts
+                'Apple Chancery', 'Apple Color Emoji', 'Apple SD Gothic Neo', 'Avenir', 
+                'Avenir Next', 'Big Caslon', 'Brush Script MT', 'Chalkboard', 'Chalkboard SE',
+                'Cochin', 'Copperplate', 'Didot', 'Futura', 'Geneva', 'Gill Sans', 
+                'Helvetica', 'Helvetica Neue', 'Herculanum', 'Hoefler Text', 'Marker Felt',
+                'Menlo', 'Monaco', 'Noteworthy', 'Optima', 'Papyrus', 'Phosphate', 
+                'Rockwell', 'Signpainter', 'Skia', 'Snell Roundhand', 'System Font',
+                
+                // Linux fonts
+                'DejaVu Sans', 'DejaVu Serif', 'DejaVu Sans Mono', 'Liberation Sans', 
+                'Liberation Serif', 'Liberation Mono', 'Ubuntu', 'Ubuntu Mono', 'Droid Sans',
+                'Droid Serif', 'Droid Sans Mono', 'Noto Sans', 'Noto Serif', 'Noto Mono',
+                
+                // Generic/Web fonts
+                'serif', 'sans-serif', 'monospace', 'cursive', 'fantasy'
+            ];
+
+            const availableFonts = await this.checkFontAvailability(commonFonts);
+            this.populateFontDropdown(availableFonts);
+        } catch (error) {
+            console.error('Font detection failed:', error);
+            alert('Font detection failed. Using default fonts.');
+        }
+    }
+
+    async checkFontAvailability(fonts) {
+        const availableFonts = [];
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Test string and baseline font
+        const testString = 'mmmmmmmmmmmmmmm';
+        const baselineFont = 'monospace';
+        
+        // Get baseline width
+        ctx.font = '16px ' + baselineFont;
+        const baselineWidth = ctx.measureText(testString).width;
+        
+        for (const font of fonts) {
+            try {
+                // Test with the font
+                ctx.font = `16px "${font}", ${baselineFont}`;
+                const testWidth = ctx.measureText(testString).width;
+                
+                // If width differs from baseline, font is likely available
+                if (Math.abs(testWidth - baselineWidth) > 0.1) {
+                    availableFonts.push(font);
+                } else {
+                    // Additional check using font face API if available
+                    if ('fonts' in document) {
+                        try {
+                            const fontFace = new FontFace(font, `local("${font}")`);
+                            await fontFace.load();
+                            availableFonts.push(font);
+                        } catch (e) {
+                            // Font not available
+                        }
+                    }
+                }
+            } catch (e) {
+                // Skip problematic fonts
+                continue;
+            }
+        }
+        
+        return availableFonts;
+    }
+
+    populateFontDropdown(fonts) {
+        const fontSelect = document.getElementById('fontFamily');
+        if (!fontSelect) return;
+        
+        // Store current selection
+        const currentFont = fontSelect.value;
+        
+        // Clear all existing options
+        fontSelect.innerHTML = '';
+        
+        // Filter out generic fonts and common duplicates
+        const filteredFonts = fonts.filter(font => {
+            // Skip generic font families
+            if (['serif', 'sans-serif', 'monospace', 'cursive', 'fantasy'].includes(font)) {
+                return false;
+            }
+            return true;
+        });
+        
+        // Add detected fonts (sorted alphabetically)
+        filteredFonts.sort().forEach(font => {
+            const option = document.createElement('option');
+            option.value = font;
+            option.textContent = font;
+            fontSelect.appendChild(option);
+        });
+        
+        // Restore selection or default to first option
+        if (filteredFonts.length > 0) {
+            fontSelect.value = fonts.includes(currentFont) ? currentFont : fontSelect.options[0].value;
+        }
+        
+        console.log(`Auto-detected ${filteredFonts.length} system fonts`);
+    }
+
+    updateTextPreview() {
+        // Update text preview if text tool is active and we're placing text
+        if (this.currentTool === 'text' && this.isPlacingText) {
+            this.generateTextCanvas();
+            this.redrawCanvas();
+        }
+    }
+
+    generateTextCanvas() {
+        // Create a canvas with the text rendered
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Set canvas size to be large enough for text
+        canvas.width = this.canvasWidth;
+        canvas.height = this.canvasHeight;
+        
+        // Configure text style
+        let fontStyle = '';
+        if (this.textBold) fontStyle += 'bold ';
+        if (this.textItalic) fontStyle += 'italic ';
+        
+        ctx.font = `${fontStyle}${this.fontSize}px ${this.fontFamily}`;
+        ctx.fillStyle = this.textColor;
+        ctx.textBaseline = 'top';
+        
+        // Split text into lines
+        const lines = this.textInput.split('\n');
+        const lineHeight = Math.round(this.fontSize * 1.0); // Use 1.0 for pixel-perfect spacing
+        
+        // Measure text dimensions with controlled spacing
+        let maxWidth = 0;
+        const lineWidths = [];
+        
+        lines.forEach(line => {
+            const lineWidth = this.measureTextWithSpacing(ctx, line, 1); // 1px minimum spacing
+            lineWidths.push(lineWidth);
+            maxWidth = Math.max(maxWidth, lineWidth);
+        });
+        
+        const totalHeight = Math.ceil(lines.length * lineHeight);
+        
+        // Store text data for later use
+        this.textPreviewData = {
+            text: this.textInput,
+            lines: lines,
+            lineWidths: lineWidths,
+            width: maxWidth,
+            height: totalHeight,
+            lineHeight: lineHeight,
+            font: ctx.font,
+            color: this.textColor
+        };
+        
+        // Store canvas for rendering
+        this.textPreviewCanvas = canvas;
+    }
+
+    initializeEvents() {
         // Get the canvas container for panning/zooming events
         const canvasContainer = document.querySelector('.canvas-container');
         
@@ -1321,6 +1644,36 @@ class DrawingEditor {
                 this.setShapeStrokePosition(btn.dataset.style);
             });
         });
+
+        // Polygon controls
+        // Polygon sides slider
+        document.getElementById('polygonSides').addEventListener('input', (e) => {
+            this.polygonSides = parseInt(e.target.value);
+            document.getElementById('polygonSidesDisplay').textContent = e.target.value;
+        });
+
+        // Polygon fill mode buttons
+        document.querySelectorAll('#polygonSettings .fill-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                this.setPolygonFillMode(btn.dataset.fill);
+            });
+        });
+
+        // Polygon thickness controls
+        document.getElementById('polygonThicknessSlider').addEventListener('input', (e) => {
+            this.polygonThickness = parseInt(e.target.value);
+            document.getElementById('polygonThicknessDisplay').textContent = e.target.value;
+        });
+
+        // Polygon color selection
+        document.querySelectorAll('#polygonSettings .color-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                // Remove active from all polygon color buttons
+                document.querySelectorAll('#polygonSettings .color-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                this.currentColor = btn.dataset.color;
+            });
+        });
         
         // Onion skinning
         document.getElementById('onionSkinToggle').addEventListener('click', () => this.toggleOnionSkin());
@@ -1403,7 +1756,14 @@ class DrawingEditor {
                 if (e.ctrlKey || e.metaKey) {
                     this.saveDrawing();
                     e.preventDefault();
+                } else {
+                    this.setTool('select');
+                    e.preventDefault();
                 }
+                break;
+            case 't':
+                this.setTool('text');
+                e.preventDefault();
                 break;
             case 'z':
                 if (e.ctrlKey || e.metaKey) {
@@ -1664,8 +2024,14 @@ class DrawingEditor {
             case 'square':
                 this.startShape('square', pos);
                 break;
+            case 'polygon':
+                this.startShape('polygon', pos);
+                break;
             case 'bucket':
                 this.executeFloodFill(pos.x, pos.y);
+                break;
+            case 'text':
+                this.startTextPlacement(pos);
                 break;
             case 'hand':
                 this.startPanning(pos);
@@ -1881,7 +2247,22 @@ class DrawingEditor {
         if (this.currentTool === 'select' && this.isPasteModeActive) {
             // Allow paste preview to show even when partially off-canvas
             this.showPastePreview(pos.x, pos.y);
-        }        if (!this.isDrawing) return;
+        }
+
+        // Show text preview when hovering with text tool (even when not placing)
+        if (this.currentTool === 'text' && !this.isDrawing && this.textInput.trim()) {
+            // Only show preview if cursor is within canvas bounds
+            if (this.isWithinCanvas(pos.x, pos.y)) {
+                this.generateTextCanvas();
+                this.clearOverlayAndRedrawBase();
+                this.showTextPreview(pos);
+            } else {
+                // Clear preview when outside canvas
+                this.clearOverlayAndRedrawBase();
+            }
+        }
+
+        if (!this.isDrawing) return;
         
         switch (this.currentTool) {
             case 'pen':
@@ -1896,7 +2277,11 @@ class DrawingEditor {
                 break;
             case 'circle':
             case 'square':
+            case 'polygon':
                 this.updateShapePreview(pos);
+                break;
+            case 'text':
+                this.updateTextPreviewPosition(pos);
                 break;
             case 'hand':
                 this.updatePanning();
@@ -1971,9 +2356,15 @@ class DrawingEditor {
         }
         
         // Finalize shapes
-        if ((this.currentTool === 'circle' || this.currentTool === 'square') && this.startPos) {
+        if ((this.currentTool === 'circle' || this.currentTool === 'square' || this.currentTool === 'polygon') && this.startPos) {
             const pos = this.getMousePos(e);
             this.finalizeShape(pos);
+        }
+        
+        // Finalize text placement
+        if (this.currentTool === 'text' && this.isPlacingText) {
+            const pos = this.getMousePos(e);
+            this.finalizeText(pos);
         }
         
         // End panning
@@ -1981,7 +2372,7 @@ class DrawingEditor {
             this.endPanning();
         }
         
-        if (this.currentTool === 'pen' || this.currentTool === 'circle' || this.currentTool === 'square') {
+        if (this.currentTool === 'pen' || this.currentTool === 'circle' || this.currentTool === 'square' || this.currentTool === 'text') {
             this.generateThumbnail(this.currentFrameIndex);
             this.generateCode();
         }
@@ -3161,6 +3552,29 @@ class DrawingEditor {
                 this.drawRectanglePreview(startX, startY, endX, endY);
                 this.showMirroredShapePreview('rectangle', startX, startY, 0, endX, endY);
             }
+        } else if (this.currentShape === 'polygon') {
+            // Always use perfect center mode: draw perfect polygon bounded by rectangle from center
+            const halfWidth = Math.abs(endX - startX);
+            const halfHeight = Math.abs(endY - startY);
+            let radius = Math.max(halfWidth, halfHeight); // Use larger dimension for perfect polygon
+            
+            // Aggressively limit radius to ensure polygon is always at least partially visible
+            // Use a much more conservative limit - max distance to any edge
+            const maxRadiusX = Math.max(startX, this.canvasWidth - startX);
+            const maxRadiusY = Math.max(startY, this.canvasHeight - startY);
+            const maxRadius = Math.max(maxRadiusX, maxRadiusY);
+            radius = Math.min(radius, maxRadius);
+            
+            // Calculate rotation angle from center to mouse (unless shift is held)
+            let rotation = 0;
+            if (!this.shiftKey) {
+                const deltaX = endX - startX;
+                const deltaY = endY - startY;
+                rotation = Math.atan2(deltaY, deltaX);
+            }
+            
+            this.drawPolygonPreview(startX, startY, radius, rotation);
+            this.showMirroredShapePreview('polygon', startX, startY, radius, rotation, 0);
         }
     }
     
@@ -3264,14 +3678,14 @@ class DrawingEditor {
         if (radius < 1) return; // Skip tiny circles
         
         if (this.shapeFillMode === 'filled') {
-            // Use solid red for filled circle preview
-            this.overlayCtx.save();
-            this.overlayCtx.fillStyle = '#ff0000';
-            this.overlayCtx.globalAlpha = 0.9;
-            this.overlayCtx.beginPath();
-            this.overlayCtx.arc(centerX + 0.5, centerY + 0.5, radius, 0, 2 * Math.PI);
-            this.overlayCtx.fill();
-            this.overlayCtx.restore();
+            // Use pixel-perfect filled circle preview with bounds checking
+            for (let y = -radius; y <= radius; y++) {
+                for (let x = -radius; x <= radius; x++) {
+                    if (x * x + y * y <= radius * radius) {
+                        this.setPreviewPixel(centerX + x, centerY + y);
+                    }
+                }
+            }
             return;
         }
         
@@ -3419,7 +3833,7 @@ class DrawingEditor {
     
     setPreviewPixel(x, y) {
         if (x >= 0 && x < this.canvasWidth && y >= 0 && y < this.canvasHeight) {
-            // Ensure red color for preview
+            // Use red color for polygon preview
             this.overlayCtx.fillStyle = '#ff0000';
             this.overlayCtx.fillRect(x, y, 1, 1);
         }
@@ -3446,6 +3860,13 @@ class DrawingEditor {
             const mirrorPositions = this.calculateMirrorShapePositions(startX, startY, endX, endY);
             mirrorPositions.forEach(mirror => {
                 this.drawRectanglePreview(mirror.x1, mirror.y1, mirror.x2, mirror.y2);
+            });
+        } else if (shapeType === 'polygon') {
+            // For polygons, mirror the center position and keep the same radius and rotation
+            const rotation = endX; // endX parameter is used for rotation in polygon case
+            const mirrorPositions = this.calculateMirrorPositions(startX, startY);
+            mirrorPositions.forEach(mirrorPos => {
+                this.drawPolygonPreview(mirrorPos.x, mirrorPos.y, radius, rotation);
             });
         }
     }
@@ -3627,6 +4048,35 @@ class DrawingEditor {
                         this.drawRectangle(mirror.x1, mirror.y1, mirror.x2, mirror.y2, ctx);
                     });
                 }
+            }
+        } else if (this.currentShape === 'polygon') {
+            // Always use perfect center mode: draw perfect polygon bounded by rectangle from center
+            const halfWidth = Math.abs(endX - startX);
+            const halfHeight = Math.abs(endY - startY);
+            let radius = Math.max(halfWidth, halfHeight); // Use larger dimension for perfect polygon
+            
+            // Limit radius to prevent issues when mouse goes off-canvas
+            const maxRadius = Math.max(this.canvasWidth, this.canvasHeight) * 2;
+            radius = Math.min(radius, maxRadius);
+            
+            // Calculate rotation angle from center to mouse (unless shift is held)
+            let rotation = 0;
+            if (!this.shiftKey) {
+                const deltaX = endX - startX;
+                const deltaY = endY - startY;
+                rotation = Math.atan2(deltaY, deltaX);
+            }
+            
+            this.drawPolygon(startX, startY, radius, rotation, ctx);
+            
+            // Draw mirrored polygons
+            if (this.mirrorHorizontal || this.mirrorVertical) {
+                const mirrorPositions = this.calculateMirrorShapePositions(startX - radius, startY - radius, startX + radius, startY + radius);
+                mirrorPositions.forEach(mirror => {
+                    const mirrorCenterX = (mirror.x1 + mirror.x2) / 2;
+                    const mirrorCenterY = (mirror.y1 + mirror.y2) / 2;
+                    this.drawPolygon(mirrorCenterX, mirrorCenterY, radius, rotation, ctx);
+                });
             }
         }
         
@@ -4044,6 +4494,344 @@ class DrawingEditor {
             ctx.putImageData(imageData, x, y);
         }
     }
+
+    // Polygon drawing methods
+    drawPolygonPreview(centerX, centerY, radius, rotation = 0) {
+        const points = this.calculatePolygonPoints(centerX, centerY, radius, rotation);
+        
+        if (this.polygonFillMode === 'filled') {
+            // Fill the polygon
+            this.fillPolygonPreview(points);
+        } else {
+            // Draw outline only
+            if (this.polygonThickness === 1) {
+                // Single pixel outline
+                for (let i = 0; i < points.length; i++) {
+                    const start = points[i];
+                    const end = points[(i + 1) % points.length];
+                    this.drawLinePreview(start.x, start.y, end.x, end.y);
+                }
+            } else {
+                // Thick outline preview
+                this.drawThickPolygonOutlinePreview(points);
+            }
+        }
+    }
+
+    drawThickPolygonOutlinePreview(points) {
+        const thickness = this.polygonThickness;
+        const radius = thickness / 2;
+        const halfThickness = Math.floor(thickness / 2);
+        
+        // First draw all the line segments
+        for (let i = 0; i < points.length; i++) {
+            const start = points[i];
+            const end = points[(i + 1) % points.length];
+            this.drawThickLinePreview(start.x, start.y, end.x, end.y, thickness);
+        }
+        
+        // Then draw filled circles at each vertex to ensure smooth connections
+        for (let i = 0; i < points.length; i++) {
+            const vertex = points[i];
+            
+            // Draw a filled circle at each vertex
+            for (let y = -halfThickness; y <= halfThickness; y++) {
+                for (let x = -halfThickness; x <= halfThickness; x++) {
+                    if (x * x + y * y <= radius * radius) {
+                        this.setPreviewPixel(vertex.x + x, vertex.y + y);
+                    }
+                }
+            }
+        }
+    }
+
+    drawThickLinePreview(x0, y0, x1, y1, thickness) {
+        if (thickness === 1) {
+            this.drawLinePreview(x0, y0, x1, y1);
+            return;
+        }
+        
+        // For thick lines, use a capsule-based approach for better coverage
+        const dx = x1 - x0;
+        const dy = y1 - y0;
+        const length = Math.sqrt(dx * dx + dy * dy);
+        
+        if (length === 0) {
+            // Single point - draw a filled circle
+            const radius = Math.floor(thickness / 2);
+            for (let y = -radius; y <= radius; y++) {
+                for (let x = -radius; x <= radius; x++) {
+                    if (x * x + y * y <= radius * radius) {
+                        this.setPreviewPixel(x0 + x, y0 + y);
+                    }
+                }
+            }
+            return;
+        }
+        
+        // Draw the thick line using a sweep approach
+        const radius = thickness / 2;
+        const halfThickness = Math.floor(thickness / 2);
+        
+        // For each pixel along the line, draw a circle centered on that pixel
+        const steps = Math.max(Math.abs(dx), Math.abs(dy));
+        for (let i = 0; i <= steps; i++) {
+            const t = i / steps;
+            const centerX = Math.round(x0 + t * dx);
+            const centerY = Math.round(y0 + t * dy);
+            
+            // Draw a filled circle at this point
+            for (let y = -halfThickness; y <= halfThickness; y++) {
+                for (let x = -halfThickness; x <= halfThickness; x++) {
+                    if (x * x + y * y <= radius * radius) {
+                        this.setPreviewPixel(centerX + x, centerY + y);
+                    }
+                }
+            }
+        }
+    }
+
+    fillPolygonPreview(points) {
+        // Use scanline filling algorithm for polygon fill preview
+        const minY = Math.min(...points.map(p => p.y));
+        const maxY = Math.max(...points.map(p => p.y));
+        
+        for (let y = Math.max(0, minY); y <= Math.min(this.canvasHeight - 1, maxY); y++) {
+            const intersections = [];
+            
+            // Find intersections of scanline with polygon edges
+            for (let i = 0; i < points.length; i++) {
+                const p1 = points[i];
+                const p2 = points[(i + 1) % points.length];
+                
+                // Skip horizontal edges
+                if (p1.y === p2.y) continue;
+                
+                if ((p1.y <= y && p2.y > y) || (p2.y <= y && p1.y > y)) {
+                    // Edge crosses the scanline
+                    const x = p1.x + (p2.x - p1.x) * (y - p1.y) / (p2.y - p1.y);
+                    intersections.push(Math.round(x));
+                }
+            }
+            
+            // Sort intersections and fill between pairs
+            intersections.sort((a, b) => a - b);
+            for (let i = 0; i < intersections.length; i += 2) {
+                if (i + 1 < intersections.length) {
+                    const startX = Math.max(0, intersections[i]);
+                    const endX = Math.min(this.canvasWidth - 1, intersections[i + 1]);
+                    for (let x = startX; x <= endX; x++) {
+                        this.setPreviewPixel(x, y);
+                    }
+                }
+            }
+        }
+    }
+
+    drawLinePreview(x0, y0, x1, y1) {
+        const dx = Math.abs(x1 - x0);
+        const dy = Math.abs(y1 - y0);
+        const sx = x0 < x1 ? 1 : -1;
+        const sy = y0 < y1 ? 1 : -1;
+        let err = dx - dy;
+        
+        let x = x0;
+        let y = y0;
+        
+        while (true) {
+            this.setPreviewPixel(x, y);
+            
+            if (x === x1 && y === y1) break;
+            
+            const e2 = 2 * err;
+            if (e2 > -dy) {
+                err -= dy;
+                x += sx;
+            }
+            if (e2 < dx) {
+                err += dx;
+                y += sy;
+            }
+        }
+    }
+
+    drawPolygon(centerX, centerY, radius, rotation = 0, ctx) {
+        const points = this.calculatePolygonPoints(centerX, centerY, radius, rotation);
+        
+        if (this.polygonFillMode === 'filled') {
+            this.fillPolygon(points, ctx);
+        } else {
+            // Draw outline
+            if (this.polygonThickness === 1) {
+                this.drawPolygonOutline(points, ctx);
+            } else {
+                this.drawThickPolygonOutline(points, ctx);
+            }
+        }
+    }
+
+    calculatePolygonPoints(centerX, centerY, radius, rotation = 0) {
+        const points = [];
+        const sides = this.polygonSides;
+        const angleStep = (Math.PI * 2) / sides;
+        
+        // Start angle to point upward (for odd-sided polygons like triangles), then add rotation
+        const startAngle = -Math.PI / 2 + rotation;
+        
+        for (let i = 0; i < sides; i++) {
+            const angle = startAngle + (i * angleStep);
+            let x = centerX + radius * Math.cos(angle);
+            let y = centerY + radius * Math.sin(angle);
+            
+            // Always round to pixel boundaries for crisp drawing
+            x = Math.round(x);
+            y = Math.round(y);
+            
+            points.push({ x, y });
+        }
+        
+        return points;
+    }
+
+    drawPolygonOutline(points, ctx) {
+        for (let i = 0; i < points.length; i++) {
+            const start = points[i];
+            const end = points[(i + 1) % points.length];
+            this.drawLineBresenham(start.x, start.y, end.x, end.y, ctx);
+        }
+    }
+
+    drawThickPolygonOutline(points, ctx) {
+        const thickness = this.polygonThickness;
+        const radius = thickness / 2;
+        const halfThickness = Math.floor(thickness / 2);
+        
+        // First draw all the line segments
+        for (let i = 0; i < points.length; i++) {
+            const start = points[i];
+            const end = points[(i + 1) % points.length];
+            this.drawThickLineBresenham(start.x, start.y, end.x, end.y, thickness, ctx);
+        }
+        
+        // Then draw filled circles at each vertex to ensure smooth connections
+        for (let i = 0; i < points.length; i++) {
+            const vertex = points[i];
+            
+            // Draw a filled circle at each vertex
+            for (let y = -halfThickness; y <= halfThickness; y++) {
+                for (let x = -halfThickness; x <= halfThickness; x++) {
+                    if (x * x + y * y <= radius * radius) {
+                        this.setPixelInFrame(vertex.x + x, vertex.y + y, ctx);
+                    }
+                }
+            }
+        }
+    }
+
+    fillPolygon(points, ctx) {
+        // Use scanline filling algorithm for polygon fill
+        const minY = Math.min(...points.map(p => p.y));
+        const maxY = Math.max(...points.map(p => p.y));
+        
+        for (let y = minY; y <= maxY; y++) {
+            const intersections = [];
+            
+            // Find intersections of scanline with polygon edges
+            for (let i = 0; i < points.length; i++) {
+                const p1 = points[i];
+                const p2 = points[(i + 1) % points.length];
+                
+                if ((p1.y <= y && p2.y > y) || (p2.y <= y && p1.y > y)) {
+                    // Edge crosses the scanline
+                    const x = p1.x + (p2.x - p1.x) * (y - p1.y) / (p2.y - p1.y);
+                    intersections.push(Math.round(x));
+                }
+            }
+            
+            // Sort intersections and fill between pairs
+            intersections.sort((a, b) => a - b);
+            for (let i = 0; i < intersections.length; i += 2) {
+                if (i + 1 < intersections.length) {
+                    for (let x = intersections[i]; x <= intersections[i + 1]; x++) {
+                        this.setPixelInFrame(x, y, ctx);
+                    }
+                }
+            }
+        }
+    }
+
+    drawLineBresenham(x0, y0, x1, y1, ctx) {
+        const dx = Math.abs(x1 - x0);
+        const dy = Math.abs(y1 - y0);
+        const sx = x0 < x1 ? 1 : -1;
+        const sy = y0 < y1 ? 1 : -1;
+        let err = dx - dy;
+        
+        let x = x0;
+        let y = y0;
+        
+        while (true) {
+            this.setPixelInFrame(x, y, ctx);
+            
+            if (x === x1 && y === y1) break;
+            
+            const e2 = 2 * err;
+            if (e2 > -dy) {
+                err -= dy;
+                x += sx;
+            }
+            if (e2 < dx) {
+                err += dx;
+                y += sy;
+            }
+        }
+    }
+
+    drawThickLineBresenham(x0, y0, x1, y1, thickness, ctx) {
+        if (thickness === 1) {
+            this.drawLineBresenham(x0, y0, x1, y1, ctx);
+            return;
+        }
+        
+        // For thick lines, use a capsule-based approach for better coverage
+        const dx = x1 - x0;
+        const dy = y1 - y0;
+        const length = Math.sqrt(dx * dx + dy * dy);
+        
+        if (length === 0) {
+            // Single point - draw a filled circle
+            const radius = Math.floor(thickness / 2);
+            for (let y = -radius; y <= radius; y++) {
+                for (let x = -radius; x <= radius; x++) {
+                    if (x * x + y * y <= radius * radius) {
+                        this.setPixelInFrame(x0 + x, y0 + y, ctx);
+                    }
+                }
+            }
+            return;
+        }
+        
+        // Draw the thick line using a sweep approach
+        const radius = thickness / 2;
+        const halfThickness = Math.floor(thickness / 2);
+        
+        // For each pixel along the line, draw a circle centered on that pixel
+        const steps = Math.max(Math.abs(dx), Math.abs(dy));
+        for (let i = 0; i <= steps; i++) {
+            const t = i / steps;
+            const centerX = Math.round(x0 + t * dx);
+            const centerY = Math.round(y0 + t * dy);
+            
+            // Draw a filled circle at this point
+            for (let y = -halfThickness; y <= halfThickness; y++) {
+                for (let x = -halfThickness; x <= halfThickness; x++) {
+                    if (x * x + y * y <= radius * radius) {
+                        this.setPixelInFrame(centerX + x, centerY + y, ctx);
+                    }
+                }
+            }
+        }
+    }
     
     // Panning methods
     startPanning(pos) {
@@ -4427,6 +5215,211 @@ class DrawingEditor {
         return this.frames[this.currentFrameIndex].getContext('2d');
     }
     
+    // Text tool methods
+    startTextPlacement(pos) {
+        this.isPlacingText = true;
+        this.textPlacementPos = pos;
+        this.generateTextCanvas();
+        this.clearOverlayAndRedrawBase();
+        this.showTextPreview(pos);
+    }
+    
+    updateTextPreviewPosition(pos) {
+        if (this.isPlacingText) {
+            this.textPlacementPos = pos;
+            this.clearOverlayAndRedrawBase();
+            this.showTextPreview(pos);
+        }
+    }
+    
+    showTextPreview(pos) {
+        if (!this.textPreviewData || !this.textInput.trim()) return;
+        
+        // Create temporary canvas for binarization
+        const tempCanvas = document.createElement('canvas');
+        const tempCtx = tempCanvas.getContext('2d');
+        
+        // Set temp canvas size
+        tempCanvas.width = this.textPreviewData.width + 10; // Add padding
+        tempCanvas.height = this.textPreviewData.height + 10;
+        
+        // Configure temp context for text rendering
+        tempCtx.save();
+        
+        // Set text style
+        let fontStyle = '';
+        if (this.textBold) fontStyle += 'bold ';
+        if (this.textItalic) fontStyle += 'italic ';
+        
+        tempCtx.font = `${fontStyle}${this.fontSize}px ${this.fontFamily}`;
+        tempCtx.fillStyle = 'black';
+        tempCtx.textBaseline = 'top';
+        tempCtx.imageSmoothingEnabled = false;
+        
+        // Draw text to temp canvas with pixel-perfect line spacing and letter spacing
+        const lines = this.textPreviewData.lines;
+        const lineHeight = Math.round(this.fontSize * 1.0); // Use 1.0 for pixel-perfect spacing
+        
+        lines.forEach((line, index) => {
+            const y = 5 + Math.round(index * lineHeight); // Round to pixel boundaries
+            this.renderTextWithSpacing(tempCtx, line, 5, y, 1); // 1px minimum letter spacing
+        });
+        
+        tempCtx.restore();
+        
+        // Get image data and binarize
+        const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+        const data = imageData.data;
+        
+        // Binarize with lower threshold for better text detection
+        for (let i = 0; i < data.length; i += 4) {
+            const r = data[i];
+            const g = data[i + 1];
+            const b = data[i + 2];
+            const alpha = data[i + 3];
+            
+            // Calculate grayscale and apply threshold
+            const gray = (r + g + b) / 3;
+            const threshold = 200; // Higher threshold to capture more anti-aliased pixels
+            
+            if (alpha > 10 && gray < threshold) {
+                // Make it black
+                data[i] = 0;     // R
+                data[i + 1] = 0; // G
+                data[i + 2] = 0; // B
+                data[i + 3] = 255; // A
+            } else {
+                // Make it transparent
+                data[i] = 0;     // R
+                data[i + 1] = 0; // G
+                data[i + 2] = 0; // B
+                data[i + 3] = 0; // A
+            }
+        }
+        
+        // Put binarized data back
+        tempCtx.putImageData(imageData, 0, 0);
+        
+        // Draw to overlay with red tint for preview
+        this.overlayCtx.save();
+        this.overlayCtx.imageSmoothingEnabled = false;
+        this.overlayCtx.globalCompositeOperation = 'source-over';
+        
+        // Draw binarized text
+        this.overlayCtx.drawImage(tempCanvas, pos.x - 5, pos.y - 5);
+        
+        // Apply red tint for preview
+        this.overlayCtx.globalCompositeOperation = 'source-atop';
+        this.overlayCtx.fillStyle = 'rgba(255, 0, 0, 0.8)';
+        this.overlayCtx.fillRect(pos.x - 5, pos.y - 5, tempCanvas.width, tempCanvas.height);
+        
+        this.overlayCtx.restore();
+    }
+    
+    finalizeText(pos) {
+        if (!this.textInput.trim()) {
+            this.isPlacingText = false;
+            this.clearOverlayAndRedrawBase();
+            return;
+        }
+        
+        const ctx = this.getCurrentFrameContext();
+        
+        // Capture canvas state before drawing text
+        const beforeImageData = ctx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
+        
+        // Create temporary canvas for binarization
+        const tempCanvas = document.createElement('canvas');
+        const tempCtx = tempCanvas.getContext('2d');
+        
+        // Set temp canvas size
+        tempCanvas.width = this.textPreviewData.width + 10; // Add padding
+        tempCanvas.height = this.textPreviewData.height + 10;
+        
+        // Configure temp context for text rendering
+        tempCtx.save();
+        
+        // Set text style
+        let fontStyle = '';
+        if (this.textBold) fontStyle += 'bold ';
+        if (this.textItalic) fontStyle += 'italic ';
+        
+        tempCtx.font = `${fontStyle}${this.fontSize}px ${this.fontFamily}`;
+        tempCtx.fillStyle = 'black';
+        tempCtx.textBaseline = 'top';
+        tempCtx.imageSmoothingEnabled = false;
+        
+        // Draw text to temp canvas with pixel-perfect line spacing and letter spacing
+        const lines = this.textPreviewData.lines;
+        const lineHeight = Math.round(this.fontSize * 1.0); // Use 1.0 for pixel-perfect spacing
+        
+        lines.forEach((line, index) => {
+            const y = 5 + Math.round(index * lineHeight); // Round to pixel boundaries
+            this.renderTextWithSpacing(tempCtx, line, 5, y, 1); // 1px minimum letter spacing
+        });
+        
+        tempCtx.restore();
+        
+        // Get image data and binarize
+        const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+        const data = imageData.data;
+        
+        // Binarize with lower threshold for better text detection
+        for (let i = 0; i < data.length; i += 4) {
+            const r = data[i];
+            const g = data[i + 1];
+            const b = data[i + 2];
+            const alpha = data[i + 3];
+            
+            // Calculate grayscale and apply threshold
+            const gray = (r + g + b) / 3;
+            const threshold = 200; // Higher threshold to capture more anti-aliased pixels
+            
+            if (alpha > 10 && gray < threshold) {
+                // Make it the selected text color
+                if (this.textColor === 'white') {
+                    data[i] = 255;     // R
+                    data[i + 1] = 255; // G
+                    data[i + 2] = 255; // B
+                } else {
+                    data[i] = 0;     // R
+                    data[i + 1] = 0; // G
+                    data[i + 2] = 0; // B
+                }
+                data[i + 3] = 255; // A
+            } else {
+                // Make it transparent
+                data[i] = 0;     // R
+                data[i + 1] = 0; // G
+                data[i + 2] = 0; // B
+                data[i + 3] = 0; // A
+            }
+        }
+        
+        // Put binarized data back
+        tempCtx.putImageData(imageData, 0, 0);
+        
+        // Draw binarized text to main canvas
+        ctx.save();
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(tempCanvas, pos.x - 5, pos.y - 5);
+        ctx.restore();
+        
+        // Capture changes for undo system
+        const afterImageData = ctx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
+        const changedPixels = this.compareImageData(beforeImageData, afterImageData);
+        
+        if (changedPixels.length > 0) {
+            const command = new DrawStrokeCommand(this, changedPixels);
+            this.executeCommand(command);
+        }
+        
+        this.isPlacingText = false;
+        this.clearOverlayAndRedrawBase();
+        this.redrawCanvas();
+        this.markAsUnsaved();
+    }
+    
     setTool(tool) {
         // Don't treat clear as a tool - it's just an action
         if (tool === 'clear') {
@@ -4436,6 +5429,12 @@ class DrawingEditor {
         
         // Clear any previews when switching tools
         this.clearOverlayAndRedrawBase();
+        
+        // Clear text placement state when switching away from text tool
+        if (this.currentTool === 'text' && tool !== 'text' && this.isPlacingText) {
+            this.isPlacingText = false;
+            this.clearOverlayAndRedrawBase();
+        }
         
         // Disable paste mode when switching away from select tool
         if (this.currentTool === 'select' && tool !== 'select' && this.isPasteModeActive) {
@@ -4501,13 +5500,28 @@ class DrawingEditor {
         const editSettings = document.getElementById('editSettings');
         const bucketSettings = document.getElementById('bucketSettings');
         const shapeSettings = document.getElementById('shapeSettings');
+        const polygonSettings = document.getElementById('polygonSettings');
+        const textSettings = document.getElementById('textSettings');
         const shapeThickness = document.getElementById('shapeThickness');
+        const polygonThickness = document.getElementById('polygonThickness');
         const gridModeSettings = document.getElementById('gridModeSettings');
         
         brushSettings.style.display = tool === 'pen' ? 'block' : 'none';
         editSettings.style.display = tool === 'select' ? 'block' : 'none';
         bucketSettings.style.display = tool === 'bucket' ? 'block' : 'none';
         shapeSettings.style.display = (tool === 'circle' || tool === 'square') ? 'block' : 'none';
+        polygonSettings.style.display = tool === 'polygon' ? 'block' : 'none';
+        textSettings.style.display = tool === 'text' ? 'block' : 'none';
+        
+        // Initialize text button states when text tool is selected
+        if (tool === 'text') {
+            this.initializeTextButtonStates();
+        }
+        
+        // Initialize polygon settings when polygon tool is selected
+        if (tool === 'polygon') {
+            this.setPolygonFillMode(this.polygonFillMode);
+        }
         
         // Show grid mode settings only for pen tool
         if (gridModeSettings) {
@@ -4517,6 +5531,11 @@ class DrawingEditor {
         // Show thickness controls for both rectangle and circle tools when outline mode
         if (shapeThickness) {
             shapeThickness.style.display = (tool === 'square' || tool === 'circle') && this.shapeFillMode === 'outline' ? 'block' : 'none';
+        }
+        
+        // Show polygon thickness controls when polygon tool is active and outline mode
+        if (polygonThickness) {
+            polygonThickness.style.display = tool === 'polygon' && this.polygonFillMode === 'outline' ? 'block' : 'none';
         }
         
         // Update cursor based on tool
@@ -4665,6 +5684,20 @@ class DrawingEditor {
         const config = modeConfig[this.shapeMode];
         if (iconElement) iconElement.textContent = config.icon;
         if (textElement) textElement.textContent = config.text;
+    }
+
+    // Polygon-specific methods
+    setPolygonFillMode(fillMode) {
+        this.polygonFillMode = fillMode;
+        document.querySelectorAll('#polygonSettings .fill-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.fill === fillMode);
+        });
+        
+        // Show/hide thickness controls based on fill mode
+        const thicknessSection = document.getElementById('polygonThickness');
+        if (thicknessSection) {
+            thicknessSection.style.display = fillMode === 'outline' ? 'block' : 'none';
+        }
     }
 
     updatePenModeButton() {
