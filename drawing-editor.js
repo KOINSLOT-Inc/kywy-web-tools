@@ -3097,17 +3097,16 @@ class DrawingEditor {
                 const y2 = startY + (endY > startY ? size : -size);
                 
                 // Draw pixel-perfect circle bounded by this perfect square
+                // Use precise center calculation for better symmetry
                 const centerX = (startX + x2) / 2;
                 const centerY = (startY + y2) / 2;
                 const radius = size / 2;
                 
                 // Use ellipse preview with equal width/height for pixel-perfect circle
-                const x1 = centerX - radius;
-                const y1 = centerY - radius;
-                const x2Circle = centerX + radius;
-                const y2Circle = centerY + radius;
-                this.drawEllipsePreview(x1, y1, x2Circle, y2Circle);
-                this.showMirroredShapePreview('ellipse', x1, y1, 0, x2Circle, y2Circle);
+                const x1 = startX;
+                const y1 = startY;
+                this.drawEllipsePreview(x1, y1, x2, y2);
+                this.showMirroredShapePreview('ellipse', x1, y1, 0, x2, y2);
             } else if (isCenter) {
                 // Center: draw ellipse bounded by rectangle from center
                 const halfWidth = Math.abs(endX - startX);
@@ -3166,20 +3165,31 @@ class DrawingEditor {
     }
     
     drawEllipsePreview(x1, y1, x2, y2) {
-        const centerX = Math.floor((x1 + x2) / 2);
-        const centerY = Math.floor((y1 + y2) / 2);
-        const radiusX = Math.abs(x2 - x1) / 2;
-        const radiusY = Math.abs(y2 - y1) / 2;
+        // Calculate precise center and radii for better circle symmetry
+        const width = Math.abs(x2 - x1);
+        const height = Math.abs(y2 - y1);
+        const centerX = (x1 + x2) / 2;
+        const centerY = (y1 + y2) / 2;
+        const radiusX = width / 2;
+        const radiusY = height / 2;
         
         if (radiusX < 1 || radiusY < 1) return; // Skip tiny ellipses
         
         if (this.shapeFillMode === 'filled') {
-            // Draw filled ellipse
-            for (let x = -radiusX; x <= radiusX; x++) {
-                for (let y = -radiusY; y <= radiusY; y++) {
+            // Draw filled ellipse preview - use floor/ceil for pixel boundaries
+            const minX = Math.floor(centerX - radiusX);
+            const maxX = Math.floor(centerX + radiusX);
+            const minY = Math.floor(centerY - radiusY);
+            const maxY = Math.floor(centerY + radiusY);
+            
+            for (let x = minX; x <= maxX; x++) {
+                for (let y = minY; y <= maxY; y++) {
+                    // Use actual pixel center for ellipse equation
+                    const dx = x - centerX;
+                    const dy = y - centerY;
                     // Ellipse equation: (x/rx)² + (y/ry)² <= 1
-                    if ((x * x) / (radiusX * radiusX) + (y * y) / (radiusY * radiusY) <= 1) {
-                        this.setPreviewPixel(centerX + x, centerY + y);
+                    if ((dx * dx) / (radiusX * radiusX) + (dy * dy) / (radiusY * radiusY) <= 1) {
+                        this.setPreviewPixel(x, y);
                     }
                 }
             }
@@ -3190,22 +3200,34 @@ class DrawingEditor {
         const thickness = this.shapeThickness;
         
         if (thickness === 1) {
-            // Single pixel outline - use proper edge detection
-            for (let x = -Math.ceil(radiusX); x <= Math.ceil(radiusX); x++) {
-                for (let y = -Math.ceil(radiusY); y <= Math.ceil(radiusY); y++) {
-                    const distance = (x * x) / (radiusX * radiusX) + (y * y) / (radiusY * radiusY);
+            // Single pixel outline - use proper edge detection with pixel centers
+            const minX = Math.floor(centerX - radiusX - 1);
+            const maxX = Math.floor(centerX + radiusX + 1);
+            const minY = Math.floor(centerY - radiusY - 1);
+            const maxY = Math.floor(centerY + radiusY + 1);
+            
+            for (let x = minX; x <= maxX; x++) {
+                for (let y = minY; y <= maxY; y++) {
+                    const dx = x - centerX;
+                    const dy = y - centerY;
+                    const distance = (dx * dx) / (radiusX * radiusX) + (dy * dy) / (radiusY * radiusY);
                     
                     // Check if this pixel is on the edge by seeing if it's inside but neighbors are outside
                     if (distance <= 1.0) {
                         // This pixel is inside the ellipse, check if it's on the edge
+                        const dx1 = (x + 1) - centerX;
+                        const dx_1 = (x - 1) - centerX;
+                        const dy1 = (y + 1) - centerY;
+                        const dy_1 = (y - 1) - centerY;
+                        
                         const hasOutsideNeighbor = 
-                            ((x + 1) * (x + 1)) / (radiusX * radiusX) + (y * y) / (radiusY * radiusY) > 1.0 ||
-                            ((x - 1) * (x - 1)) / (radiusX * radiusX) + (y * y) / (radiusY * radiusY) > 1.0 ||
-                            (x * x) / (radiusX * radiusX) + ((y + 1) * (y + 1)) / (radiusY * radiusY) > 1.0 ||
-                            (x * x) / (radiusX * radiusX) + ((y - 1) * (y - 1)) / (radiusY * radiusY) > 1.0;
+                            (dx1 * dx1) / (radiusX * radiusX) + (dy * dy) / (radiusY * radiusY) > 1.0 ||
+                            (dx_1 * dx_1) / (radiusX * radiusX) + (dy * dy) / (radiusY * radiusY) > 1.0 ||
+                            (dx * dx) / (radiusX * radiusX) + (dy1 * dy1) / (radiusY * radiusY) > 1.0 ||
+                            (dx * dx) / (radiusX * radiusX) + (dy_1 * dy_1) / (radiusY * radiusY) > 1.0;
                         
                         if (hasOutsideNeighbor) {
-                            this.setPreviewPixel(centerX + x, centerY + y);
+                            this.setPreviewPixel(x, y);
                         }
                     }
                 }
@@ -3218,13 +3240,20 @@ class DrawingEditor {
             const innerRadiusX = Math.max(0, radiusX - halfThickness);
             const innerRadiusY = Math.max(0, radiusY - halfThickness);
             
-            for (let x = -Math.ceil(outerRadiusX); x <= Math.ceil(outerRadiusX); x++) {
-                for (let y = -Math.ceil(outerRadiusY); y <= Math.ceil(outerRadiusY); y++) {
-                    const outerTest = (x * x) / (outerRadiusX * outerRadiusX) + (y * y) / (outerRadiusY * outerRadiusY);
-                    const innerTest = (x * x) / (innerRadiusX * innerRadiusX) + (y * y) / (innerRadiusY * innerRadiusY);
+            const minX = Math.floor(centerX - outerRadiusX - 1);
+            const maxX = Math.floor(centerX + outerRadiusX + 1);
+            const minY = Math.floor(centerY - outerRadiusY - 1);
+            const maxY = Math.floor(centerY + outerRadiusY + 1);
+            
+            for (let x = minX; x <= maxX; x++) {
+                for (let y = minY; y <= maxY; y++) {
+                    const dx = x - centerX;
+                    const dy = y - centerY;
+                    const outerTest = (dx * dx) / (outerRadiusX * outerRadiusX) + (dy * dy) / (outerRadiusY * outerRadiusY);
+                    const innerTest = (dx * dx) / (innerRadiusX * innerRadiusX) + (dy * dy) / (innerRadiusY * innerRadiusY);
                     
                     if (outerTest <= 1 && (innerRadiusX <= 0 || innerRadiusY <= 0 || innerTest > 1)) {
-                        this.setPreviewPixel(centerX + x, centerY + y);
+                        this.setPreviewPixel(x, y);
                     }
                 }
             }
@@ -3277,20 +3306,25 @@ class DrawingEditor {
     
     bresenhamCirclePreview(centerX, centerY, radius) {
         // Bresenham's circle algorithm for pixel-perfect preview
+        // Handle floating point centers by rounding
+        const cx = Math.round(centerX);
+        const cy = Math.round(centerY);
+        const r = Math.floor(radius);
+        
         let x = 0;
-        let y = Math.floor(radius);
-        let d = 3 - 2 * radius;
+        let y = r;
+        let d = 3 - 2 * r;
         
         while (y >= x) {
             // Draw 8 points of the circle in red
-            this.setPreviewPixel(centerX + x, centerY + y);
-            this.setPreviewPixel(centerX - x, centerY + y);
-            this.setPreviewPixel(centerX + x, centerY - y);
-            this.setPreviewPixel(centerX - x, centerY - y);
-            this.setPreviewPixel(centerX + y, centerY + x);
-            this.setPreviewPixel(centerX - y, centerY + x);
-            this.setPreviewPixel(centerX + y, centerY - x);
-            this.setPreviewPixel(centerX - y, centerY - x);
+            this.setPreviewPixel(cx + x, cy + y);
+            this.setPreviewPixel(cx - x, cy + y);
+            this.setPreviewPixel(cx + x, cy - y);
+            this.setPreviewPixel(cx - x, cy - y);
+            this.setPreviewPixel(cx + y, cy + x);
+            this.setPreviewPixel(cx - y, cy + x);
+            this.setPreviewPixel(cx + y, cy - x);
+            this.setPreviewPixel(cx - y, cy - x);
             
             x++;
             
@@ -3488,20 +3522,12 @@ class DrawingEditor {
                 const y2 = startY + (endY > startY ? size : -size);
                 
                 // Draw pixel-perfect circle bounded by this perfect square using ellipse method
-                const centerX = (startX + x2) / 2;
-                const centerY = (startY + y2) / 2;
-                const radius = size / 2;
-                
-                // Use ellipse drawing with equal width/height for pixel-perfect circle
-                const x1 = centerX - radius;
-                const y1 = centerY - radius;
-                const x2Circle = centerX + radius;
-                const y2Circle = centerY + radius;
-                this.drawEllipse(x1, y1, x2Circle, y2Circle, ctx);
+                // Use precise coordinates for better symmetry
+                this.drawEllipse(startX, startY, x2, y2, ctx);
                 
                 // Draw mirrored ellipses
                 if (this.mirrorHorizontal || this.mirrorVertical) {
-                    const mirrorPositions = this.calculateMirrorShapePositions(x1, y1, x2Circle, y2Circle);
+                    const mirrorPositions = this.calculateMirrorShapePositions(startX, startY, x2, y2);
                     mirrorPositions.forEach(mirror => {
                         this.drawEllipse(mirror.x1, mirror.y1, mirror.x2, mirror.y2, ctx);
                     });
@@ -3641,20 +3667,31 @@ class DrawingEditor {
     }
     
     drawEllipse(x1, y1, x2, y2, ctx) {
-        const centerX = Math.floor((x1 + x2) / 2);
-        const centerY = Math.floor((y1 + y2) / 2);
-        const radiusX = Math.abs(x2 - x1) / 2;
-        const radiusY = Math.abs(y2 - y1) / 2;
+        // Calculate precise center and radii for better circle symmetry
+        const width = Math.abs(x2 - x1);
+        const height = Math.abs(y2 - y1);
+        const centerX = (x1 + x2) / 2;
+        const centerY = (y1 + y2) / 2;
+        const radiusX = width / 2;
+        const radiusY = height / 2;
         
         if (radiusX < 1 || radiusY < 1) return; // Skip tiny ellipses
         
         if (this.shapeFillMode === 'filled') {
-            // Draw filled ellipse
-            for (let x = -radiusX; x <= radiusX; x++) {
-                for (let y = -radiusY; y <= radiusY; y++) {
+            // Draw filled ellipse - use floor/ceil for pixel boundaries
+            const minX = Math.floor(centerX - radiusX);
+            const maxX = Math.floor(centerX + radiusX);
+            const minY = Math.floor(centerY - radiusY);
+            const maxY = Math.floor(centerY + radiusY);
+            
+            for (let x = minX; x <= maxX; x++) {
+                for (let y = minY; y <= maxY; y++) {
+                    // Use actual pixel center for ellipse equation
+                    const dx = x - centerX;
+                    const dy = y - centerY;
                     // Ellipse equation: (x/rx)² + (y/ry)² <= 1
-                    if ((x * x) / (radiusX * radiusX) + (y * y) / (radiusY * radiusY) <= 1) {
-                        this.setPixelInFrame(centerX + x, centerY + y, ctx);
+                    if ((dx * dx) / (radiusX * radiusX) + (dy * dy) / (radiusY * radiusY) <= 1) {
+                        this.setPixelInFrame(x, y, ctx);
                     }
                 }
             }
@@ -3665,22 +3702,34 @@ class DrawingEditor {
         const thickness = this.shapeThickness;
         
         if (thickness === 1) {
-            // Single pixel outline - use proper edge detection
-            for (let x = -Math.ceil(radiusX); x <= Math.ceil(radiusX); x++) {
-                for (let y = -Math.ceil(radiusY); y <= Math.ceil(radiusY); y++) {
-                    const distance = (x * x) / (radiusX * radiusX) + (y * y) / (radiusY * radiusY);
+            // Single pixel outline - use proper edge detection with pixel centers
+            const minX = Math.floor(centerX - radiusX - 1);
+            const maxX = Math.floor(centerX + radiusX + 1);
+            const minY = Math.floor(centerY - radiusY - 1);
+            const maxY = Math.floor(centerY + radiusY + 1);
+            
+            for (let x = minX; x <= maxX; x++) {
+                for (let y = minY; y <= maxY; y++) {
+                    const dx = x - centerX;
+                    const dy = y - centerY;
+                    const distance = (dx * dx) / (radiusX * radiusX) + (dy * dy) / (radiusY * radiusY);
                     
                     // Check if this pixel is on the edge by seeing if it's inside but neighbors are outside
                     if (distance <= 1.0) {
                         // This pixel is inside the ellipse, check if it's on the edge
+                        const dx1 = (x + 1) - centerX;
+                        const dx_1 = (x - 1) - centerX;
+                        const dy1 = (y + 1) - centerY;
+                        const dy_1 = (y - 1) - centerY;
+                        
                         const hasOutsideNeighbor = 
-                            ((x + 1) * (x + 1)) / (radiusX * radiusX) + (y * y) / (radiusY * radiusY) > 1.0 ||
-                            ((x - 1) * (x - 1)) / (radiusX * radiusX) + (y * y) / (radiusY * radiusY) > 1.0 ||
-                            (x * x) / (radiusX * radiusX) + ((y + 1) * (y + 1)) / (radiusY * radiusY) > 1.0 ||
-                            (x * x) / (radiusX * radiusX) + ((y - 1) * (y - 1)) / (radiusY * radiusY) > 1.0;
+                            (dx1 * dx1) / (radiusX * radiusX) + (dy * dy) / (radiusY * radiusY) > 1.0 ||
+                            (dx_1 * dx_1) / (radiusX * radiusX) + (dy * dy) / (radiusY * radiusY) > 1.0 ||
+                            (dx * dx) / (radiusX * radiusX) + (dy1 * dy1) / (radiusY * radiusY) > 1.0 ||
+                            (dx * dx) / (radiusX * radiusX) + (dy_1 * dy_1) / (radiusY * radiusY) > 1.0;
                         
                         if (hasOutsideNeighbor) {
-                            this.setPixelInFrame(centerX + x, centerY + y, ctx);
+                            this.setPixelInFrame(x, y, ctx);
                         }
                     }
                 }
@@ -3693,13 +3742,20 @@ class DrawingEditor {
             const innerRadiusX = Math.max(0, radiusX - halfThickness);
             const innerRadiusY = Math.max(0, radiusY - halfThickness);
             
-            for (let x = -Math.ceil(outerRadiusX); x <= Math.ceil(outerRadiusX); x++) {
-                for (let y = -Math.ceil(outerRadiusY); y <= Math.ceil(outerRadiusY); y++) {
-                    const outerTest = (x * x) / (outerRadiusX * outerRadiusX) + (y * y) / (outerRadiusY * outerRadiusY);
-                    const innerTest = (x * x) / (innerRadiusX * innerRadiusX) + (y * y) / (innerRadiusY * innerRadiusY);
+            const minX = Math.floor(centerX - outerRadiusX - 1);
+            const maxX = Math.floor(centerX + outerRadiusX + 1);
+            const minY = Math.floor(centerY - outerRadiusY - 1);
+            const maxY = Math.floor(centerY + outerRadiusY + 1);
+            
+            for (let x = minX; x <= maxX; x++) {
+                for (let y = minY; y <= maxY; y++) {
+                    const dx = x - centerX;
+                    const dy = y - centerY;
+                    const outerTest = (dx * dx) / (outerRadiusX * outerRadiusX) + (dy * dy) / (outerRadiusY * outerRadiusY);
+                    const innerTest = (dx * dx) / (innerRadiusX * innerRadiusX) + (dy * dy) / (innerRadiusY * innerRadiusY);
                     
                     if (outerTest <= 1 && (innerRadiusX <= 0 || innerRadiusY <= 0 || innerTest > 1)) {
-                        this.setPixelInFrame(centerX + x, centerY + y, ctx);
+                        this.setPixelInFrame(x, y, ctx);
                     }
                 }
             }
@@ -3752,10 +3808,17 @@ class DrawingEditor {
     drawCircle(centerX, centerY, radius, ctx) {
         if (this.shapeFillMode === 'filled') {
             // Draw filled circle using pixel-by-pixel approach for perfect fill
-            for (let x = -radius; x <= radius; x++) {
-                for (let y = -radius; y <= radius; y++) {
-                    if (x * x + y * y <= radius * radius) {
-                        this.setPixelInFrame(centerX + x, centerY + y, ctx);
+            const minX = Math.floor(centerX - radius);
+            const maxX = Math.floor(centerX + radius);
+            const minY = Math.floor(centerY - radius);
+            const maxY = Math.floor(centerY + radius);
+            
+            for (let x = minX; x <= maxX; x++) {
+                for (let y = minY; y <= maxY; y++) {
+                    const dx = x - centerX;
+                    const dy = y - centerY;
+                    if (dx * dx + dy * dy <= radius * radius) {
+                        this.setPixelInFrame(x, y, ctx);
                     }
                 }
             }
@@ -3775,15 +3838,22 @@ class DrawingEditor {
             const innerRadius = this.shapeStrokePosition === 'outside' ? radius : 
                                this.shapeStrokePosition === 'centered' ? radius - Math.floor(thickness / 2) : radius - thickness + 1;
             
-            // Draw the thick circle
-            for (let x = -outerRadius; x <= outerRadius; x++) {
-                for (let y = -outerRadius; y <= outerRadius; y++) {
-                    const distance = Math.sqrt(x * x + y * y);
+            // Draw the thick circle with proper bounds
+            const minX = Math.floor(centerX - outerRadius);
+            const maxX = Math.floor(centerX + outerRadius);
+            const minY = Math.floor(centerY - outerRadius);
+            const maxY = Math.floor(centerY + outerRadius);
+            
+            for (let x = minX; x <= maxX; x++) {
+                for (let y = minY; y <= maxY; y++) {
+                    const dx = x - centerX;
+                    const dy = y - centerY;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
                     if (distance <= outerRadius) {
                         // If innerRadius is 0 or negative, fill the entire circle
                         // Otherwise, only fill the ring between inner and outer radius
                         if (innerRadius <= 0 || distance >= innerRadius) {
-                            this.setPixelInFrame(centerX + x, centerY + y, ctx);
+                            this.setPixelInFrame(x, y, ctx);
                         }
                     }
                 }
@@ -3793,20 +3863,25 @@ class DrawingEditor {
     
     bresenhamCircle(centerX, centerY, radius, ctx) {
         // Bresenham's circle algorithm for pixel-perfect circles
+        // Handle floating point centers by rounding
+        const cx = Math.round(centerX);
+        const cy = Math.round(centerY);
+        const r = Math.floor(radius);
+        
         let x = 0;
-        let y = Math.floor(radius);
-        let d = 3 - 2 * radius;
+        let y = r;
+        let d = 3 - 2 * r;
         
         while (y >= x) {
             // Draw 8 points of the circle
-            this.setPixelInFrame(centerX + x, centerY + y, ctx);
-            this.setPixelInFrame(centerX - x, centerY + y, ctx);
-            this.setPixelInFrame(centerX + x, centerY - y, ctx);
-            this.setPixelInFrame(centerX - x, centerY - y, ctx);
-            this.setPixelInFrame(centerX + y, centerY + x, ctx);
-            this.setPixelInFrame(centerX - y, centerY + x, ctx);
-            this.setPixelInFrame(centerX + y, centerY - x, ctx);
-            this.setPixelInFrame(centerX - y, centerY - x, ctx);
+            this.setPixelInFrame(cx + x, cy + y, ctx);
+            this.setPixelInFrame(cx - x, cy + y, ctx);
+            this.setPixelInFrame(cx + x, cy - y, ctx);
+            this.setPixelInFrame(cx - x, cy - y, ctx);
+            this.setPixelInFrame(cx + y, cy + x, ctx);
+            this.setPixelInFrame(cx - y, cy + x, ctx);
+            this.setPixelInFrame(cx + y, cy - x, ctx);
+            this.setPixelInFrame(cx - y, cy - x, ctx);
             
             x++;
             
