@@ -2251,15 +2251,9 @@ class DrawingEditor {
 
         // Show text preview when hovering with text tool (even when not placing)
         if (this.currentTool === 'text' && !this.isDrawing && this.textInput.trim()) {
-            // Only show preview if cursor is within canvas bounds
-            if (this.isWithinCanvas(pos.x, pos.y)) {
-                this.generateTextCanvas();
-                this.clearOverlayAndRedrawBase();
-                this.showTextPreview(pos);
-            } else {
-                // Clear preview when outside canvas
-                this.clearOverlayAndRedrawBase();
-            }
+            this.generateTextCanvas();
+            this.clearOverlayAndRedrawBase();
+            this.showTextPreview(pos);
         }
 
         if (!this.isDrawing) return;
@@ -5276,6 +5270,33 @@ class DrawingEditor {
         this.overlayCtx.fillStyle = 'rgba(255, 0, 0, 0.8)';
         this.overlayCtx.fillRect(pos.x - 5, pos.y - 5, tempCanvas.width, tempCanvas.height);
         
+        // Draw mirrored text previews if mirroring is enabled
+        if (this.mirrorHorizontal || this.mirrorVertical) {
+            // Calculate the center of the original text position (accounting for the 5px padding)
+            const originalTopLeftX = pos.x - 5;
+            const originalTopLeftY = pos.y - 5;
+            const textCenterX = originalTopLeftX + (tempCanvas.width / 2);
+            const textCenterY = originalTopLeftY + (tempCanvas.height / 2);
+            
+            const mirrorPositions = this.calculateMirrorPositions(textCenterX, textCenterY);
+            
+            mirrorPositions.forEach(mirrorPos => {
+                // Calculate the top-left position for the mirrored text
+                const mirrorTopLeftX = mirrorPos.x - (tempCanvas.width / 2);
+                const mirrorTopLeftY = mirrorPos.y - (tempCanvas.height / 2);
+                
+                // Draw the text normally at the mirror position (no content flipping)
+                this.overlayCtx.globalCompositeOperation = 'source-over';
+                this.overlayCtx.drawImage(tempCanvas, mirrorTopLeftX, mirrorTopLeftY);
+                
+                // Apply red tint for mirror preview
+                this.overlayCtx.globalCompositeOperation = 'source-atop';
+                this.overlayCtx.fillStyle = 'rgba(255, 0, 0, 0.8)';
+                this.overlayCtx.fillRect(mirrorTopLeftX, mirrorTopLeftY, tempCanvas.width, tempCanvas.height);
+                this.overlayCtx.globalCompositeOperation = 'source-over';
+            });
+        }
+        
         this.overlayCtx.restore();
     }
     
@@ -5367,6 +5388,29 @@ class DrawingEditor {
         ctx.imageSmoothingEnabled = false;
         ctx.drawImage(tempCanvas, pos.x - 5, pos.y - 5);
         ctx.restore();
+        
+        // Draw mirrored text if mirroring is enabled
+        if (this.mirrorHorizontal || this.mirrorVertical) {
+            // Calculate the center of the original text position (accounting for the 5px padding)
+            const originalTopLeftX = pos.x - 5;
+            const originalTopLeftY = pos.y - 5;
+            const textCenterX = originalTopLeftX + (tempCanvas.width / 2);
+            const textCenterY = originalTopLeftY + (tempCanvas.height / 2);
+            
+            const mirrorPositions = this.calculateMirrorPositions(textCenterX, textCenterY);
+            
+            mirrorPositions.forEach(mirrorPos => {
+                // Calculate the top-left position for the mirrored text
+                const mirrorTopLeftX = mirrorPos.x - (tempCanvas.width / 2);
+                const mirrorTopLeftY = mirrorPos.y - (tempCanvas.height / 2);
+                
+                // Draw the text normally at the mirror position (no content flipping)
+                ctx.save();
+                ctx.imageSmoothingEnabled = false;
+                ctx.drawImage(tempCanvas, mirrorTopLeftX, mirrorTopLeftY);
+                ctx.restore();
+            });
+        }
         
         // Capture changes for undo system
         const afterImageData = ctx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
