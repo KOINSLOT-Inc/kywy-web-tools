@@ -1066,6 +1066,68 @@ class DrawingEditor {
         return currentX - x; // Return total width
     }
 
+    // Floyd-Steinberg dithering algorithm for converting colored content to black and white
+    applyFloydSteinbergDithering(imageData) {
+        const data = imageData.data;
+        const width = imageData.width;
+        const height = imageData.height;
+        
+        // Convert to grayscale and apply dithering
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                const idx = (y * width + x) * 4;
+                
+                // Skip transparent pixels
+                if (data[idx + 3] === 0) continue;
+                
+                // Convert to grayscale using luminance formula
+                const gray = Math.round(0.299 * data[idx] + 0.587 * data[idx + 1] + 0.114 * data[idx + 2]);
+                
+                // Determine if pixel should be black or white
+                const oldPixel = gray;
+                const newPixel = oldPixel < 128 ? 0 : 255;
+                const error = oldPixel - newPixel;
+                
+                // Set the new pixel value
+                data[idx] = newPixel;     // R
+                data[idx + 1] = newPixel; // G
+                data[idx + 2] = newPixel; // B
+                // Keep original alpha
+                
+                // Distribute error to neighboring pixels (Floyd-Steinberg weights)
+                this.distributeError(data, width, height, x, y, error);
+            }
+        }
+    }
+    
+    distributeError(data, width, height, x, y, error) {
+        const distributions = [
+            { dx: 1, dy: 0, weight: 7/16 },  // Right
+            { dx: -1, dy: 1, weight: 3/16 }, // Bottom-left
+            { dx: 0, dy: 1, weight: 5/16 },  // Bottom
+            { dx: 1, dy: 1, weight: 1/16 }   // Bottom-right
+        ];
+        
+        distributions.forEach(({ dx, dy, weight }) => {
+            const nx = x + dx;
+            const ny = y + dy;
+            
+            if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+                const idx = (ny * width + nx) * 4;
+                
+                // Only distribute to non-transparent pixels
+                if (data[idx + 3] > 0) {
+                    const currentGray = Math.round(0.299 * data[idx] + 0.587 * data[idx + 1] + 0.114 * data[idx + 2]);
+                    const newGray = Math.max(0, Math.min(255, currentGray + error * weight));
+                    
+                    data[idx] = newGray;     // R
+                    data[idx + 1] = newGray; // G
+                    data[idx + 2] = newGray; // B
+                }
+            }
+        });
+    }
+
     // Helper method to measure text width with spacing
     measureTextWithSpacing(ctx, text, minLetterSpacing = 1) {
         let totalWidth = 0;
@@ -1261,13 +1323,14 @@ class DrawingEditor {
         // Get the canvas container for panning/zooming events
         const canvasContainer = document.querySelector('.canvas-container');
         
-        // Canvas mouse events - add to both drawing and overlay canvas
+        // Canvas mouse events - attach to container to allow drawing outside canvas bounds
+        canvasContainer.addEventListener('mousedown', (e) => this.onMouseDown(e));
+        canvasContainer.addEventListener('mousemove', (e) => this.onMouseMove(e));
+        canvasContainer.addEventListener('mouseup', (e) => this.onMouseUp(e));
+        canvasContainer.addEventListener('mouseleave', (e) => this.onMouseLeave(e));
+        
+        // Also attach events to individual canvases for compatibility
         [this.drawingCanvas, this.overlayCanvas].forEach(canvas => {
-            canvas.addEventListener('mousedown', (e) => this.onMouseDown(e));
-            canvas.addEventListener('mousemove', (e) => this.onMouseMove(e));
-            canvas.addEventListener('mouseup', (e) => this.onMouseUp(e));
-            canvas.addEventListener('mouseleave', (e) => this.onMouseLeave(e));
-            
             // Add touch events
             canvas.addEventListener('touchstart', (e) => this.onTouchStart(e), { passive: false });
             canvas.addEventListener('touchmove', (e) => this.onTouchMove(e), { passive: false });
@@ -1360,41 +1423,15 @@ class DrawingEditor {
             
             if (this.isDrawing && this.currentTool === 'pen' && !this.shiftKey && this.penMode !== 'line') {
                 // Only handle normal pen drawing here, not straight lines (shift mode or line mode)
-                // Check if mouse is over one of our canvases
-                const canvasRect = this.drawingCanvas.getBoundingClientRect();
-                const x = e.clientX - canvasRect.left;
-                const y = e.clientY - canvasRect.top;
-                
-                // Convert to canvas coordinates
-                const canvasX = Math.floor(x / this.zoom);
-                const canvasY = Math.floor(y / this.zoom);
-                
-                // Check if current position is within canvas bounds
-                const isWithinBounds = canvasX >= 0 && canvasX < this.canvasWidth && canvasY >= 0 && canvasY < this.canvasHeight;
+                const pos = this.getMousePos(e);
                 
                 if (this.lastPos) {
-                    // Check if either the start or end point is within canvas bounds
-                    const startInBounds = this.lastPos.x >= 0 && this.lastPos.x < this.canvasWidth && 
-                                         this.lastPos.y >= 0 && this.lastPos.y < this.canvasHeight;
-                    const endInBounds = canvasX >= 0 && canvasX < this.canvasWidth && 
-                                       canvasY >= 0 && canvasY < this.canvasHeight;
-                    
-                    // Only draw if at least one endpoint is within bounds (this creates a line that crosses the canvas)
-                    if (startInBounds || endInBounds) {
-                        const clamped = this.clampLineToCanvas(this.lastPos.x, this.lastPos.y, canvasX, canvasY);
-                        
-                        // Only draw if there's actually a visible line segment within canvas
-                        if (clamped.x1 !== clamped.x2 || clamped.y1 !== clamped.y2) {
-                            this.drawLine(clamped.x1, clamped.y1, clamped.x2, clamped.y2);
-                        }
-                    }
-                    
-                    // Always update last position regardless of bounds - this keeps the "virtual" drawing continuous
-                    this.lastPos = {x: canvasX, y: canvasY};
-                } else {
-                    // Start tracking position regardless of bounds
-                    this.lastPos = {x: canvasX, y: canvasY};
+                    // Draw line from last position to current position (allowing off-canvas drawing)
+                    this.drawLine(this.lastPos.x, this.lastPos.y, pos.x, pos.y);
                 }
+                
+                // Always update last position
+                this.lastPos = pos;
             }
 
             // Handle drawing previews for other tools
@@ -1900,13 +1937,17 @@ class DrawingEditor {
     }
     
     getMousePos(e) {
-        const rect = this.drawingCanvas.getBoundingClientRect();
-        const scaleX = this.canvasWidth / rect.width;
-        const scaleY = this.canvasHeight / rect.height;
+        // Calculate position relative to the actual canvas, not the container
+        // This ensures proper alignment while still allowing container-level event capture
+        const canvasRect = this.drawingCanvas.getBoundingClientRect();
+        
+        // Calculate raw position relative to canvas
+        const rawX = (e.clientX - canvasRect.left) / this.zoom;
+        const rawY = (e.clientY - canvasRect.top) / this.zoom;
         
         let pos = {
-            x: Math.floor((e.clientX - rect.left) * scaleX),
-            y: Math.floor((e.clientY - rect.top) * scaleY)
+            x: Math.floor(rawX),
+            y: Math.floor(rawY)
         };
         
         // Apply grid snapping if grid mode is enabled
@@ -2464,24 +2505,21 @@ class DrawingEditor {
         
         if (this.mirrorHorizontal) {
             const mirrorX = centerX - (x - centerX);
-            if (mirrorX >= 0 && mirrorX < this.canvasWidth) {
-                this.drawGridSquare(mirrorX, y, ctx, color);
-            }
+            // Allow mirrored drawing outside canvas bounds
+            this.drawGridSquare(mirrorX, y, ctx, color);
         }
         
         if (this.mirrorVertical) {
             const mirrorY = centerY - (y - centerY);
-            if (mirrorY >= 0 && mirrorY < this.canvasHeight) {
-                this.drawGridSquare(x, mirrorY, ctx, color);
-            }
+            // Allow mirrored drawing outside canvas bounds
+            this.drawGridSquare(x, mirrorY, ctx, color);
         }
         
         if (this.mirrorHorizontal && this.mirrorVertical) {
             const mirrorX = centerX - (x - centerX);
             const mirrorY = centerY - (y - centerY);
-            if (mirrorX >= 0 && mirrorX < this.canvasWidth && mirrorY >= 0 && mirrorY < this.canvasHeight) {
-                this.drawGridSquare(mirrorX, mirrorY, ctx, color);
-            }
+            // Allow mirrored drawing outside canvas bounds
+            this.drawGridSquare(mirrorX, mirrorY, ctx, color);
         }
     }
     
@@ -3791,11 +3829,14 @@ class DrawingEditor {
     }
     
     setPreviewPixel(x, y) {
-        if (x >= 0 && x < this.canvasWidth && y >= 0 && y < this.canvasHeight) {
-            // Use red color for polygon preview
-            this.overlayCtx.fillStyle = '#ff0000';
-            this.overlayCtx.fillRect(x, y, 1, 1);
+        // Allow preview pixels outside canvas bounds
+        if (x < 0 || x >= this.canvasWidth || y < 0 || y >= this.canvasHeight) {
+            // Don't draw outside canvas bounds for previews
+            return;
         }
+        // Use red color for polygon preview
+        this.overlayCtx.fillStyle = '#ff0000';
+        this.overlayCtx.fillRect(x, y, 1, 1);
     }
     
     showMirroredShapePreview(shapeType, startX, startY, radius, endX, endY) {
@@ -4424,32 +4465,36 @@ class DrawingEditor {
     }
     
     setPixelInFrame(x, y, ctx) {
-        if (x >= 0 && x < this.canvasWidth && y >= 0 && y < this.canvasHeight) {
-            // Use direct pixel manipulation for 100% opacity
-            const imageData = ctx.getImageData(x, y, 1, 1);
-            const data = imageData.data;
-            
-            // Convert color to RGB
-            let r, g, b;
-            if (this.currentColor === 'black') {
-                r = g = b = 0;
-            } else if (this.currentColor === 'white') {
-                r = g = b = 255;
-            } else {
-                // Handle hex colors
-                const hex = this.currentColor.replace('#', '');
-                r = parseInt(hex.substr(0, 2), 16);
-                g = parseInt(hex.substr(2, 2), 16);
-                b = parseInt(hex.substr(4, 2), 16);
-            }
-            
-            data[0] = r;
-            data[1] = g;
-            data[2] = b;
-            data[3] = 255; // Full opacity
-            
-            ctx.putImageData(imageData, x, y);
+        // Allow drawing outside canvas bounds - extend canvas if needed
+        if (x < 0 || x >= this.canvasWidth || y < 0 || y >= this.canvasHeight) {
+            // Don't draw outside bounds for now, but could be extended to auto-expand canvas
+            return;
         }
+        
+        // Use direct pixel manipulation for 100% opacity
+        const imageData = ctx.getImageData(x, y, 1, 1);
+        const data = imageData.data;
+        
+        // Convert color to RGB
+        let r, g, b;
+        if (this.currentColor === 'black') {
+            r = g = b = 0;
+        } else if (this.currentColor === 'white') {
+            r = g = b = 255;
+        } else {
+            // Handle hex colors
+            const hex = this.currentColor.replace('#', '');
+            r = parseInt(hex.substr(0, 2), 16);
+            g = parseInt(hex.substr(2, 2), 16);
+            b = parseInt(hex.substr(4, 2), 16);
+        }
+        
+        data[0] = r;
+        data[1] = g;
+        data[2] = b;
+        data[3] = 255; // Full opacity
+        
+        ctx.putImageData(imageData, x, y);
     }
 
     // Polygon drawing methods
@@ -5224,29 +5269,36 @@ class DrawingEditor {
         
         tempCtx.restore();
         
-        // Get image data and binarize
+        // Get image data and apply dithering for better emoji support
         const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
-        const data = imageData.data;
         
-        // Binarize with lower threshold for better text detection
+        // Apply Floyd-Steinberg dithering to convert colors to black and white
+        this.applyFloydSteinbergDithering(imageData);
+        
+        // Apply final binarization with text color
+        const data = imageData.data;
         for (let i = 0; i < data.length; i += 4) {
-            const r = data[i];
-            const g = data[i + 1];
-            const b = data[i + 2];
             const alpha = data[i + 3];
             
-            // Calculate grayscale and apply threshold
-            const gray = (r + g + b) / 3;
-            const threshold = 200; // Higher threshold to capture more anti-aliased pixels
-            
-            if (alpha > 10 && gray < threshold) {
-                // Make it black
-                data[i] = 0;     // R
-                data[i + 1] = 0; // G
-                data[i + 2] = 0; // B
-                data[i + 3] = 255; // A
+            if (alpha > 10) {
+                // Check if pixel is black or white from dithering
+                const isBlack = data[i] < 128; // Since dithering produces 0 or 255
+                
+                if (isBlack) {
+                    // Make it black for preview
+                    data[i] = 0;     // R
+                    data[i + 1] = 0; // G
+                    data[i + 2] = 0; // B
+                    data[i + 3] = 255; // A
+                } else {
+                    // Make it transparent (white areas become transparent)
+                    data[i] = 0;     // R
+                    data[i + 1] = 0; // G
+                    data[i + 2] = 0; // B
+                    data[i + 3] = 0; // A
+                }
             } else {
-                // Make it transparent
+                // Already transparent
                 data[i] = 0;     // R
                 data[i + 1] = 0; // G
                 data[i + 2] = 0; // B
@@ -5344,35 +5396,42 @@ class DrawingEditor {
         
         tempCtx.restore();
         
-        // Get image data and binarize
+        // Get image data and apply dithering for better emoji support
         const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
-        const data = imageData.data;
         
-        // Binarize with lower threshold for better text detection
+        // Apply Floyd-Steinberg dithering to convert colors to black and white
+        this.applyFloydSteinbergDithering(imageData);
+        
+        // Apply final binarization with text color
+        const data = imageData.data;
         for (let i = 0; i < data.length; i += 4) {
-            const r = data[i];
-            const g = data[i + 1];
-            const b = data[i + 2];
             const alpha = data[i + 3];
             
-            // Calculate grayscale and apply threshold
-            const gray = (r + g + b) / 3;
-            const threshold = 200; // Higher threshold to capture more anti-aliased pixels
-            
-            if (alpha > 10 && gray < threshold) {
-                // Make it the selected text color
-                if (this.textColor === 'white') {
-                    data[i] = 255;     // R
-                    data[i + 1] = 255; // G
-                    data[i + 2] = 255; // B
+            if (alpha > 10) {
+                // Check if pixel is black or white from dithering
+                const isBlack = data[i] < 128; // Since dithering produces 0 or 255
+                
+                if (isBlack) {
+                    // Make it the selected text color
+                    if (this.textColor === 'white') {
+                        data[i] = 255;     // R
+                        data[i + 1] = 255; // G
+                        data[i + 2] = 255; // B
+                    } else {
+                        data[i] = 0;     // R
+                        data[i + 1] = 0; // G
+                        data[i + 2] = 0; // B
+                    }
+                    data[i + 3] = 255; // A
                 } else {
+                    // Make it transparent (white areas become transparent)
                     data[i] = 0;     // R
                     data[i + 1] = 0; // G
                     data[i + 2] = 0; // B
+                    data[i + 3] = 0; // A
                 }
-                data[i + 3] = 255; // A
             } else {
-                // Make it transparent
+                // Already transparent
                 data[i] = 0;     // R
                 data[i + 1] = 0; // G
                 data[i + 2] = 0; // B
