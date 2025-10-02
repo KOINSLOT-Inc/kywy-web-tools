@@ -1343,24 +1343,12 @@ class DrawingEditor {
                 
                 // Show pen preview when hovering with pen tool (even when not drawing)
                 if (this.currentTool === 'pen' && !this.gridModeEnabled) {
-                    // Only show preview if cursor is within canvas bounds
-                    if (this.isWithinCanvas(pos.x, pos.y)) {
-                        this.showPenPreview(pos.x, pos.y);
-                    } else {
-                        // Clear preview when outside canvas
-                        this.clearOverlayAndRedrawBase();
-                    }
+                    this.showPenPreview(pos.x, pos.y);
                 }
 
                 // Show fill preview when hovering with bucket tool
                 if (this.currentTool === 'bucket') {
-                    // Only show preview if cursor is within canvas bounds
-                    if (this.isWithinCanvas(pos.x, pos.y)) {
-                        this.showFillPreview(pos.x, pos.y);
-                    } else {
-                        // Clear preview when outside canvas
-                        this.clearOverlayAndRedrawBase();
-                    }
+                    this.showFillPreview(pos.x, pos.y);
                 }
 
                 // Show paste preview when in paste mode (even while drawing/clicking)
@@ -3111,7 +3099,8 @@ class DrawingEditor {
                 mirrorX = 2 * centerPixel - x;
             }
             
-            if (mirrorX >= 0 && mirrorX < this.canvasWidth && mirrorX !== x) {
+            // Allow mirror positions even if original position is off-canvas
+            if (mirrorX !== x) {
                 positions.push({x: mirrorX, y: y});
             }
         }
@@ -3127,7 +3116,8 @@ class DrawingEditor {
                 mirrorY = 2 * centerPixel - y;
             }
             
-            if (mirrorY >= 0 && mirrorY < this.canvasHeight && mirrorY !== y) {
+            // Allow mirror positions even if original position is off-canvas
+            if (mirrorY !== y) {
                 positions.push({x: x, y: mirrorY});
             }
         }
@@ -3153,18 +3143,17 @@ class DrawingEditor {
             }
             
             // Horizontal mirror
-            if (mirrorX >= 0 && mirrorX < this.canvasWidth && mirrorX !== x) {
+            if (mirrorX !== x) {
                 positions.push({x: mirrorX, y: y});
             }
             
             // Vertical mirror
-            if (mirrorY >= 0 && mirrorY < this.canvasHeight && mirrorY !== y) {
+            if (mirrorY !== y) {
                 positions.push({x: x, y: mirrorY});
             }
             
             // Diagonal mirror (both axes)
-            if (mirrorX >= 0 && mirrorX < this.canvasWidth && mirrorY >= 0 && mirrorY < this.canvasHeight && 
-                (mirrorX !== x || mirrorY !== y)) {
+            if (mirrorX !== x || mirrorY !== y) {
                 positions.push({x: mirrorX, y: mirrorY});
             }
         }
@@ -3857,7 +3846,7 @@ class DrawingEditor {
             mirrorX = 2 * centerPixel - x;
         }
         
-        if (mirrorX >= 0 && mirrorX < this.canvasWidth && mirrorX !== x) {
+        if (mirrorX !== x) {
             return mirrorX;
         }
         return null;
@@ -3873,7 +3862,7 @@ class DrawingEditor {
             mirrorY = 2 * centerPixel - y;
         }
         
-        if (mirrorY >= 0 && mirrorY < this.canvasHeight && mirrorY !== y) {
+        if (mirrorY !== y) {
             return mirrorY;
         }
         return null;
@@ -4047,11 +4036,9 @@ class DrawingEditor {
             
             // Draw mirrored polygons
             if (this.mirrorHorizontal || this.mirrorVertical) {
-                const mirrorPositions = this.calculateMirrorShapePositions(startX - radius, startY - radius, startX + radius, startY + radius);
-                mirrorPositions.forEach(mirror => {
-                    const mirrorCenterX = (mirror.x1 + mirror.x2) / 2;
-                    const mirrorCenterY = (mirror.y1 + mirror.y2) / 2;
-                    this.drawPolygon(mirrorCenterX, mirrorCenterY, radius, rotation, ctx);
+                const mirrorPositions = this.calculateMirrorPositions(startX, startY);
+                mirrorPositions.forEach(mirrorPos => {
+                    this.drawPolygon(mirrorPos.x, mirrorPos.y, radius, rotation, ctx);
                 });
             }
         }
