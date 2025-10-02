@@ -1418,8 +1418,8 @@ class DrawingEditor {
                     this.drawStraightLinePreview(this.startPos.x, this.startPos.y, pos.x, pos.y);
                 }
                 
-                // Handle shape previews for circle and square tools
-                if ((this.currentTool === 'circle' || this.currentTool === 'square')) {
+                // Handle shape previews for circle, square, and polygon tools
+                if ((this.currentTool === 'circle' || this.currentTool === 'square' || this.currentTool === 'polygon')) {
                     this.updateShapePreview(pos);
                 }
             }
@@ -3539,14 +3539,7 @@ class DrawingEditor {
             // Always use perfect center mode: draw perfect polygon bounded by rectangle from center
             const halfWidth = Math.abs(endX - startX);
             const halfHeight = Math.abs(endY - startY);
-            let radius = Math.max(halfWidth, halfHeight); // Use larger dimension for perfect polygon
-            
-            // Aggressively limit radius to ensure polygon is always at least partially visible
-            // Use a much more conservative limit - max distance to any edge
-            const maxRadiusX = Math.max(startX, this.canvasWidth - startX);
-            const maxRadiusY = Math.max(startY, this.canvasHeight - startY);
-            const maxRadius = Math.max(maxRadiusX, maxRadiusY);
-            radius = Math.min(radius, maxRadius);
+            const radius = Math.max(halfWidth, halfHeight); // Use larger dimension for perfect polygon
             
             // Calculate rotation angle from center to mouse (unless shift is held)
             let rotation = 0;
