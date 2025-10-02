@@ -994,7 +994,7 @@ input[type="range"]::-moz-range-thumb {
     border-radius: 6px;
     background: var(--bg-color);
     max-height: 200px;
-    overflow: visible;
+    overflow: hidden;
     width: 100%;
     max-width: 240px;
     box-sizing: border-box;
