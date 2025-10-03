@@ -1370,7 +1370,27 @@ class DrawingEditor {
         const baseCode = codePoints[i].codePointAt(0);
         i++;
         
-        // Check if this is a regional indicator symbol (flag emoji)
+        // Check if this is a black flag (U+1F3F4) - subdivision flags use this with tag sequences
+        if (baseCode === 0x1F3F4) {
+            // Continue collecting tag characters (U+E0000 - U+E007F)
+            while (i < codePoints.length) {
+                const code = codePoints[i].codePointAt(0);
+                if (code >= 0xE0000 && code <= 0xE007F) {
+                    emoji += codePoints[i];
+                    i++;
+                    // U+E007F is the cancel tag that ends the sequence
+                    if (code === 0xE007F) break;
+                } else {
+                    break;
+                }
+            }
+            return {
+                emoji: emoji,
+                length: i - startIndex
+            };
+        }
+        
+        // Check if this is a regional indicator symbol (country flag emoji)
         // Regional indicators are in range 0x1F1E6 - 0x1F1FF
         if (baseCode >= 0x1F1E6 && baseCode <= 0x1F1FF) {
             // Flags are made of two regional indicator symbols
