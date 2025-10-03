@@ -272,7 +272,10 @@ class DrawingEditor {
         this.showGridLines = true;
         
         // Pen mode properties
-        this.penMode = 'freehand'; // 'freehand', 'line', 'grid'
+        this.penMode = 'freehand'; // 'freehand', 'line', 'grid', 'spray'
+        this.sprayFlow = 3; // Particles per movement unit (1-10)
+        this.sprayInterval = null; // Timer for continuous spray
+        this.sprayPos = null; // Current spray position
         
         // Fill pattern properties
         this.fillPattern = 'solid'; // default to solid fill
@@ -570,13 +573,16 @@ class DrawingEditor {
         
         if (penModeBtn) {
             penModeBtn.addEventListener('click', () => {
-                // Cycle between freehand, line, and grid mode
+                // Cycle between freehand, line, grid, and spray mode
                 if (this.penMode === 'freehand') {
                     this.penMode = 'line';
                     this.gridModeEnabled = false;
                 } else if (this.penMode === 'line') {
                     this.penMode = 'grid';
                     this.gridModeEnabled = true;
+                } else if (this.penMode === 'grid') {
+                    this.penMode = 'spray';
+                    this.gridModeEnabled = false;
                 } else {
                     this.penMode = 'freehand';
                     this.gridModeEnabled = false;
@@ -804,6 +810,15 @@ class DrawingEditor {
                 document.getElementById('gridSizeDisplay2').textContent = this.gridSize;
             }
         });
+        
+        // Spray flow controls
+        const sprayFlowSlider = document.getElementById('sprayFlow');
+        if (sprayFlowSlider) {
+            sprayFlowSlider.addEventListener('input', () => {
+                this.sprayFlow = parseInt(sprayFlowSlider.value);
+                document.getElementById('sprayFlowDisplay').textContent = this.sprayFlow;
+            });
+        }
 
         // Grid mode controls
         const gridModeSettings = document.getElementById('gridModeSettings');
@@ -2905,6 +2920,7 @@ class DrawingEditor {
         const brushSizeSlider = document.getElementById('brushSize');
         const brushSizeDisplay = document.getElementById('brushSizeDisplay');
         const brushShapeButtons = document.querySelectorAll('.brush-shape-btn');
+        const sprayFlowControl = document.getElementById('sprayFlowControl');
         
         if (this.gridModeEnabled) {
             // Keep brush controls enabled in grid mode - user should be able to adjust grid size
@@ -2922,6 +2938,28 @@ class DrawingEditor {
                 btn.disabled = false;
                 btn.style.opacity = '1';
             });
+            // Hide flow control
+            if (sprayFlowControl) {
+                sprayFlowControl.style.display = 'none';
+            }
+        } else if (this.penMode === 'spray') {
+            // Spray mode - hide shape buttons, show flow control
+            if (brushSizeSlider) {
+                brushSizeSlider.disabled = false;
+                brushSizeSlider.style.opacity = '1';
+            }
+            if (brushSizeDisplay) {
+                brushSizeDisplay.textContent = this.brushSize;
+            }
+            // Hide shape buttons in spray mode
+            brushShapeButtons.forEach(btn => {
+                btn.disabled = true;
+                btn.style.opacity = '0.3';
+            });
+            // Show flow control
+            if (sprayFlowControl) {
+                sprayFlowControl.style.display = 'block';
+            }
         } else {
             // Normal brush mode
             if (brushSizeSlider) {
@@ -2935,6 +2973,10 @@ class DrawingEditor {
                 btn.disabled = false;
                 btn.style.opacity = '1';
             });
+            // Hide flow control
+            if (sprayFlowControl) {
+                sprayFlowControl.style.display = 'none';
+            }
         }
     }
     
@@ -2992,6 +3034,11 @@ class DrawingEditor {
                 if (!this.shiftKey && this.penMode !== 'line') {
                     this.drawPixel(pos.x, pos.y);
                 }
+                
+                // Start continuous spray if in spray mode
+                if (this.penMode === 'spray') {
+                    this.startContinuousSpray(pos);
+                }
                 break;
             case 'circle':
                 this.startShape('circle', pos);
@@ -3029,6 +3076,9 @@ class DrawingEditor {
     }
     
     onMouseLeave(e) {
+        // Stop continuous spray when leaving canvas
+        this.stopContinuousSpray();
+        
         // When mouse leaves, restore the proper overlay state without cursor highlights
         // This will preserve grids, selections, and other overlays
         this.restoreOverlayState();
@@ -3197,10 +3247,21 @@ class DrawingEditor {
         }
         
         // Show pen preview when hovering with pen tool (even when not drawing)
-        if (this.currentTool === 'pen' && !this.isDrawing && !this.gridModeEnabled) {
+        if (this.currentTool === 'pen' && !this.isDrawing && !this.gridModeEnabled && this.penMode !== 'spray') {
             // Only show preview if cursor is within canvas bounds
             if (this.isWithinCanvas(pos.x, pos.y)) {
                 this.showPenPreview(pos.x, pos.y);
+            } else {
+                // Clear preview when outside canvas
+                this.clearOverlayAndRedrawBase();
+            }
+        }
+        
+        // Show spray preview when hovering with spray mode
+        if (this.currentTool === 'pen' && !this.isDrawing && this.penMode === 'spray') {
+            // Only show preview if cursor is within canvas bounds
+            if (this.isWithinCanvas(pos.x, pos.y)) {
+                this.showSprayPreview(pos.x, pos.y);
             } else {
                 // Clear preview when outside canvas
                 this.clearOverlayAndRedrawBase();
@@ -3242,6 +3303,11 @@ class DrawingEditor {
                     // Normal drawing - draw line and update position
                     this.drawLine(this.lastPos.x, this.lastPos.y, pos.x, pos.y);
                     this.lastPos = pos;
+                    
+                    // Update spray position if in spray mode
+                    if (this.penMode === 'spray') {
+                        this.sprayPos = pos;
+                    }
                 }
                 break;
             case 'circle':
@@ -3280,6 +3346,9 @@ class DrawingEditor {
     }
     
     onMouseUp(e) {
+        // Stop continuous spray if active
+        this.stopContinuousSpray();
+        
         // Handle paste mode drag completion even if not in drawing mode
         if (this.isPasteModeActive && this.pasteDragActive) {
             const pos = this.getMousePos(e);
@@ -3396,6 +3465,14 @@ class DrawingEditor {
             // Handle mirroring for grid mode
             if (this.mirrorHorizontal || this.mirrorVertical) {
                 this.drawMirroredGridSquares(x, y, ctx, color);
+            }
+        } else if (this.penMode === 'spray') {
+            // Spray mode - use Gaussian noise distribution
+            this.drawSprayBrush(x, y, this.brushSize, ctx, color);
+            
+            // Handle mirroring for spray mode
+            if (this.mirrorHorizontal || this.mirrorVertical) {
+                this.drawMirroredSpray(x, y, ctx, color);
             }
         } else {
             // Normal drawing mode - use brush size and shape
@@ -3615,6 +3692,91 @@ class DrawingEditor {
         }
     }
     
+    // Generate a random number with Gaussian (normal) distribution
+    // Uses Box-Muller transform
+    gaussianRandom(mean = 0, stdDev = 1) {
+        const u1 = Math.random();
+        const u2 = Math.random();
+        const z0 = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
+        return z0 * stdDev + mean;
+    }
+    
+    drawSprayBrush(x, y, size, ctx, color) {
+        // Number of particles per spray - scales with brush size and flow setting
+        // Flow is divided by 3 to make the effect more subtle
+        // Ensure at least 1 particle is always drawn
+        const particleCount = Math.max(1, Math.floor(size * (this.sprayFlow / 3)));
+        
+        // Standard deviation for the Gaussian distribution
+        // Smaller values = tighter spray, larger = more spread out
+        const spread = size / 5; // Adjust spread factor as needed
+        
+        for (let i = 0; i < particleCount; i++) {
+            // Generate random offsets using Gaussian distribution
+            const offsetX = this.gaussianRandom(0, spread);
+            const offsetY = this.gaussianRandom(0, spread);
+            
+            const px = Math.round(x + offsetX);
+            const py = Math.round(y + offsetY);
+            
+            // Only draw if within canvas bounds
+            if (px >= 0 && px < this.canvasWidth && py >= 0 && py < this.canvasHeight) {
+                ctx.fillStyle = color;
+                ctx.fillRect(px, py, 1, 1);
+            }
+        }
+    }
+    
+    drawMirroredSpray(x, y, ctx, color) {
+        const centerX = Math.floor(this.canvasWidth / 2);
+        const centerY = Math.floor(this.canvasHeight / 2);
+        
+        if (this.mirrorHorizontal) {
+            const mirrorX = centerX - (x - centerX);
+            if (mirrorX >= 0 && mirrorX < this.canvasWidth) {
+                this.drawSprayBrush(mirrorX, y, this.brushSize, ctx, color);
+            }
+        }
+        
+        if (this.mirrorVertical) {
+            const mirrorY = centerY - (y - centerY);
+            if (mirrorY >= 0 && mirrorY < this.canvasHeight) {
+                this.drawSprayBrush(x, mirrorY, this.brushSize, ctx, color);
+            }
+        }
+        
+        if (this.mirrorHorizontal && this.mirrorVertical) {
+            const mirrorX = centerX - (x - centerX);
+            const mirrorY = centerY - (y - centerY);
+            if (mirrorX >= 0 && mirrorX < this.canvasWidth && mirrorY >= 0 && mirrorY < this.canvasHeight) {
+                this.drawSprayBrush(mirrorX, mirrorY, this.brushSize, ctx, color);
+            }
+        }
+    }
+    
+    startContinuousSpray(pos) {
+        // Clear any existing spray timer
+        this.stopContinuousSpray();
+        
+        // Store spray position
+        this.sprayPos = pos;
+        
+        // Create interval that continuously sprays
+        this.sprayInterval = setInterval(() => {
+            if (this.isDrawing && this.penMode === 'spray' && this.sprayPos) {
+                this.drawPixel(this.sprayPos.x, this.sprayPos.y);
+            }
+        }, 50); // Spray every 50ms (20 times per second)
+    }
+    
+    stopContinuousSpray() {
+        if (this.sprayInterval) {
+            clearInterval(this.sprayInterval);
+            this.sprayInterval = null;
+        }
+        this.sprayPos = null;
+    }
+    
     drawLine(x0, y0, x1, y1) {
         // Bresenham's line algorithm
         const dx = Math.abs(x1 - x0);
@@ -3752,6 +3914,89 @@ class DrawingEditor {
         
         // Restore overlay context
         this.overlayCtx.restore();
+    }
+    
+    showSprayPreview(x, y) {
+        // Ensure coordinates are integers for pixel-perfect positioning
+        x = Math.floor(x);
+        y = Math.floor(y);
+        
+        // Clear overlay completely first
+        this.overlayCtx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
+        
+        // Phase 1: Draw base overlays (which includes grid if appropriate)
+        this.drawBaseOverlays();
+        
+        // Phase 2: Draw spray preview (top layer)
+        this.overlayCtx.save();
+        
+        // Disable anti-aliasing for crisp, pixel-perfect rendering
+        this.overlayCtx.imageSmoothingEnabled = false;
+        this.overlayCtx.webkitImageSmoothingEnabled = false;
+        this.overlayCtx.mozImageSmoothingEnabled = false;
+        this.overlayCtx.msImageSmoothingEnabled = false;
+        
+        // Draw a circle outline to show spray area
+        // Use brushSize/2 as radius so the diameter equals the brush size in pixels
+        const radius = this.brushSize / 2;
+        this.overlayCtx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
+        this.overlayCtx.lineWidth = 1;
+        this.overlayCtx.setLineDash([2, 2]);
+        
+        this.overlayCtx.beginPath();
+        this.overlayCtx.arc(x + 0.5, y + 0.5, radius, 0, 2 * Math.PI);
+        this.overlayCtx.stroke();
+        
+        this.overlayCtx.setLineDash([]);
+        
+        // Draw mirrored previews if mirror mode is enabled
+        if (this.mirrorHorizontal || this.mirrorVertical) {
+            this.drawMirroredSprayPreview(x, y);
+        }
+        
+        // Restore overlay context
+        this.overlayCtx.restore();
+    }
+    
+    drawMirroredSprayPreview(x, y) {
+        const centerX = Math.floor(this.canvasWidth / 2);
+        const centerY = Math.floor(this.canvasHeight / 2);
+        // Use brushSize/2 as radius so the diameter equals the brush size in pixels
+        const radius = this.brushSize / 2;
+        
+        this.overlayCtx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
+        this.overlayCtx.lineWidth = 1;
+        this.overlayCtx.setLineDash([2, 2]);
+        
+        if (this.mirrorHorizontal) {
+            const mirrorX = centerX - (x - centerX);
+            if (mirrorX >= 0 && mirrorX < this.canvasWidth) {
+                this.overlayCtx.beginPath();
+                this.overlayCtx.arc(mirrorX + 0.5, y + 0.5, radius, 0, 2 * Math.PI);
+                this.overlayCtx.stroke();
+            }
+        }
+        
+        if (this.mirrorVertical) {
+            const mirrorY = centerY - (y - centerY);
+            if (mirrorY >= 0 && mirrorY < this.canvasHeight) {
+                this.overlayCtx.beginPath();
+                this.overlayCtx.arc(x + 0.5, mirrorY + 0.5, radius, 0, 2 * Math.PI);
+                this.overlayCtx.stroke();
+            }
+        }
+        
+        if (this.mirrorHorizontal && this.mirrorVertical) {
+            const mirrorX = centerX - (x - centerX);
+            const mirrorY = centerY - (y - centerY);
+            if (mirrorX >= 0 && mirrorX < this.canvasWidth && mirrorY >= 0 && mirrorY < this.canvasHeight) {
+                this.overlayCtx.beginPath();
+                this.overlayCtx.arc(mirrorX + 0.5, mirrorY + 0.5, radius, 0, 2 * Math.PI);
+                this.overlayCtx.stroke();
+            }
+        }
+        
+        this.overlayCtx.setLineDash([]);
     }
     
     showGridCursor(x, y) {
@@ -6409,6 +6654,9 @@ class DrawingEditor {
             return; // Don't change the current tool
         }
         
+        // Stop continuous spray when switching tools
+        this.stopContinuousSpray();
+        
         // Clear any previews when switching tools
         this.clearOverlayAndRedrawBase();
         
@@ -6648,6 +6896,10 @@ class DrawingEditor {
                 penModeIcon.textContent = '↔️';
                 penModeText.textContent = 'Line';
                 penModeBtn.setAttribute('data-mode', 'line');
+            } else if (this.penMode === 'spray') {
+                penModeIcon.textContent = '💨';
+                penModeText.textContent = 'Spray';
+                penModeBtn.setAttribute('data-mode', 'spray');
             } else {
                 penModeIcon.textContent = '✏️';
                 penModeText.textContent = 'Freehand';
