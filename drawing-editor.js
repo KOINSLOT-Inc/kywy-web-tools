@@ -6562,24 +6562,10 @@ class DrawingEditor {
                 if (this.selection.cutContent) {
                     // Draw cut content
                     this.overlayCtx.drawImage(this.selection.cutContent, minX, minY);
-                    
-                    // Draw blue border around the draggable content
-                    this.overlayCtx.strokeStyle = '#0066ff';
-                    this.overlayCtx.setLineDash([2, 2]);
-                    this.overlayCtx.lineWidth = 1;
-                    this.overlayCtx.strokeRect(minX, minY, width, height);
-                    this.overlayCtx.setLineDash([]);
                 } else {
                     // Draw selection overlay - simplified version for restore
                     this.overlayCtx.fillStyle = 'rgba(255, 0, 0, 0.3)';
                     this.overlayCtx.fillRect(minX, minY, width, height);
-                    
-                    // Draw selection border
-                    this.overlayCtx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
-                    this.overlayCtx.setLineDash([2, 2]);
-                    this.overlayCtx.lineWidth = 1;
-                    this.overlayCtx.strokeRect(minX, minY, width, height);
-                    this.overlayCtx.setLineDash([]);
                 }
                 
                 this.overlayCtx.restore();
@@ -7761,6 +7747,19 @@ class DrawingEditor {
     
     // File operations with selection support
     copy() {
+        // If already in paste mode, just exit it and return
+        if (this.isPasteModeActive) {
+            this.isPasteModeActive = false;
+            const pasteModeBtn = document.getElementById('pasteModeBtn');
+            const pasteModeOptions = document.getElementById('pasteModeOptions');
+            pasteModeBtn.classList.remove('active');
+            pasteModeBtn.textContent = 'Paste Mode';
+            pasteModeOptions.style.display = 'none';
+            this.clearPastePreview();
+            this.pasteDragActive = false;
+            return; // Exit without performing copy
+        }
+        
         if (this.selection && this.selection.active) {
             this.copySelection();
         } else {
@@ -7774,6 +7773,19 @@ class DrawingEditor {
             };
             this.updateEditButtonStates();
         }
+        
+        // Automatically enter paste mode
+        this.setTool('select');
+        this.isPasteModeActive = true;
+        
+        // Update paste mode button and show options
+        const pasteModeBtn = document.getElementById('pasteModeBtn');
+        const pasteModeOptions = document.getElementById('pasteModeOptions');
+        
+        pasteModeBtn.classList.add('active');
+        pasteModeBtn.textContent = 'Exit Paste Mode';
+        pasteModeOptions.style.display = 'block';
+        pasteModeBtn.disabled = false;
     }
     
     copySelection() {
@@ -7963,6 +7975,19 @@ class DrawingEditor {
     }
     
     cut() {
+        // If already in paste mode, just exit it and return
+        if (this.isPasteModeActive) {
+            this.isPasteModeActive = false;
+            const pasteModeBtn = document.getElementById('pasteModeBtn');
+            const pasteModeOptions = document.getElementById('pasteModeOptions');
+            pasteModeBtn.classList.remove('active');
+            pasteModeBtn.textContent = 'Paste Mode';
+            pasteModeOptions.style.display = 'none';
+            this.clearPastePreview();
+            this.pasteDragActive = false;
+            return; // Exit without performing cut
+        }
+        
         if (!this.selection || !this.selection.active) return;
         
         // Store the cut content for clipboard
@@ -8773,64 +8798,11 @@ Instructions:
             // If we have cut content, draw it at the selection position
             if (this.selection.cutContent) {
                 this.overlayCtx.drawImage(this.selection.cutContent, minX, minY);
-                
-                // Draw blue border around the draggable content
-                this.overlayCtx.strokeStyle = '#0066ff';
-                this.overlayCtx.setLineDash([2, 2]);
-                this.overlayCtx.lineWidth = 1;
-                this.overlayCtx.strokeRect(minX, minY, width, height);
-                this.overlayCtx.setLineDash([]);
-            } else {
-                // Normal selection - draw pixel-perfect red overlay
-                const currentFrame = this.frames[this.currentFrameIndex];
-                const tempCanvas = document.createElement('canvas');
-                tempCanvas.width = this.canvasWidth;
-                tempCanvas.height = this.canvasHeight;
-                const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
-                tempCtx.drawImage(currentFrame, 0, 0);
-                
-                const imageData = tempCtx.getImageData(minX, minY, width, height);
-                
-                for (let y = 0; y < height; y++) {
-                    for (let x = 0; x < width; x++) {
-                        const pixelIndex = (y * width + x) * 4;
-                        const r = imageData.data[pixelIndex];
-                        const g = imageData.data[pixelIndex + 1];
-                        const b = imageData.data[pixelIndex + 2];
-                        
-                        // Determine if pixel is closer to black or white
-                        const brightness = (r + g + b) / 3;
-                        
-                        if (brightness < 128) {
-                            // Darker pixel - use lighter red
-                            this.overlayCtx.fillStyle = '#ff6666';
-                        } else {
-                            // Lighter pixel - use darker red
-                            this.overlayCtx.fillStyle = '#cc0000';
-                        }
-                        
-                        this.overlayCtx.fillRect(minX + x, minY + y, 1, 1);
-                    }
-                }
             }
             
-            // Draw corner handles - pixel perfect 2x2
-            const handleSize = 2;
-            this.overlayCtx.fillStyle = '#0066ff';
-            this.overlayCtx.strokeStyle = '#ffffff';
-            this.overlayCtx.lineWidth = 1;
-            
-            // Corner handles
-            this.drawHandle(minX, minY, handleSize);
-            this.drawHandle(minX + width, minY, handleSize);
-            this.drawHandle(minX, minY + height, handleSize);
-            this.drawHandle(minX + width, minY + height, handleSize);
-            
-            // Edge handles for dragging
-            this.drawHandle(minX + width/2, minY, handleSize);
-            this.drawHandle(minX + width/2, minY + height, handleSize);
-            this.drawHandle(minX, minY + height/2, handleSize);
-            this.drawHandle(minX + width, minY + height/2, handleSize);
+            // Draw simple light red semi-transparent overlay
+            this.overlayCtx.fillStyle = 'rgba(255, 100, 100, 0.3)';
+            this.overlayCtx.fillRect(minX, minY, width, height);
             
             this.overlayCtx.restore();
         }
