@@ -1453,42 +1453,42 @@ class DrawingEditor {
         tempCtx.font = emojiFont;
         tempCtx.textBaseline = 'middle';
         tempCtx.textAlign = 'center';
-        tempCtx.fillStyle = '#000000';
         
-        // Clear temp canvas with white background
-        tempCtx.fillStyle = 'white';
-        tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+        // DON'T fill with white - leave transparent so we can use the emoji's actual alpha channel
+        // Clear to transparent
+        tempCtx.clearRect(0, 0, tempCanvas.width, tempCanvas.height);
         
         // Render emoji centered in the canvas
         tempCtx.fillStyle = '#000000';
         tempCtx.fillText(emoji, tempCanvas.width / 2, tempCanvas.height / 2);
         
-        // Create alpha mask by comparing with original white background
+        // Get image data and create mask from the emoji's actual alpha channel
         const originalImageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
         const maskCanvas = document.createElement('canvas');
         const maskCtx = maskCanvas.getContext('2d');
         maskCanvas.width = tempCanvas.width;
         maskCanvas.height = tempCanvas.height;
         
-        // Create mask: white background pixels become transparent, emoji pixels become opaque
+        // Create mask using the emoji's actual alpha channel
         const maskImageData = maskCtx.createImageData(tempCanvas.width, tempCanvas.height);
         for (let i = 0; i < originalImageData.data.length; i += 4) {
-            const r = originalImageData.data[i];
-            const g = originalImageData.data[i + 1];
-            const b = originalImageData.data[i + 2];
+            const alpha = originalImageData.data[i + 3];
             
-            // If pixel is still white (background), make it transparent
-            // If pixel has been modified by emoji rendering, make it opaque
-            if (r === 255 && g === 255 && b === 255) {
+            // Use the actual alpha channel from the emoji rendering
+            // If alpha is very low (transparent background), mark as transparent in mask
+            // If alpha is high (emoji pixels), mark as opaque in mask
+            if (alpha < 10) {
+                // Transparent background
                 maskImageData.data[i] = 0;     // R
                 maskImageData.data[i + 1] = 0; // G
                 maskImageData.data[i + 2] = 0; // B
                 maskImageData.data[i + 3] = 0; // A (transparent)
             } else {
+                // Emoji pixel - keep it
                 maskImageData.data[i] = 255;     // R
                 maskImageData.data[i + 1] = 255; // G
                 maskImageData.data[i + 2] = 255; // B
-                maskImageData.data[i + 3] = 255; // A (opaque)
+                maskImageData.data[i + 3] = alpha; // Use original alpha
             }
         }
         maskCtx.putImageData(maskImageData, 0, 0);
@@ -1515,10 +1515,15 @@ class DrawingEditor {
         // Put processed data back to temp canvas
         tempCtx.putImageData(processedImageData, 0, 0);
         
-        // Draw processed emoji to main canvas, scaled to fit fontSize x fontSize
-        ctx.drawImage(tempCanvas, 0, 0, tempCanvas.width, tempCanvas.height, x, y, this.fontSize, this.fontSize);
+        // Calculate aspect ratio to preserve emoji proportions
+        const aspectRatio = tempCanvas.width / tempCanvas.height;
+        const drawWidth = this.fontSize * aspectRatio;
+        const drawHeight = this.fontSize;
         
-        return this.fontSize + 2; // Return width for spacing
+        // Draw processed emoji to main canvas, preserving aspect ratio
+        ctx.drawImage(tempCanvas, 0, 0, tempCanvas.width, tempCanvas.height, x, y, drawWidth, drawHeight);
+        
+        return drawWidth + 2; // Return width for spacing
     }    // Process emoji image with brightness, contrast, and dithering
     processEmojiImage(imageData, maskData) {
         const data = imageData.data;
@@ -1703,7 +1708,7 @@ class DrawingEditor {
             return grayData[idx];
         };
 
-        // Process all pixels, but force edge pixels to be transparent
+        // Process all pixels
         for (let y = 0; y < height; y++) {
             for (let x = 0; x < width; x++) {
                 const index = (y * width + x) * 4;
@@ -1747,21 +1752,18 @@ class DrawingEditor {
                 
                 // Use brightness to control edge detection threshold
                 // Brightness range: -100 to 100
-                // When brightness is negative (darker), lower threshold = more sensitive to edges
-                // When brightness is positive (brighter), higher threshold = less sensitive to edges
-                // Map brightness (-100 to 100) to threshold (10 to 200)
-                const edgeThreshold = 105 + this.emojiBrightness * 0.95;
+                // Lower brightness = lower threshold = more sensitive to edges (detects more)
+                // Higher brightness = higher threshold = less sensitive to edges (detects fewer)
+                // Map brightness to threshold: at -100 (min), threshold=20; at 100 (max), threshold=150
+                const edgeThreshold = 85 + (this.emojiBrightness * 0.65);
                 
                 let invertedEdge;
                 if (magnitude > edgeThreshold) {
-                    // Use brightness to control edge intensity
-                    // More negative brightness = stronger edge lines (lower steepness factor)
-                    // More positive brightness = weaker edge lines (higher steepness factor)
-                    const steepnessFactor = 0.5 + (this.emojiBrightness + 100) * 1.5 / 200;
-                    const scaledMagnitude = Math.min(255, magnitude * steepnessFactor);
-                    
-                    // Invert the edge detection result (so edges are dark)
-                    invertedEdge = 255 - scaledMagnitude;
+                    // Detected an edge - make it darker
+                    // Use brightness to control how dark the edges appear
+                    // Lower brightness = darker edges, higher brightness = lighter edges
+                    const edgeDarkness = 180 - (this.emojiBrightness + 100) * 0.8;
+                    invertedEdge = Math.max(0, edgeDarkness);
                 } else {
                     // No significant edge, set to white
                     invertedEdge = 255;
@@ -1881,12 +1883,22 @@ class DrawingEditor {
 
     // Helper method to measure emoji width
     measureEmojiWidth(ctx, emoji) {
-        ctx.save();
-        const emojiFont = `${this.fontSize * 1.2}px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif`;
-        ctx.font = emojiFont;
-        const width = Math.max(ctx.measureText(emoji).width, this.fontSize);
-        ctx.restore();
-        return width + 2; // Add small spacing
+        // Create temporary canvas to measure emoji dimensions accurately
+        const tempCanvas = document.createElement('canvas');
+        const tempCtx = tempCanvas.getContext('2d');
+        
+        const emojiFont = `${this.fontSize}px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Android Emoji", "EmojiSymbols", "EmojiOne Mozilla", "Twemoji Mozilla", "Segoe UI Symbol", sans-serif`;
+        tempCtx.font = emojiFont;
+        
+        const metrics = tempCtx.measureText(emoji);
+        const textWidth = Math.max(metrics.width, this.fontSize);
+        const textHeight = this.fontSize * 1.2;
+        
+        // Calculate aspect ratio and return width that preserves it
+        const aspectRatio = textWidth / textHeight;
+        const drawWidth = this.fontSize * aspectRatio;
+        
+        return drawWidth + 2; // Add small spacing
     }
 
     // Apply Floyd-Steinberg dithering to convert color image to monochrome
