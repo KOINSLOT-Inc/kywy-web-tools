@@ -7790,21 +7790,34 @@ class DrawingEditor {
             return;
         }
         
+        // Clamp selection bounds to canvas dimensions to prevent out-of-bounds access
+        const clampedMinX = Math.max(0, Math.min(minX, this.canvasWidth));
+        const clampedMinY = Math.max(0, Math.min(minY, this.canvasHeight));
+        const clampedMaxX = Math.max(0, Math.min(minX + width, this.canvasWidth));
+        const clampedMaxY = Math.max(0, Math.min(minY + height, this.canvasHeight));
+        const clampedWidth = clampedMaxX - clampedMinX;
+        const clampedHeight = clampedMaxY - clampedMinY;
+        
+        // Don't copy if clamped area is empty
+        if (clampedWidth <= 0 || clampedHeight <= 0) {
+            return;
+        }
+        
         // Create a canvas for the selection
         const selectionCanvas = document.createElement('canvas');
-        selectionCanvas.width = width;
-        selectionCanvas.height = height;
+        selectionCanvas.width = clampedWidth;
+        selectionCanvas.height = clampedHeight;
         const selectionCtx = selectionCanvas.getContext('2d', { willReadFrequently: true });
         
-        // Copy the selected area from the current frame
+        // Copy the selected area from the current frame (only the clamped bounds)
         const currentFrame = this.frames[this.currentFrameIndex];
-        selectionCtx.drawImage(currentFrame, minX, minY, width, height, 0, 0, width, height);
+        selectionCtx.drawImage(currentFrame, clampedMinX, clampedMinY, clampedWidth, clampedHeight, 0, 0, clampedWidth, clampedHeight);
         
         this.clipboard = {
             data: selectionCanvas,
             isSelection: true,
-            width: width,
-            height: height
+            width: clampedWidth,
+            height: clampedHeight
         };
         
         this.updateEditButtonStates();
