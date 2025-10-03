@@ -2571,6 +2571,9 @@ class DrawingEditor {
             const fps = parseFloat(frameRateSlider.value);
             document.getElementById('frameRateDisplay').textContent = fps.toFixed(1);
             
+            // Update code output with new frame rate
+            this.generateCode();
+            
             // If animation is playing, restart with new speed
             if (this.isPlaying) {
                 clearInterval(this.animationInterval);
@@ -7992,7 +7995,11 @@ class DrawingEditor {
         code += `#define ${assetName.toUpperCase()}_FRAME_COUNT ${this.frames.length}\n`;
         code += `#define ${assetName.toUpperCase()}_WIDTH ${this.canvasWidth}\n`;
         code += `#define ${assetName.toUpperCase()}_HEIGHT ${this.canvasHeight}\n`;
-        code += `#define ${assetName.toUpperCase()}_SPEED 200  // milliseconds per frame\n`;
+        
+        // Calculate animation speed from frame rate slider
+        const frameRate = parseFloat(document.getElementById('frameRate').value);
+        const animationSpeed = Math.round(1000 / frameRate); // Convert FPS to milliseconds per frame
+        code += `#define ${assetName.toUpperCase()}_SPEED ${animationSpeed}  // milliseconds per frame\n`;
         
         return code;
     }
