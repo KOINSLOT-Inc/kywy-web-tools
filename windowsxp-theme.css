@@ -613,6 +613,24 @@ a:hover {
     color: #000000 !important;
 }
 
+.layer-solo-btn {
+    background: linear-gradient(180deg, #ece9d8 0%, #d6d3ce 100%) !important;
+    border: 1px solid #888888 !important;
+    color: #000000 !important;
+}
+
+.layer-solo-btn:hover {
+    background: linear-gradient(180deg, #f8f6ed 0%, #e0ddd6 100%) !important;
+    border-color: #555555 !important;
+}
+
+.layer-solo-btn.active {
+    background: linear-gradient(180deg, #ffb74d 0%, #ff9800 100%) !important;
+    border-color: #ff9800 !important;
+    color: #ffffff !important;
+    text-shadow: 0 1px 1px rgba(0,0,0,0.3) !important;
+}
+
 .layer-item.layer-solo .layer-name {
     color: #f57c00 !important;
 }

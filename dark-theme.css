@@ -662,3 +662,21 @@ body.menu-page, .desktop {
     color: #ff9800 !important;
 }
 
+.layer-solo-btn {
+    background: #444444 !important;
+    border: 1px solid #666666 !important;
+    color: #cccccc !important;
+}
+
+.layer-solo-btn:hover {
+    background: #555555 !important;
+    border-color: #888888 !important;
+    color: #ffffff !important;
+}
+
+.layer-solo-btn.active {
+    background: #ff9800 !important;
+    border-color: #ff9800 !important;
+    color: #ffffff !important;
+}
+

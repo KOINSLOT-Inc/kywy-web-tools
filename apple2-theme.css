@@ -673,3 +673,22 @@ a:hover {
     font-weight: bold !important;
 }
 
+.layer-solo-btn {
+    background: #ffffff !important;
+    border: 3px solid #000000 !important;
+    color: #000000 !important;
+    font-weight: bold !important;
+    border-radius: 4px !important;
+}
+
+.layer-solo-btn:hover {
+    background: #cccccc !important;
+}
+
+.layer-solo-btn.active {
+    background: #ffff00 !important;
+    border-color: #000000 !important;
+    color: #000000 !important;
+    box-shadow: 0 2px 0 #000000 !important;
+}
+

@@ -630,3 +630,24 @@ a:hover {
     color: #000000 !important;
 }
 
+.layer-solo-btn {
+    background: #6c6c6c !important;
+    border: 3px solid #000000 !important;
+    border-bottom-color: #000000 !important;
+    border-right-color: #000000 !important;
+    color: #ffffff !important;
+    font-family: 'Press Start 2P', monospace !important;
+    box-shadow: inset 0 0 0 1px #9c9c9c !important;
+}
+
+.layer-solo-btn:hover {
+    background: #8c8c8c !important;
+}
+
+.layer-solo-btn.active {
+    background: #ffcc00 !important;
+    border-color: #000000 !important;
+    color: #000000 !important;
+    box-shadow: inset 0 0 0 1px #ffee88 !important;
+}
+

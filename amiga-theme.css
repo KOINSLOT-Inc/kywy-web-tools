@@ -640,3 +640,26 @@ body:not(.menu-page) h6 {
     font-weight: bold !important;
 }
 
+.layer-solo-btn {
+    background: linear-gradient(180deg, #bbbbbb 0%, #888888 100%) !important;
+    border: 2px solid #ffffff !important;
+    border-bottom-color: #555555 !important;
+    border-right-color: #555555 !important;
+    color: #000000 !important;
+    font-weight: bold !important;
+    text-shadow: 1px 1px 0px rgba(255,255,255,0.5) !important;
+}
+
+.layer-solo-btn:hover {
+    background: linear-gradient(180deg, #cccccc 0%, #999999 100%) !important;
+}
+
+.layer-solo-btn.active {
+    background: linear-gradient(180deg, #ffaa00 0%, #ff6600 100%) !important;
+    border-color: #ffffff !important;
+    border-bottom-color: #aa4400 !important;
+    border-right-color: #aa4400 !important;
+    color: #ffffff !important;
+    text-shadow: 1px 1px 0px rgba(0,0,0,0.5) !important;
+}
+

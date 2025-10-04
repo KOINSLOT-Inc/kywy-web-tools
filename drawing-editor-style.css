@@ -2921,6 +2921,32 @@ button:focus, .toggle-btn:focus, .collapsible-btn:focus, .mode-btn:focus, .mobil
     opacity: 1;
 }
 
+.layer-solo-btn {
+    background: #444;
+    border: 1px solid #666;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 10px;
+    padding: 2px 6px;
+    margin-left: 4px;
+    color: #ccc;
+    transition: all 0.2s;
+    font-weight: bold;
+    line-height: 1;
+}
+
+.layer-solo-btn:hover {
+    background: #555;
+    color: #fff;
+    border-color: #888;
+}
+
+.layer-solo-btn.active {
+    background: #ff8800;
+    color: #fff;
+    border-color: #ff8800;
+}
+
 .layer-item.layer-hidden {
     opacity: 0.5;
 }

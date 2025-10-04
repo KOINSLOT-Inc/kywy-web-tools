@@ -57,21 +57,34 @@ class DrawStrokeCommand extends Command {
         this.pixelData.forEach(pixel => {
             this.editor.setPixelInFrameWithColor(pixel.x, pixel.y, pixel.newColor, ctx);
         });
-        if (this.editor.layersEnabled) {
+        // Only redraw if this is the current frame
+        if (this.frameIndex === this.editor.currentFrameIndex) {
+            this.editor.redrawCanvas();
+        } else if (this.editor.layersEnabled) {
+            // If it's a different frame, just composite that frame
             this.editor.compositeLayersToFrame(this.frameIndex);
         }
-        this.editor.redrawCanvas();
     }
     
     undo() {
+        // If this command was created before layers were enabled but layers are now enabled,
+        // we can't properly undo it (the frame canvas is now managed by layers)
+        if (this.layerIndex === null && this.editor.layersEnabled) {
+            console.warn('Cannot undo: command was created before layers were enabled');
+            return;
+        }
+        
         const ctx = this.getFrameContext();
         this.pixelData.forEach(pixel => {
             this.editor.setPixelInFrameWithColor(pixel.x, pixel.y, pixel.oldColor, ctx);
         });
-        if (this.editor.layersEnabled) {
+        // Only redraw if this is the current frame
+        if (this.frameIndex === this.editor.currentFrameIndex) {
+            this.editor.redrawCanvas();
+        } else if (this.editor.layersEnabled) {
+            // If it's a different frame, just composite that frame
             this.editor.compositeLayersToFrame(this.frameIndex);
         }
-        this.editor.redrawCanvas();
     }
 }
 
@@ -90,10 +103,12 @@ class DrawShapeCommand extends Command {
         this.shapeData.pixelData.forEach(pixel => {
             this.editor.setPixelInFrameWithColor(pixel.x, pixel.y, pixel.newColor, ctx);
         });
-        if (this.editor.layersEnabled) {
+        // Only redraw if this is the current frame
+        if (this.frameIndex === this.editor.currentFrameIndex) {
+            this.editor.redrawCanvas();
+        } else if (this.editor.layersEnabled) {
             this.editor.compositeLayersToFrame(this.frameIndex);
         }
-        this.editor.redrawCanvas();
     }
     
     undo() {
@@ -101,10 +116,12 @@ class DrawShapeCommand extends Command {
         this.shapeData.pixelData.forEach(pixel => {
             this.editor.setPixelInFrameWithColor(pixel.x, pixel.y, pixel.oldColor, ctx);
         });
-        if (this.editor.layersEnabled) {
+        // Only redraw if this is the current frame
+        if (this.frameIndex === this.editor.currentFrameIndex) {
+            this.editor.redrawCanvas();
+        } else if (this.editor.layersEnabled) {
             this.editor.compositeLayersToFrame(this.frameIndex);
         }
-        this.editor.redrawCanvas();
     }
 }
 
@@ -120,10 +137,12 @@ class FloodFillCommand extends Command {
         this.pixelData.forEach(pixel => {
             this.editor.setPixelInFrameWithColor(pixel.x, pixel.y, pixel.newColor, ctx);
         });
-        if (this.editor.layersEnabled) {
+        // Only redraw if this is the current frame
+        if (this.frameIndex === this.editor.currentFrameIndex) {
+            this.editor.redrawCanvas();
+        } else if (this.editor.layersEnabled) {
             this.editor.compositeLayersToFrame(this.frameIndex);
         }
-        this.editor.redrawCanvas();
     }
     
     undo() {
@@ -131,10 +150,12 @@ class FloodFillCommand extends Command {
         this.pixelData.forEach(pixel => {
             this.editor.setPixelInFrameWithColor(pixel.x, pixel.y, pixel.oldColor, ctx);
         });
-        if (this.editor.layersEnabled) {
+        // Only redraw if this is the current frame
+        if (this.frameIndex === this.editor.currentFrameIndex) {
+            this.editor.redrawCanvas();
+        } else if (this.editor.layersEnabled) {
             this.editor.compositeLayersToFrame(this.frameIndex);
         }
-        this.editor.redrawCanvas();
     }
 }
 
@@ -150,10 +171,12 @@ class PasteCommand extends Command {
         this.pasteData.forEach(pixel => {
             this.editor.setPixelInFrameWithColor(pixel.x, pixel.y, pixel.newColor, ctx);
         });
-        if (this.editor.layersEnabled) {
+        // Only redraw if this is the current frame
+        if (this.frameIndex === this.editor.currentFrameIndex) {
+            this.editor.redrawCanvas();
+        } else if (this.editor.layersEnabled) {
             this.editor.compositeLayersToFrame(this.frameIndex);
         }
-        this.editor.redrawCanvas();
     }
     
     undo() {
@@ -161,10 +184,12 @@ class PasteCommand extends Command {
         this.pasteData.forEach(pixel => {
             this.editor.setPixelInFrameWithColor(pixel.x, pixel.y, pixel.oldColor, ctx);
         });
-        if (this.editor.layersEnabled) {
+        // Only redraw if this is the current frame
+        if (this.frameIndex === this.editor.currentFrameIndex) {
+            this.editor.redrawCanvas();
+        } else if (this.editor.layersEnabled) {
             this.editor.compositeLayersToFrame(this.frameIndex);
         }
-        this.editor.redrawCanvas();
     }
 }
 
@@ -179,19 +204,23 @@ class ClearCanvasCommand extends Command {
         const ctx = this.getFrameContext();
         ctx.fillStyle = 'white';
         ctx.fillRect(0, 0, this.editor.canvasWidth, this.editor.canvasHeight);
-        if (this.editor.layersEnabled) {
+        // Only redraw if this is the current frame
+        if (this.frameIndex === this.editor.currentFrameIndex) {
+            this.editor.redrawCanvas();
+        } else if (this.editor.layersEnabled) {
             this.editor.compositeLayersToFrame(this.frameIndex);
         }
-        this.editor.redrawCanvas();
     }
     
     undo() {
         const ctx = this.getFrameContext();
         ctx.putImageData(this.canvasSnapshot, 0, 0);
-        if (this.editor.layersEnabled) {
+        // Only redraw if this is the current frame
+        if (this.frameIndex === this.editor.currentFrameIndex) {
+            this.editor.redrawCanvas();
+        } else if (this.editor.layersEnabled) {
             this.editor.compositeLayersToFrame(this.frameIndex);
         }
-        this.editor.redrawCanvas();
     }
 }
 
@@ -221,11 +250,13 @@ class RotateSelectionCommand extends Command {
             endY: this.selectionBounds.endY
         };
         
-        if (this.editor.layersEnabled) {
+        // Only redraw if this is the current frame
+        if (this.frameIndex === this.editor.currentFrameIndex) {
+            this.editor.redrawCanvas();
+            this.editor.drawSelectionOverlay();
+        } else if (this.editor.layersEnabled) {
             this.editor.compositeLayersToFrame(this.frameIndex);
         }
-        this.editor.redrawCanvas();
-        this.editor.drawSelectionOverlay();
         this.editor.generateThumbnail(this.frameIndex !== null ? this.frameIndex : this.editor.currentFrameIndex);
         this.editor.generateCode();
     }
@@ -242,7 +273,10 @@ class TransformCommand extends Command {
     execute() {
         // Transform is already applied, this is for redo
         this.applyTransform();
-        if (this.editor.layersEnabled) {
+        // Only redraw if this is the current frame
+        if (this.frameIndex === this.editor.currentFrameIndex) {
+            this.editor.redrawCanvas();
+        } else if (this.editor.layersEnabled) {
             this.editor.compositeLayersToFrame(this.frameIndex);
         }
     }
@@ -250,10 +284,12 @@ class TransformCommand extends Command {
     undo() {
         const ctx = this.getFrameContext();
         ctx.putImageData(this.canvasSnapshot, 0, 0);
-        if (this.editor.layersEnabled) {
+        // Only redraw if this is the current frame
+        if (this.frameIndex === this.editor.currentFrameIndex) {
+            this.editor.redrawCanvas();
+        } else if (this.editor.layersEnabled) {
             this.editor.compositeLayersToFrame(this.frameIndex);
         }
-        this.editor.redrawCanvas();
     }
     
     applyTransform() {
@@ -299,7 +335,7 @@ class AddLayerCommand extends Command {
         frameData.layers.pop();
         frameData.currentLayerIndex = Math.min(frameData.currentLayerIndex, frameData.layers.length - 1);
         this.editor.updateLayersUI();
-        this.editor.compositeLayersToFrame();
+        this.editor.compositeLayersToFrame(this.frameIndex);
         this.editor.redrawCanvas();
     }
 }
@@ -342,7 +378,7 @@ class DeleteLayerCommand extends Command {
         frameData.layers.splice(this.layerIndex, 0, this.layerData);
         frameData.currentLayerIndex = this.layerIndex;
         this.editor.updateLayersUI();
-        this.editor.compositeLayersToFrame();
+        this.editor.compositeLayersToFrame(this.frameIndex);
         this.editor.redrawCanvas();
     }
 }
@@ -383,7 +419,7 @@ class MergeLayerCommand extends Command {
         frameData.layers.splice(this.layerIndex, 0, this.topLayerData);
         frameData.currentLayerIndex = this.layerIndex;
         this.editor.updateLayersUI();
-        this.editor.compositeLayersToFrame();
+        this.editor.compositeLayersToFrame(this.frameIndex);
         this.editor.redrawCanvas();
     }
 }
@@ -2475,8 +2511,21 @@ class DrawingEditor {
                 this.toggleLayerVisibility(i);
             });
             
+            const soloBtn = document.createElement('button');
+            soloBtn.className = 'layer-solo-btn';
+            soloBtn.textContent = 'S';
+            soloBtn.title = 'Solo this layer (hide all others)';
+            if (this.soloLayerIndex === i) {
+                soloBtn.classList.add('active');
+            }
+            soloBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.toggleSoloLayer(i);
+            });
+            
             info.appendChild(nameSpan);
             info.appendChild(visibilityBtn);
+            info.appendChild(soloBtn);
             
             layerItem.appendChild(preview);
             layerItem.appendChild(info);
@@ -2484,12 +2533,6 @@ class DrawingEditor {
             // Click to select layer
             layerItem.addEventListener('click', () => {
                 this.selectLayer(i);
-            });
-            
-            // Double-click to toggle solo mode
-            layerItem.addEventListener('dblclick', (e) => {
-                e.stopPropagation();
-                this.toggleSoloLayer(i);
             });
             
             layersList.appendChild(layerItem);
@@ -2724,6 +2767,7 @@ class DrawingEditor {
     compositeLayersToFrame(frameIndex = null) {
         const targetFrameIndex = frameIndex !== null ? frameIndex : this.currentFrameIndex;
         const frameData = this.frameLayers && this.frameLayers[targetFrameIndex];
+        
         if (!frameData) return;
         
         const frameCanvas = this.frames[targetFrameIndex];
@@ -2738,7 +2782,7 @@ class DrawingEditor {
             ctx.drawImage(soloLayer.canvas, 0, 0);
         } else {
             // Draw visible layers in order (bottom to top)
-            frameData.layers.forEach(layer => {
+            frameData.layers.forEach((layer, index) => {
                 if (layer.visible) {
                     ctx.drawImage(layer.canvas, 0, 0);
                 }
@@ -7920,7 +7964,7 @@ class DrawingEditor {
         
         // Composite layers if layers are enabled
         if (this.layersEnabled) {
-            this.compositeLayersToFrame();
+            this.compositeLayersToFrame(this.currentFrameIndex);
         }
         
         // Clear the drawing canvas - leave it transparent for onion skin to show through
@@ -10820,6 +10864,11 @@ Instructions:
         const command = this.undoStack.pop();
         command.undo();
         this.redoStack.push(command);
+        
+        // Update layer UI if layers are enabled
+        if (this.layersEnabled) {
+            this.updateLayersUI();
+        }
         
         this.updateUndoRedoUI();
         this.generateThumbnail(this.currentFrameIndex);
