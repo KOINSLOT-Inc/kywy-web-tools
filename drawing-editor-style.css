@@ -1683,8 +1683,8 @@ textarea::placeholder {
         position: absolute;
         top: 100%;
         left: 0;
-        background: white;
-        border: 1px solid #ccc;
+        background: var(--bg-color, white);
+        border: 1px solid var(--border-color, #ccc);
         border-radius: 6px;
         box-shadow: 0 4px 12px rgba(0,0,0,0.15);
         z-index: 2100;
@@ -1709,10 +1709,11 @@ textarea::placeholder {
         cursor: pointer;
         font-size: 0.9rem;
         transition: background-color 0.2s;
+        color: var(--text-color, #333);
     }
     
     .mobile-dropdown-content button:hover {
-        background: #f5f5f5;
+        background: var(--panel-bg, #f5f5f5);
     }
     
     .mobile-dropdown-content button:first-child {
@@ -1726,8 +1727,8 @@ textarea::placeholder {
     /* Mobile Tool Settings Content */
     #mobileToolSettingsContent {
         padding: 15px;
-        background: white;
-        color: #333333;
+        background: var(--bg-color, white);
+        color: var(--text-color, #333333);
         max-height: 60vh;
         overflow-y: auto;
     }

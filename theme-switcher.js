@@ -191,6 +191,13 @@ class ThemeSwitcher {
     }
 }
 
+// Global function for mobile button to call
+function toggleTheme() {
+    if (window.themeSwitcher) {
+        window.themeSwitcher.cycleTheme();
+    }
+}
+
 // Auto-initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', function() {
     // Small delay to ensure other scripts have loaded
