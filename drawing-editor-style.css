@@ -300,9 +300,11 @@ header h1 {
 }
 
 .tool-section {
-    margin-bottom: 25px;
-    padding-bottom: 20px;
-    border-bottom: 1px solid #eee;
+    margin-bottom: 15px;
+    padding: 16px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    background-color: #ffffff;
     flex-shrink: 0;
 }
 
@@ -316,9 +318,7 @@ header h1 {
 }
 
 .tool-section:last-child {
-    border-bottom: none;
     margin-bottom: 0;
-    padding-bottom: 0;
 }
 
 .tool-section h3 {
@@ -2140,7 +2140,7 @@ textarea::placeholder {
 
 .modal-body {
     padding: 20px;
-    background-color: #ffffff;
+    background-color: var(--modal-bg, #f8f8f8);
 }
 
 .modal-footer {
@@ -2226,11 +2226,13 @@ textarea::placeholder {
     border: 1px dashed var(--border-color);
     border-radius: 4px;
     padding: 10px;
+    background-color: var(--panel-bg);
 }
 
 #importOriginalImage canvas, #importProcessedImage canvas {
     max-width: 100%;
     border: 1px solid var(--border-color);
+    background-color: transparent;
     image-rendering: pixelated;
 }
 

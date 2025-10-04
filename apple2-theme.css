@@ -692,3 +692,87 @@ a:hover {
     box-shadow: 0 2px 0 #000000 !important;
 }
 
+/* Import Modal Styles */
+.modal-content {
+    background: #f5f5f5 !important;
+    border: 2px solid #000000 !important;
+    border-radius: 0 !important;
+    box-shadow: 4px 4px 0 #888888 !important;
+}
+
+.modal-header {
+    background: #ffffff !important;
+    border-bottom: 2px solid #000000 !important;
+    border-radius: 0 !important;
+}
+
+.modal-header h3 {
+    color: #000000 !important;
+    font-weight: bold !important;
+    text-transform: uppercase !important;
+}
+
+.close {
+    color: #000000 !important;
+    font-weight: bold !important;
+}
+
+.close:hover {
+    color: #666666 !important;
+}
+
+.modal-footer {
+    background: #ffffff !important;
+    border-top: 2px solid #000000 !important;
+}
+
+.modal-body {
+    background: #e8e8e8 !important;
+    background-image: radial-gradient(circle at 1px 1px, #d0d0d0 1px, transparent 1px) !important;
+    background-size: 8px 8px !important;
+}
+
+.import-section {
+    background: #f5f5f5 !important;
+    border: 2px solid #000000 !important;
+    border-radius: 0 !important;
+    box-shadow: 3px 3px 0 #888888 !important;
+}
+
+.import-section h4 {
+    color: #000000 !important;
+    font-weight: bold !important;
+    text-transform: uppercase !important;
+}
+
+.setting-row label {
+    color: #000000 !important;
+}
+
+.setting-row input[type="number"],
+.setting-row select {
+    background: #ffffff !important;
+    border: 2px solid #000000 !important;
+    color: #000000 !important;
+    border-radius: 0 !important;
+    box-shadow: inset 1px 1px 0 #888888 !important;
+}
+
+.setting-row input[type="number"]:focus,
+.setting-row select:focus {
+    background: #ffff00 !important;
+    outline: 2px solid #000000 !important;
+}
+
+#importOriginalImage, #importProcessedImage {
+    background: #ffffff !important;
+    border: 2px solid #000000 !important;
+    border-radius: 0 !important;
+    box-shadow: 3px 3px 0 #888888 !important;
+}
+
+#importOriginalImage canvas, #importProcessedImage canvas {
+    border: 1px solid #888888 !important;
+    image-rendering: pixelated !important;
+}
+

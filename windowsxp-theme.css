@@ -635,3 +635,88 @@ a:hover {
     color: #f57c00 !important;
 }
 
+/* Import Modal Styles */
+.modal-content {
+    background: linear-gradient(to bottom, #ffffff 0%, #ececec 100%) !important;
+    border: 1px solid #3c7fb1 !important;
+    border-radius: 8px !important;
+}
+
+.modal-header {
+    background: linear-gradient(to bottom, #0054e3 0%, #3c7fb1 100%) !important;
+    border-bottom: 1px solid #3c7fb1 !important;
+    border-radius: 8px 8px 0 0 !important;
+}
+
+.modal-header h3 {
+    color: #ffffff !important;
+    font-weight: bold !important;
+}
+
+.close {
+    background: #e81123 !important;
+    color: #ffffff !important;
+    border: 1px solid #c41020 !important;
+    border-radius: 2px !important;
+    width: 24px !important;
+    height: 24px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 18px !important;
+    font-weight: bold !important;
+    line-height: 1 !important;
+    padding: 0 !important;
+}
+
+.close:hover {
+    background: #ff3347 !important;
+    border-color: #e81123 !important;
+}
+
+.close:active {
+    background: #c41020 !important;
+}
+
+.modal-footer {
+    background: linear-gradient(to bottom, #ececec 0%, #d6e7ff 100%) !important;
+    border-top: 1px solid #3c7fb1 !important;
+}
+
+.modal-body {
+    background: linear-gradient(to bottom, #ecf3ff 0%, #d6e7ff 100%) !important;
+}
+
+.import-section {
+    background: linear-gradient(to bottom, #ffffff 0%, #ddeeff 100%) !important;
+    border: 1px solid #3c7fb1 !important;
+    border-radius: 3px !important;
+}
+
+.import-section h4 {
+    color: #000000 !important;
+    font-weight: bold !important;
+}
+
+.setting-row label {
+    color: #000000 !important;
+}
+
+.setting-row input[type="number"],
+.setting-row select {
+    background: #ffffff !important;
+    border: 1px solid #3c7fb1 !important;
+    color: #000000 !important;
+    border-radius: 2px !important;
+}
+
+#importOriginalImage, #importProcessedImage {
+    background: #ffffff !important;
+    border: 1px solid #3c7fb1 !important;
+    border-radius: 2px !important;
+}
+
+#importOriginalImage canvas, #importProcessedImage canvas {
+    border: 1px solid #3c7fb1 !important;
+}
+

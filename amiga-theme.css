@@ -498,6 +498,13 @@ body:not(.menu-page) h6 {
     color: #ffffff !important;
 }
 
+/* Tool section headers should be blue for contrast against gray panels */
+.tool-section h3,
+.tool-section h4 {
+    color: #0055aa !important;
+    text-shadow: 1px 1px 0px rgba(255,255,255,0.5) !important;
+}
+
 /* Amiga emoji picker styles */
 .emoji-picker {
     background: #dddddd !important;
@@ -661,5 +668,95 @@ body:not(.menu-page) h6 {
     border-right-color: #aa4400 !important;
     color: #ffffff !important;
     text-shadow: 1px 1px 0px rgba(0,0,0,0.5) !important;
+}
+
+/* Import Modal Styles */
+.modal-content {
+    background: linear-gradient(180deg, #0088cc 0%, #006699 100%) !important;
+    border: 2px solid #ffffff !important;
+    border-bottom-color: #003355 !important;
+    border-right-color: #003355 !important;
+    border-radius: 0 !important;
+    box-shadow: 3px 3px 0 rgba(0,0,0,0.4) !important;
+}
+
+.modal-header {
+    background: linear-gradient(180deg, #ffaa00 0%, #ff8800 100%) !important;
+    border-bottom: 2px solid #ffffff !important;
+    border-radius: 0 !important;
+}
+
+.modal-header h3 {
+    color: #ffffff !important;
+    font-weight: bold !important;
+    text-shadow: 1px 1px 0px rgba(0,0,0,0.5) !important;
+}
+
+.close {
+    color: #ffffff !important;
+    font-weight: bold !important;
+    text-shadow: 1px 1px 0px rgba(0,0,0,0.5) !important;
+}
+
+.close:hover {
+    color: #ffff00 !important;
+}
+
+.modal-footer {
+    background: linear-gradient(180deg, #0077aa 0%, #005588 100%) !important;
+    border-top: 2px solid #ffffff !important;
+}
+
+.modal-body {
+    background: linear-gradient(180deg, #0077aa 0%, #005588 100%) !important;
+}
+
+.import-section {
+    background: linear-gradient(180deg, #0066aa 0%, #004477 100%) !important;
+    border: 2px solid #ffffff !important;
+    border-bottom-color: #003355 !important;
+    border-right-color: #003355 !important;
+    border-radius: 0 !important;
+    box-shadow: 2px 2px 0 rgba(0,0,0,0.3) !important;
+}
+
+.import-section h4 {
+    color: #ffffff !important;
+    font-weight: bold !important;
+    text-shadow: 1px 1px 0px rgba(0,0,0,0.5) !important;
+}
+
+.setting-row label {
+    color: #ffffff !important;
+    text-shadow: 1px 1px 0px rgba(0,0,0,0.5) !important;
+}
+
+.setting-row input[type="number"],
+.setting-row select {
+    background: linear-gradient(180deg, #ffffff 0%, #dddddd 100%) !important;
+    border: 2px solid #ffffff !important;
+    border-bottom-color: #888888 !important;
+    border-right-color: #888888 !important;
+    color: #000000 !important;
+    border-radius: 0 !important;
+}
+
+.setting-row input[type="number"]:focus,
+.setting-row select:focus {
+    background: linear-gradient(180deg, #ffffcc 0%, #ffee99 100%) !important;
+    border-color: #ffaa00 !important;
+}
+
+#importOriginalImage, #importProcessedImage {
+    background: #004477 !important;
+    border: 2px solid #ffffff !important;
+    border-bottom-color: #003355 !important;
+    border-right-color: #003355 !important;
+    border-radius: 0 !important;
+    box-shadow: inset 1px 1px 2px rgba(0,0,0,0.3) !important;
+}
+
+#importOriginalImage canvas, #importProcessedImage canvas {
+    border: 1px solid #0066aa !important;
 }
 
