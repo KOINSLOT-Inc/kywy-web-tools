@@ -7714,7 +7714,7 @@ class DrawingEditor {
             
             const label = document.createElement('span');
             label.className = 'frame-label';
-            label.textContent = `Frame ${index + 1}`;
+            label.textContent = `Frame ${index}`;
             
             thumbDiv.appendChild(canvas);
             thumbDiv.appendChild(label);
@@ -8645,13 +8645,15 @@ class DrawingEditor {
             const lines = hppContent.split('\n');
             let width = 0;
             let height = 0;
-            let pixelData = [];
+            let frameCount = 0;
+            let allFrameData = []; // Array of arrays, one for each frame
+            let currentPixelData = [];
             let inDataArray = false;
             let dataArrayName = '';
             
             console.log('HPP Content preview:', hppContent.substring(0, 500));
             
-            // Find width and height
+            // Find width, height, and frame count
             for (const line of lines) {
                 // Try to find dimensions in comments first
                 const commentMatch = line.match(/\/\/.*?(\d+)x(\d+)/);
@@ -8661,7 +8663,7 @@ class DrawingEditor {
                     console.log('Found dimensions in comment:', width, 'x', height);
                 }
                 
-                // Also check for #define statements
+                // Check for #define statements
                 const widthMatch = line.match(/#define\s+\w+WIDTH\s+(\d+)/);
                 if (widthMatch) {
                     width = parseInt(widthMatch[1]);
@@ -8674,16 +8676,28 @@ class DrawingEditor {
                     console.log('Found height:', height);
                 }
                 
+                const frameCountMatch = line.match(/#define\s+\w+FRAME_COUNT\s+(\d+)/);
+                if (frameCountMatch) {
+                    frameCount = parseInt(frameCountMatch[1]);
+                    console.log('Found frame count:', frameCount);
+                }
+                
                 // Look for data array start (uint8_t array)
                 const arrayMatch = line.match(/uint8_t\s+(\w+)\[\d*\]\s*=\s*{/);
                 if (arrayMatch) {
+                    // Save previous frame data if exists
+                    if (inDataArray && currentPixelData.length > 0) {
+                        allFrameData.push([...currentPixelData]);
+                        currentPixelData = [];
+                    }
+                    
                     inDataArray = true;
                     dataArrayName = arrayMatch[1];
                     console.log('Found data array:', dataArrayName);
                     // Check if data is on the same line
                     const dataOnSameLine = line.substring(line.indexOf('{') + 1);
                     if (dataOnSameLine.trim()) {
-                        pixelData.push(...this.parseHPPDataLine(dataOnSameLine));
+                        currentPixelData.push(...this.parseHPPDataLine(dataOnSameLine));
                     }
                     continue;
                 }
@@ -8694,42 +8708,39 @@ class DrawingEditor {
                         // End of array
                         const lastData = line.substring(0, line.indexOf('}'));
                         if (lastData.trim()) {
-                            pixelData.push(...this.parseHPPDataLine(lastData));
+                            currentPixelData.push(...this.parseHPPDataLine(lastData));
                         }
-                        console.log('Finished parsing data array, total bytes:', pixelData.length);
-                        break;
+                        console.log('Finished parsing data array, total bytes:', currentPixelData.length);
+                        allFrameData.push([...currentPixelData]);
+                        currentPixelData = [];
+                        inDataArray = false;
                     } else {
                         const lineData = this.parseHPPDataLine(line);
                         if (lineData.length > 0) {
-                            pixelData.push(...lineData);
+                            currentPixelData.push(...lineData);
                         }
                     }
                 }
             }
             
-            console.log('Parse results - Width:', width, 'Height:', height, 'Data bytes:', pixelData.length);
+            console.log('Parse results - Width:', width, 'Height:', height, 'Frames:', allFrameData.length);
             
-            if (width && height && pixelData.length > 0) {
-                // Convert 1-bit packed data to canvas
+            if (width && height && allFrameData.length > 0) {
+                // Convert 1-bit packed data to canvas frames
                 this.setCanvasSize(width, height);
-                this.frames = [this.createEmptyFrame()];
+                this.frames = [];
                 this.currentFrameIndex = 0;
                 
-                const ctx = this.getCurrentFrameContext();
-                const imageData = ctx.createImageData(width, height);
-                const data = imageData.data;
-                
-                // Convert packed bits to RGBA pixels (optimized)
-                const totalPixels = width * height;
-                
-                // Process in chunks to avoid blocking the UI
-                let pixelIndex = 0;
-                const chunkSize = 1000; // Process 1000 pixels at a time
-                
-                const processChunk = () => {
-                    const endIndex = Math.min(pixelIndex + chunkSize, totalPixels);
+                // Create a canvas for each frame
+                allFrameData.forEach((pixelData, frameIndex) => {
+                    const frameCanvas = this.createEmptyFrame();
+                    const ctx = frameCanvas.getContext('2d');
+                    const imageData = ctx.createImageData(width, height);
+                    const data = imageData.data;
                     
-                    for (; pixelIndex < endIndex; pixelIndex++) {
+                    // Convert packed bits to RGBA pixels
+                    const totalPixels = width * height;
+                    for (let pixelIndex = 0; pixelIndex < totalPixels; pixelIndex++) {
                         const byteIndex = Math.floor(pixelIndex / 8);
                         const bitIndex = 7 - (pixelIndex % 8); // MSB first
                         
@@ -8747,22 +8758,28 @@ class DrawingEditor {
                         }
                     }
                     
-                    if (pixelIndex < totalPixels) {
-                        // More pixels to process, continue in next frame
-                        requestAnimationFrame(processChunk);
-                    } else {
-                        // All pixels processed, update canvas
-                        ctx.putImageData(imageData, 0, 0);
-                        this.updateUI();
-                        this.redrawCanvas();
-                        this.generateCode();
-                        
-                        // HPP file loaded successfully (no alert)
-                    }
-                };
+                    ctx.putImageData(imageData, 0, 0);
+                    this.frames.push(frameCanvas);
+                });
                 
-                // Start processing
-                processChunk();
+                console.log('Loaded', this.frames.length, 'frames');
+                
+                // If multiple frames were loaded, set export format to animation
+                if (this.frames.length > 1) {
+                    const exportFormatSelect = document.getElementById('exportFormat');
+                    if (exportFormatSelect) {
+                        exportFormatSelect.value = 'animation';
+                    }
+                }
+                
+                this.updateUI();
+                this.redrawCanvas();
+                this.generateCode();
+                
+                // Update frame thumbnails
+                this.frames.forEach((frame, index) => {
+                    this.generateThumbnail(index);
+                });
             } else {
                 throw new Error('Invalid HPP file format or missing data');
             }
