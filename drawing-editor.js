@@ -9325,15 +9325,26 @@ class DrawingEditor {
     }
     
     generateLayersHPP() {
-        if (!this.layersEnabled || !this.frameLayers[this.currentFrameIndex]) {
-            // Fallback to single frame export if layers not enabled
+        if (!this.layersEnabled) {
+            // Fallback to single frame or animation export if layers not enabled
+            if (this.frames.length > 1) {
+                return this.generateAnimationHPP();
+            }
             return this.generateSingleFrameHPP();
         }
         
-        const frameData = this.frameLayers[this.currentFrameIndex];
-        const layers = frameData.layers;
+        // Check if we have multiple frames with layers - export all frames
+        const framesWithLayers = [];
+        for (let frameIndex = 0; frameIndex < this.frames.length; frameIndex++) {
+            if (this.frameLayers[frameIndex] && this.frameLayers[frameIndex].layers.length > 0) {
+                framesWithLayers.push({
+                    frameIndex: frameIndex,
+                    layers: this.frameLayers[frameIndex].layers
+                });
+            }
+        }
         
-        if (layers.length === 0) {
+        if (framesWithLayers.length === 0) {
             return '// No layers to export\n';
         }
         
@@ -9341,281 +9352,104 @@ class DrawingEditor {
         const rawAssetName = document.getElementById('assetName').value || 'my_layers';
         const assetName = this.cleanAssetName(rawAssetName);
         
-        let code = `// KYWY_FORMAT: LAYERS\n`;
+        // Determine if this is multi-frame or single frame
+        const isMultiFrame = framesWithLayers.length > 1;
+        
+        let code = `// KYWY_FORMAT: ${isMultiFrame ? 'FRAMES_WITH_LAYERS' : 'LAYERS'}\n`;
         code += `// Generated layer data for ${this.canvasWidth}x${this.canvasHeight} image\n`;
-        code += `// ${layers.length} total layers (${layers.filter(l => l.visible).length} visible, ${layers.filter(l => !l.visible).length} hidden)\n`;
-        code += `// Composited result with transparency applied\n`;
+        
+        if (isMultiFrame) {
+            code += `// ${framesWithLayers.length} frames with layers\n`;
+        } else {
+            const layers = framesWithLayers[0].layers;
+            code += `// ${layers.length} total layers (${layers.filter(l => l.visible).length} visible, ${layers.filter(l => !l.visible).length} hidden)\n`;
+        }
+        
         code += `// Created with Kywy Drawing Editor\n\n`;
         
-        // USE THE ALREADY COMPOSITED FRAME CANVAS!
-        // The compositeLayersToFrame() function already did the work for us
-        const frameCanvas = this.frames[this.currentFrameIndex];
-        const ctx = frameCanvas.getContext('2d', { willReadFrequently: true });
-        const imageData = ctx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
-        const data = imageData.data;
-        
-        console.log('Exporting composited frame data:', {
-            width: this.canvasWidth,
-            height: this.canvasHeight,
-            dataLength: data.length,
-            firstPixels: Array.from(data.slice(0, 40))
-        });
-        
-        const bytes = [];
-        let whitePixelCount = 0;
-        let blackPixelCount = 0;
-        
-        for (let byte = 0; byte < Math.ceil((this.canvasWidth * this.canvasHeight) / 8); byte++) {
-            let byteValue = 0;
-            for (let bit = 0; bit < 8; bit++) {
-                const pixelIndex = byte * 8 + bit;
-                if (pixelIndex < this.canvasWidth * this.canvasHeight) {
-                    const dataIndex = pixelIndex * 4;
-                    const r = data[dataIndex];
-                    const g = data[dataIndex + 1];
-                    const b = data[dataIndex + 2];
-                    
-                    // Debug first few pixels
-                    if (byte === 0 && bit < 8) {
-                        console.log(`Pixel ${pixelIndex}: R=${r}, G=${g}, B=${b}, isBlack=${r < 128}`);
-                    }
-                    
-                    // White = 0, Black = 1
-                    const isBlack = (r < 128);  // Simplified - just check R channel
-                    
-                    if (isBlack) {
-                        // Black pixel - set bit to 1
-                        byteValue |= (1 << (7 - bit));
-                        blackPixelCount++;
-                    } else {
-                        // White pixel - leave bit as 0
-                        whitePixelCount++;
-                    }
-                }
-            }
-            bytes.push(`0x${byteValue.toString(16).padStart(2, '0').toUpperCase()}`);
+        // Export all frames with their layers
+        framesWithLayers.forEach((frameData, frameIndex) => {
+            const layers = frameData.layers;
             
-            // Debug first byte
-            if (byte === 0) {
-                console.log(`First byte value: 0x${byteValue.toString(16).padStart(2, '0').toUpperCase()} (binary: ${byteValue.toString(2).padStart(8, '0')})`);
-            }
-        }
-        
-        console.log(`Final result: ${whitePixelCount} white pixels, ${blackPixelCount} black pixels`);
-        
-        // Output the composited data
-        code += `// Composited layers result (${layers.filter(l => l.visible).length} visible layers merged)\n`;
-        code += `uint8_t ${assetName}_data[${bytes.length}] = {\n`;
-        for (let i = 0; i < bytes.length; i += 12) {
-            code += '    ' + bytes.slice(i, i + 12).join(', ');
-            if (i + 12 < bytes.length) {
-                code += ',\n';
-            } else {
-                code += '\n';
-            }
-        }
-        code += `};\n\n`;
-        
-        // Generate data for each layer (only visible layers)
-        const layerDataArrays = [];
-        layers.forEach((layer, index) => {
-            // Skip hidden layers
-            if (!layer.visible) return;
-            
-            const ctx = layer.canvas.getContext('2d', { willReadFrequently: true });
-            const imageData = ctx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
-            const data = imageData.data;
-            const transparencyMode = layer.transparencyMode || 'white';
-            
-            // Debug: Check first few pixels
-            let debugPixels = [];
-            for (let i = 0; i < Math.min(20, data.length); i += 4) {
-                debugPixels.push({
-                    r: data[i],
-                    g: data[i+1],
-                    b: data[i+2],
-                    a: data[i+3]
-                });
+            if (isMultiFrame) {
+                code += `// ===== Frame ${frameIndex} =====\n`;
+                code += `// ${layers.length} layers (${layers.filter(l => l.visible).length} visible)\n\n`;
             }
             
-            console.log(`Exporting layer ${index} (${layer.name}):`, {
-                width: this.canvasWidth,
-                height: this.canvasHeight,
-                dataLength: data.length,
-                transparencyMode: transparencyMode,
-                debugPixels: debugPixels
-            });
-            
-            const bytes = [];
-            let whitePixelCount = 0;
-            let blackPixelCount = 0;
-            
-            for (let byte = 0; byte < Math.ceil((this.canvasWidth * this.canvasHeight) / 8); byte++) {
-                let byteValue = 0;
-                for (let bit = 0; bit < 8; bit++) {
-                    const pixelIndex = byte * 8 + bit;
-                    if (pixelIndex < this.canvasWidth * this.canvasHeight) {
-                        const dataIndex = pixelIndex * 4;
-                        const r = data[dataIndex];
-                        const g = data[dataIndex + 1];
-                        const b = data[dataIndex + 2];
-                        const a = data[dataIndex + 3];
-                        
-                        // For individual layers export:
-                        // Export the actual pixel color regardless of transparency mode
-                        // Black pixels = bit 1, White pixels = bit 0 (standard display format)
-                        const isBlack = (r < 128 && g < 128 && b < 128);
-                        
-                        if (isBlack) {
-                            // Black pixel - set bit to 1
-                            byteValue |= (1 << (7 - bit));
-                            blackPixelCount++;
-                        } else {
-                            // White pixel - leave bit as 0
-                            whitePixelCount++;
+            // Generate data for each visible layer in this frame
+            layers.forEach((layer, layerIndex) => {
+                // Skip hidden layers
+                if (!layer.visible) return;
+                
+                const ctx = layer.canvas.getContext('2d', { willReadFrequently: true });
+                const imageData = ctx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
+                const data = imageData.data;
+                
+                const bytes = [];
+                let whitePixelCount = 0;
+                let blackPixelCount = 0;
+                
+                for (let byte = 0; byte < Math.ceil((this.canvasWidth * this.canvasHeight) / 8); byte++) {
+                    let byteValue = 0;
+                    for (let bit = 0; bit < 8; bit++) {
+                        const pixelIndex = byte * 8 + bit;
+                        if (pixelIndex < this.canvasWidth * this.canvasHeight) {
+                            const dataIndex = pixelIndex * 4;
+                            const r = data[dataIndex];
+                            const g = data[dataIndex + 1];
+                            const b = data[dataIndex + 2];
+                            
+                            // White pixels (light colors) = bit 1, Black pixels (dark colors) = bit 0
+                            const isWhite = (r >= 128 || g >= 128 || b >= 128);
+                            
+                            if (isWhite) {
+                                byteValue |= (1 << (7 - bit));
+                                whitePixelCount++;
+                            } else {
+                                blackPixelCount++;
+                            }
                         }
                     }
-                }
-                bytes.push(`0x${byteValue.toString(16).padStart(2, '0').toUpperCase()}`);
-            }
-            
-            console.log(`Layer ${index} stats: ${whitePixelCount} white/transparent pixels, ${blackPixelCount} black pixels`);
-            
-            layerDataArrays.push({ name: layer.name, bytes: bytes, visible: layer.visible, originalIndex: index });
-        });
-        
-        // For layers export, we need to composite all visible layers respecting transparency
-        // Create a composited result where transparency allows lower layers to show through
-        const compositedData = new Uint8ClampedArray(this.canvasWidth * this.canvasHeight * 4);
-        
-        // Initialize with white (bottom layer default)
-        for (let i = 0; i < compositedData.length; i += 4) {
-            compositedData[i] = 255;     // R
-            compositedData[i + 1] = 255; // G
-            compositedData[i + 2] = 255; // B
-            compositedData[i + 3] = 255; // A
-        }
-        
-        // Composite layers from bottom to top
-        layers.forEach((layer, index) => {
-            if (!layer.visible) return;
-            
-            const ctx = layer.canvas.getContext('2d', { willReadFrequently: true });
-            const imageData = ctx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
-            const layerData = imageData.data;
-            const transparencyMode = layer.transparencyMode || 'white';
-            
-            console.log(`Compositing layer ${index} (${layer.name}) with transparency mode: ${transparencyMode}`);
-            
-            let transparentCount = 0;
-            let opaqueCount = 0;
-            
-            // Apply this layer on top of composited result
-            for (let i = 0; i < layerData.length; i += 4) {
-                const r = layerData[i];
-                const g = layerData[i + 1];
-                const b = layerData[i + 2];
-                
-                // Bottom layer (index 0) is ALWAYS fully opaque - no transparency
-                let isTransparent = false;
-                if (index > 0) {
-                    // Only apply transparency for layers above the bottom
-                    if (transparencyMode === 'white') {
-                        // White is transparent
-                        isTransparent = (r >= 254 && g >= 254 && b >= 254);
-                    } else {
-                        // Black is transparent
-                        isTransparent = (r <= 1 && g <= 1 && b <= 1);
-                    }
+                    bytes.push(`0x${byteValue.toString(16).padStart(2, '0').toUpperCase()}`);
                 }
                 
-                // If not transparent, overwrite the composited pixel
-                if (!isTransparent) {
-                    compositedData[i] = r;
-                    compositedData[i + 1] = g;
-                    compositedData[i + 2] = b;
-                    compositedData[i + 3] = 255;
-                    opaqueCount++;
-                } else {
-                    transparentCount++;
-                }
-            }
-            
-            console.log(`Layer ${index} compositing: ${opaqueCount} opaque pixels, ${transparentCount} transparent pixels`);
-        });
-        
-        // Now export the composited result
-        console.log('Exporting composited layer result:', {
-            width: this.canvasWidth,
-            height: this.canvasHeight,
-            firstPixels: Array.from(compositedData.slice(0, 40)).map((v, i) => {
-                if (i % 4 === 0) return `[${i/4}] R:${v}`;
-                if (i % 4 === 1) return `G:${v}`;
-                if (i % 4 === 2) return `B:${v}`;
-                return `A:${v}`;
-            }).join(' ')
-        });
-        
-        const compositedBytes = [];
-        let compositedWhiteCount = 0;
-        let compositedBlackCount = 0;
-        
-        for (let byte = 0; byte < Math.ceil((this.canvasWidth * this.canvasHeight) / 8); byte++) {
-            let byteValue = 0;
-            for (let bit = 0; bit < 8; bit++) {
-                const pixelIndex = byte * 8 + bit;
-                if (pixelIndex < this.canvasWidth * this.canvasHeight) {
-                    const dataIndex = pixelIndex * 4;
-                    const r = compositedData[dataIndex];
-                    const g = compositedData[dataIndex + 1];
-                    const b = compositedData[dataIndex + 2];
-                    
-                    // Debug first few pixels
-                    if (byte === 0 && bit < 8) {
-                        console.log(`Pixel ${pixelIndex}: R=${r}, G=${g}, B=${b}, isBlack=${r < 128 && g < 128 && b < 128}`);
-                    }
-                    
-                    // White = 0, Black = 1
-                    const isBlack = (r < 128 && g < 128 && b < 128);
-                    
-                    if (isBlack) {
-                        // Black pixel - set bit to 1
-                        byteValue |= (1 << (7 - bit));
-                        compositedBlackCount++;
+                console.log(`Frame ${frameIndex} Layer ${layerIndex} (${layer.name}): ${whitePixelCount} white, ${blackPixelCount} black`);
+                
+                // Output layer array
+                const arrayName = isMultiFrame 
+                    ? `${assetName}_frame${frameIndex}_layer${layerIndex}`
+                    : `${assetName}_layer${layerIndex}`;
+                
+                code += `// Layer ${layerIndex}: ${layer.name}\n`;
+                code += `uint8_t ${arrayName}[${bytes.length}] = {\n`;
+                for (let i = 0; i < bytes.length; i += 12) {
+                    code += '    ' + bytes.slice(i, i + 12).join(', ');
+                    if (i + 12 < bytes.length) {
+                        code += ',\n';
                     } else {
-                        // White pixel - leave bit as 0
-                        compositedWhiteCount++;
+                        code += '\n';
                     }
                 }
-            }
-            compositedBytes.push(`0x${byteValue.toString(16).padStart(2, '0').toUpperCase()}`);
-            
-            // Debug first byte
-            if (byte === 0) {
-                console.log(`First byte value: 0x${byteValue.toString(16).padStart(2, '0').toUpperCase()} (binary: ${byteValue.toString(2).padStart(8, '0')})`);
-            }
-        }
-        
-        console.log(`Composited result: ${compositedWhiteCount} white pixels, ${compositedBlackCount} black pixels`);
-        
-        // Output the composited layer data
-        code += `// Composited layers (${layers.filter(l => l.visible).length} visible layers)\n`;
-        code += `uint8_t ${assetName}_composited[${compositedBytes.length}] = {\n`;
-        for (let i = 0; i < compositedBytes.length; i += 12) {
-            code += '    ' + compositedBytes.slice(i, i + 12).join(', ');
-            if (i + 12 < compositedBytes.length) {
-                code += ',\n';
-            } else {
-                code += '\n';
-            }
-        }
-        code += `};\n\n`;
+                code += `};\n\n`;
+            });
+        });
         
         // Output constants
         code += `// Image Constants\n`;
         code += `#define ${assetName.toUpperCase()}_WIDTH ${this.canvasWidth}\n`;
         code += `#define ${assetName.toUpperCase()}_HEIGHT ${this.canvasHeight}\n`;
-        code += `#define ${assetName.toUpperCase()}_LAYER_COUNT ${layers.filter(l => l.visible).length}\n`;
+        
+        if (isMultiFrame) {
+            code += `#define ${assetName.toUpperCase()}_FRAME_COUNT ${framesWithLayers.length}\n`;
+            // Add layer counts for each frame
+            framesWithLayers.forEach((frameData, frameIndex) => {
+                const visibleLayerCount = frameData.layers.filter(l => l.visible).length;
+                code += `#define ${assetName.toUpperCase()}_FRAME${frameIndex}_LAYER_COUNT ${visibleLayerCount}\n`;
+            });
+        } else {
+            const visibleLayerCount = framesWithLayers[0].layers.filter(l => l.visible).length;
+            code += `#define ${assetName.toUpperCase()}_LAYER_COUNT ${visibleLayerCount}\n`;
+        }
         
         return code;
     }
@@ -10365,7 +10199,11 @@ class DrawingEditor {
             let currentLayerName = '';
             let isLayerFile = false;
             let isAnimationFile = false;
-            let detectedFormat = null; // Will be 'SINGLE_FRAME', 'ANIMATION', or 'LAYERS'
+            let isFramesWithLayers = false;
+            let detectedFormat = null; // Will be 'SINGLE_FRAME', 'ANIMATION', 'LAYERS', or 'FRAMES_WITH_LAYERS'
+            let frameLayersData = {}; // For FRAMES_WITH_LAYERS format: {frameIndex: [{name, data}, ...]}
+            let currentFrameIndex = 0; // Track current frame being parsed
+            let currentLayerIndex = 0; // Track current layer being parsed
             
             console.log('HPP Content preview:', hppContent.substring(0, 500));
             
@@ -10379,6 +10217,9 @@ class DrawingEditor {
                         isLayerFile = true;
                     } else if (detectedFormat === 'ANIMATION') {
                         isAnimationFile = true;
+                    } else if (detectedFormat === 'FRAMES_WITH_LAYERS') {
+                        isFramesWithLayers = true;
+                        isLayerFile = true; // Still a layer file, but with multiple frames
                     }
                     break; // Format found, no need to continue
                 }
@@ -10438,19 +10279,47 @@ class DrawingEditor {
                     let isLayerArray = false;
                     let isAnimFrame = false;
                     
-                    if (detectedFormat === 'LAYERS') {
+                    if (detectedFormat === 'FRAMES_WITH_LAYERS') {
+                        // Parse frame and layer indices from name like: asset_frame0_layer1
+                        const frameLayerMatch = dataArrayName.match(/_frame(\d+)_layer(\d+)/);
+                        if (frameLayerMatch) {
+                            isLayerArray = true;
+                            currentFrameIndex = parseInt(frameLayerMatch[1]);
+                            currentLayerIndex = parseInt(frameLayerMatch[2]);
+                        }
+                    } else if (detectedFormat === 'LAYERS') {
                         isLayerArray = true;
                     } else if (detectedFormat === 'ANIMATION') {
                         isAnimFrame = true;
                     } else {
                         // Fallback: detect from array name
-                        isLayerArray = dataArrayName.includes('_layer_');
-                        isAnimFrame = dataArrayName.includes('_anim_frame_') || dataArrayName.includes('_frame_');
+                        // Match both _layer_ and _layer0, _layer1, etc., or _frame0_layer0
+                        const frameLayerMatch = dataArrayName.match(/_frame(\d+)_layer(\d+)/);
+                        if (frameLayerMatch) {
+                            isLayerArray = true;
+                            isFramesWithLayers = true;
+                            isLayerFile = true;
+                            currentFrameIndex = parseInt(frameLayerMatch[1]);
+                            currentLayerIndex = parseInt(frameLayerMatch[2]);
+                        } else {
+                            isLayerArray = dataArrayName.includes('_layer_') || /_layer\d+/.test(dataArrayName);
+                            isAnimFrame = dataArrayName.includes('_anim_frame_') || dataArrayName.includes('_frame_');
+                        }
                     }
                     
                     // Save previous data if exists
                     if (inDataArray && currentPixelData.length > 0) {
-                        if (isLayerFile) {
+                        if (isFramesWithLayers) {
+                            // Store in frameLayersData structure
+                            if (!frameLayersData[currentFrameIndex]) {
+                                frameLayersData[currentFrameIndex] = [];
+                            }
+                            frameLayersData[currentFrameIndex].push({
+                                name: currentLayerName || `Layer ${currentLayerIndex}`,
+                                data: [...currentPixelData],
+                                layerIndex: currentLayerIndex
+                            });
+                        } else if (isLayerFile) {
                             allLayerData.push({
                                 name: currentLayerName || `Layer ${allLayerData.length}`,
                                 data: [...currentPixelData]
@@ -10481,7 +10350,17 @@ class DrawingEditor {
                         console.log('Finished parsing data array, total bytes:', currentPixelData.length);
                         
                         // Route to correct storage based on detected format or array name
-                        if (detectedFormat === 'LAYERS' || (detectedFormat === null && dataArrayName.includes('_layer_'))) {
+                        if (isFramesWithLayers) {
+                            // Store in frameLayersData structure
+                            if (!frameLayersData[currentFrameIndex]) {
+                                frameLayersData[currentFrameIndex] = [];
+                            }
+                            frameLayersData[currentFrameIndex].push({
+                                name: currentLayerName || `Layer ${currentLayerIndex}`,
+                                data: [...currentPixelData],
+                                layerIndex: currentLayerIndex
+                            });
+                        } else if (detectedFormat === 'LAYERS' || (detectedFormat === null && (dataArrayName.includes('_layer_') || /_layer\d+/.test(dataArrayName)))) {
                             allLayerData.push({
                                 name: currentLayerName || `Layer ${allLayerData.length}`,
                                 data: [...currentPixelData]
@@ -10503,15 +10382,109 @@ class DrawingEditor {
                 }
             }
             
-            console.log('Parse results - Width:', width, 'Height:', height, 'Frames:', allFrameData.length, 'Layers:', allLayerData.length);
+            console.log('Parse results - Width:', width, 'Height:', height, 'Frames:', allFrameData.length, 'Layers:', allLayerData.length, 'Frames with layers:', Object.keys(frameLayersData).length);
             
-            if (width && height && (allFrameData.length > 0 || allLayerData.length > 0)) {
+            if (width && height && (allFrameData.length > 0 || allLayerData.length > 0 || Object.keys(frameLayersData).length > 0)) {
                 // Convert 1-bit packed data to canvas frames
                 this.setCanvasSize(width, height);
                 this.frames = [];
                 this.currentFrameIndex = 0;
                 
-                if (isLayerFile && allLayerData.length > 0) {
+                if (isFramesWithLayers && Object.keys(frameLayersData).length > 0) {
+                    // Load multiple frames, each with layers
+                    console.log('Loading as multi-frame layered file with', Object.keys(frameLayersData).length, 'frames');
+                    
+                    this.frameLayers = {};
+                    
+                    // Sort frame indices
+                    const frameIndices = Object.keys(frameLayersData).map(Number).sort((a, b) => a - b);
+                    
+                    frameIndices.forEach((frameIdx, arrayIdx) => {
+                        const frameCanvas = this.createEmptyFrame();
+                        this.frames.push(frameCanvas);
+                        
+                        // Initialize layers for this frame
+                        this.frameLayers[arrayIdx] = {
+                            currentLayerIndex: 0,
+                            layers: []
+                        };
+                        
+                        // Sort layers by layerIndex
+                        const frameLayers = frameLayersData[frameIdx].sort((a, b) => a.layerIndex - b.layerIndex);
+                        
+                        // Convert each layer data to canvas
+                        frameLayers.forEach((layerInfo) => {
+                            const layerCanvas = document.createElement('canvas');
+                            layerCanvas.width = width;
+                            layerCanvas.height = height;
+                            const ctx = layerCanvas.getContext('2d', { willReadFrequently: true });
+                            const imageData = ctx.createImageData(width, height);
+                            const data = imageData.data;
+                            
+                            // Convert packed bits to RGBA pixels
+                            const totalPixels = width * height;
+                            for (let pixelIndex = 0; pixelIndex < totalPixels; pixelIndex++) {
+                                const byteIndex = Math.floor(pixelIndex / 8);
+                                const bitIndex = 7 - (pixelIndex % 8); // MSB first
+                                
+                                if (byteIndex < layerInfo.data.length) {
+                                    const byte = layerInfo.data[byteIndex];
+                                    const bitValue = (byte >> bitIndex) & 1;
+                                    // Bit = 1 means WHITE, bit = 0 means BLACK
+                                    const isWhite = bitValue === 1;
+                                    
+                                    const dataIndex = pixelIndex * 4;
+                                    
+                                    if (isWhite) {
+                                        data[dataIndex] = 255;     // R
+                                        data[dataIndex + 1] = 255; // G
+                                        data[dataIndex + 2] = 255; // B
+                                        data[dataIndex + 3] = 255; // A
+                                    } else {
+                                        data[dataIndex] = 0;       // R
+                                        data[dataIndex + 1] = 0;   // G
+                                        data[dataIndex + 2] = 0;   // B
+                                        data[dataIndex + 3] = 255; // A
+                                    }
+                                }
+                            }
+                            
+                            ctx.putImageData(imageData, 0, 0);
+                            
+                            // Add layer to frame
+                            this.frameLayers[arrayIdx].layers.push({
+                                canvas: layerCanvas,
+                                visible: true,
+                                name: layerInfo.name
+                            });
+                        });
+                        
+                        // Composite this frame's layers
+                        this.compositeLayersToFrame(arrayIdx);
+                    });
+                    
+                    // Enable layers mode
+                    this.layersEnabled = true;
+                    document.getElementById('layersEnabled').checked = true;
+                    
+                    const layersPanel = document.getElementById('layersPanel');
+                    layersPanel.style.display = 'flex';
+                    
+                    const canvasArea = document.querySelector('.canvas-area');
+                    const mobileToolbar = document.querySelector('.mobile-bottom-toolbar');
+                    const toolsPanel = document.querySelector('.tools-panel');
+                    const exportPanel = document.querySelector('.export-panel');
+                    
+                    if (canvasArea) canvasArea.classList.add('with-layers');
+                    if (mobileToolbar) mobileToolbar.classList.add('with-layers');
+                    if (toolsPanel) toolsPanel.classList.add('with-layers');
+                    if (exportPanel) exportPanel.classList.add('with-layers');
+                    
+                    this.updateLayersUI();
+                    
+                    console.log('Loaded', frameIndices.length, 'frames with layers');
+                    
+                } else if (isLayerFile && allLayerData.length > 0) {
                     // Load as layers
                     console.log('Loading as layered file with', allLayerData.length, 'layers');
                     
@@ -10550,11 +10523,11 @@ class DrawingEditor {
                                 const dataIndex = pixelIndex * 4;
                                 
                                 if (isWhite) {
-                                    // White pixel - make transparent for layers
+                                    // White pixel
                                     data[dataIndex] = 255;     // R
                                     data[dataIndex + 1] = 255; // G
                                     data[dataIndex + 2] = 255; // B
-                                    data[dataIndex + 3] = 0;   // A (fully transparent)
+                                    data[dataIndex + 3] = 255; // A (fully opaque)
                                 } else {
                                     // Black pixel - fully opaque
                                     data[dataIndex] = 0;       // R
