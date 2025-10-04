@@ -243,11 +243,12 @@ header h1 {
     padding: 20px;
     overflow-y: auto;
     flex-shrink: 0;
-    transition: transform 0.3s ease;
+    transition: bottom 0.3s ease, transform 0.3s ease;
     position: absolute;
     left: 0;
     top: 0;
-    height: calc(100% - 65px);
+    bottom: 62px; /* Leave space for canvas-controls bar (padding 15px*2 + content ~32px) */
+    height: auto; /* Let bottom position control height */
     z-index: 50;
     box-shadow: 2px 0 8px rgba(0,0,0,0.1);
 }
@@ -259,11 +260,12 @@ header h1 {
     padding: 20px;
     overflow-y: auto;
     flex-shrink: 0;
-    transition: all 0.3s ease;
+    transition: bottom 0.3s ease;
     position: absolute;
     right: 0;
     top: 0;
-    height: calc(100% - 65px);
+    bottom: 62px; /* Leave space for canvas-controls bar (padding 15px*2 + content ~32px) */
+    height: auto; /* Let bottom position control height */
     z-index: 50;
     box-shadow: -2px 0 8px rgba(0,0,0,0.1);
     display: flex;
@@ -1243,6 +1245,7 @@ input[type="range"]::-moz-range-thumb {
 .grid-controls {
     display: flex;
     align-items: center;
+    gap: 20px; /* Add spacing between checkboxes */
 }
 
 .grid-controls label {
@@ -2695,4 +2698,259 @@ button:focus, .toggle-btn:focus, .collapsible-btn:focus, .mode-btn:focus, .mobil
 .crosshatch-pattern-controls input[type="checkbox"],
 .dots-pattern-controls input[type="checkbox"] {
     margin-right: 8px;
+}
+
+/* Layers Toggle */
+.layers-toggle {
+    padding: 12px;
+    border-top: 1px solid var(--border-color);
+    display: none; /* Hidden - checkbox moved to layers panel */
+}
+
+.layers-toggle label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-color);
+    user-select: none;
+}
+
+.layers-toggle input[type="checkbox"] {
+    cursor: pointer;
+}
+
+/* Layers Panel (bottom of screen) */
+.layers-panel {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 150px;
+    max-height: 150px; /* Prevent growing too tall */
+    background: white; /* White solid background */
+    border-top: 2px solid var(--border-color);
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden; /* Contain all children */
+}
+
+/* Adjust main canvas area to not overlap with layers panel */
+.canvas-area {
+    transition: padding-bottom 0.3s;
+}
+
+.canvas-area.with-layers {
+    padding-bottom: 150px;
+}
+
+/* Adjust sidebars when layers panel is visible */
+.tools-panel.with-layers,
+.export-panel.with-layers {
+    bottom: 212px; /* Canvas controls (62px) + layers panel (150px) */
+}
+
+/* Adjust mobile toolbar when layers panel is visible */
+.mobile-bottom-toolbar {
+    transition: bottom 0.3s;
+    bottom: 0;
+}
+
+.mobile-bottom-toolbar.with-layers {
+    bottom: 150px;
+}
+
+.layers-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: #f5f5f5; /* Light gray header */
+    border-bottom: 1px solid var(--border-color);
+}
+
+.layers-header h3 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-color);
+}
+
+/* Layers checkbox in header */
+.layers-header label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-color);
+    user-select: none;
+    margin: 0;
+}
+
+.layers-header input[type="checkbox"] {
+    cursor: pointer;
+    width: 16px;
+    height: 16px;
+}
+
+.layers-actions {
+    display: flex;
+    gap: 4px;
+}
+
+.layer-btn {
+    padding: 4px 8px;
+    font-size: 11px;
+    border: 1px solid var(--border-color);
+    background: var(--button-bg);
+    color: var(--text-color);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.layer-btn:hover {
+    background: var(--button-hover);
+    transform: translateY(-1px);
+}
+
+.layer-btn:active {
+    transform: translateY(0);
+}
+
+.layer-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.layers-list {
+    flex: 1;
+    display: flex;
+    gap: 8px;
+    padding: 8px;
+    padding-bottom: 12px; /* Extra padding at bottom to ensure shadow visibility */
+    overflow-x: auto;
+    overflow-y: hidden;
+    align-items: flex-start;
+    min-height: 0; /* Important for flex scrolling */
+}
+
+.layer-item {
+    flex-shrink: 0;
+    width: 100px;
+    background: white;
+    border: 2px solid var(--border-color);
+    border-radius: 6px;
+    padding: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.layer-item:hover {
+    border-color: var(--primary-color);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.layer-item.active {
+    border-color: var(--primary-color);
+    background: #f0f8ff;
+    box-shadow: 0 0 0 2px rgba(66, 135, 245, 0.2);
+}
+
+.layer-preview {
+    width: 100%;
+    height: 60px;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    margin-bottom: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    background-image: 
+        linear-gradient(45deg, #f0f0f0 25%, transparent 25%),
+        linear-gradient(-45deg, #f0f0f0 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #f0f0f0 75%),
+        linear-gradient(-45deg, transparent 75%, #f0f0f0 75%);
+    background-size: 10px 10px;
+    background-position: 0 0, 0 5px, 5px -5px, -5px 0px;
+}
+
+.layer-preview canvas {
+    max-width: 100%;
+    max-height: 100%;
+    image-rendering: pixelated;
+}
+
+.layer-info {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 3px;
+}
+
+.layer-name {
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--text-color);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
+}
+
+.layer-visibility {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 12px;
+    padding: 1px;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+    line-height: 1;
+}
+
+.layer-visibility:hover {
+    opacity: 1;
+}
+
+.layer-item.layer-hidden {
+    opacity: 0.5;
+}
+
+.layer-item.layer-hidden .layer-preview {
+    filter: grayscale(1) opacity(0.5);
+}
+
+.layer-item.layer-solo {
+    border-color: #ff9800;
+    background: #fff8e1;
+    box-shadow: 0 0 0 3px rgba(255, 152, 0, 0.3);
+    position: relative;
+}
+
+.layer-item.layer-solo::after {
+    content: 'SOLO';
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    background: #ff9800;
+    color: white;
+    font-size: 8px;
+    font-weight: bold;
+    padding: 1px 4px;
+    border-radius: 3px;
+    pointer-events: none;
+}
+
+.layer-item.layer-solo .layer-name {
+    color: #f57c00;
+    font-weight: 600;
 }

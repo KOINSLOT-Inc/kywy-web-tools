@@ -581,3 +581,89 @@ a:hover {
 .emoji-dither-btn.active {
     background: #888888 !important;
 }
+
+/* Layer Panel Styles */
+.layers-panel {
+    background: #ffffff !important;
+    border-top: 3px solid #000000 !important;
+    border-radius: 0 !important;
+}
+
+.layers-header {
+    background: #cccccc !important;
+    border-bottom: 2px solid #000000 !important;
+}
+
+.layers-header h3 {
+    color: #000000 !important;
+    font-weight: bold !important;
+}
+
+.layer-btn {
+    background: #ffffff !important;
+    border: 2px solid #000000 !important;
+    color: #000000 !important;
+    border-radius: 8px !important;
+    font-weight: bold !important;
+    box-shadow: 2px 2px 0px #888888 !important;
+}
+
+.layer-btn:hover {
+    background: #000000 !important;
+    color: #ffffff !important;
+    box-shadow: inset 2px 2px 2px #333333 !important;
+}
+
+.layer-btn:active {
+    box-shadow: inset 2px 2px 2px #333333 !important;
+}
+
+.layer-btn:disabled {
+    opacity: 0.5 !important;
+    color: #666666 !important;
+    box-shadow: 2px 2px 0px #cccccc !important;
+}
+
+.layer-item {
+    background: #ffffff !important;
+    border: 3px solid #000000 !important;
+    border-radius: 8px !important;
+    box-shadow: 3px 3px 0px #888888 !important;
+}
+
+.layer-item:hover {
+    border-color: #000000 !important;
+    box-shadow: 4px 4px 0px #666666 !important;
+}
+
+.layer-item.active {
+    border-color: #000000 !important;
+    background: #cccccc !important;
+}
+
+.layer-item.layer-solo {
+    border-color: #000000 !important;
+    background: #ffff99 !important;
+}
+
+.layer-preview {
+    background: #ffffff !important;
+    border: 2px solid #000000 !important;
+    border-radius: 4px !important;
+}
+
+.layer-name {
+    color: #000000 !important;
+    font-weight: bold !important;
+}
+
+.layer-item.layer-solo .layer-name {
+    color: #000000 !important;
+}
+
+.layer-item.layer-solo::after {
+    background: #000000 !important;
+    color: #ffff00 !important;
+    font-weight: bold !important;
+}
+

@@ -220,6 +220,119 @@ class TransformCommand extends Command {
     }
 }
 
+// Layer Commands
+class AddLayerCommand extends Command {
+    constructor(editor, frameIndex, layerData) {
+        super(editor, frameIndex);
+        this.layerData = layerData; // The layer that was added
+    }
+    
+    execute() {
+        const frameData = this.editor.frameLayers && this.editor.frameLayers[this.frameIndex];
+        if (!frameData) return;
+        
+        frameData.layers.push(this.layerData);
+        frameData.currentLayerIndex = frameData.layers.length - 1;
+        this.editor.updateLayersUI();
+        this.editor.redrawCanvas();
+    }
+    
+    undo() {
+        const frameData = this.editor.frameLayers && this.editor.frameLayers[this.frameIndex];
+        if (!frameData) return;
+        
+        frameData.layers.pop();
+        frameData.currentLayerIndex = Math.min(frameData.currentLayerIndex, frameData.layers.length - 1);
+        this.editor.updateLayersUI();
+        this.editor.compositeLayersToFrame();
+        this.editor.redrawCanvas();
+    }
+}
+
+class DeleteLayerCommand extends Command {
+    constructor(editor, frameIndex, layerIndex, layerData) {
+        super(editor, frameIndex);
+        this.layerIndex = layerIndex;
+        this.layerData = layerData; // Store the deleted layer
+    }
+    
+    execute() {
+        const frameData = this.editor.frameLayers && this.editor.frameLayers[this.frameIndex];
+        if (!frameData) return;
+        
+        // Exit solo mode if deleting the solo layer
+        if (this.editor.soloLayerIndex === this.layerIndex) {
+            this.editor.soloLayerIndex = null;
+        } else if (this.editor.soloLayerIndex !== null && this.editor.soloLayerIndex > this.layerIndex) {
+            // Adjust solo index if deleting a layer below the solo layer
+            this.editor.soloLayerIndex--;
+        }
+        
+        frameData.layers.splice(this.layerIndex, 1);
+        frameData.currentLayerIndex = Math.min(frameData.currentLayerIndex, frameData.layers.length - 1);
+        this.editor.updateLayersUI();
+        this.editor.compositeLayersToFrame();
+        this.editor.redrawCanvas();
+    }
+    
+    undo() {
+        const frameData = this.editor.frameLayers && this.editor.frameLayers[this.frameIndex];
+        if (!frameData) return;
+        
+        // Adjust solo index if restoring a layer
+        if (this.editor.soloLayerIndex !== null && this.editor.soloLayerIndex >= this.layerIndex) {
+            this.editor.soloLayerIndex++;
+        }
+        
+        frameData.layers.splice(this.layerIndex, 0, this.layerData);
+        frameData.currentLayerIndex = this.layerIndex;
+        this.editor.updateLayersUI();
+        this.editor.compositeLayersToFrame();
+        this.editor.redrawCanvas();
+    }
+}
+
+class MergeLayerCommand extends Command {
+    constructor(editor, frameIndex, layerIndex, topLayerData, bottomLayerSnapshot) {
+        super(editor, frameIndex);
+        this.layerIndex = layerIndex; // Index of the layer that was merged down
+        this.topLayerData = topLayerData; // The layer that was merged (now deleted)
+        this.bottomLayerSnapshot = bottomLayerSnapshot; // Snapshot of bottom layer before merge
+    }
+    
+    execute() {
+        const frameData = this.editor.frameLayers && this.editor.frameLayers[this.frameIndex];
+        if (!frameData) return;
+        
+        const belowLayer = frameData.layers[this.layerIndex - 1];
+        const ctx = belowLayer.canvas.getContext('2d', { willReadFrequently: true });
+        ctx.drawImage(this.topLayerData.canvas, 0, 0);
+        
+        frameData.layers.splice(this.layerIndex, 1);
+        frameData.currentLayerIndex = this.layerIndex - 1;
+        this.editor.updateLayersUI();
+        this.editor.compositeLayersToFrame();
+        this.editor.redrawCanvas();
+    }
+    
+    undo() {
+        const frameData = this.editor.frameLayers && this.editor.frameLayers[this.frameIndex];
+        if (!frameData) return;
+        
+        // Restore bottom layer
+        const belowLayer = frameData.layers[this.layerIndex - 1];
+        const ctx = belowLayer.canvas.getContext('2d', { willReadFrequently: true });
+        ctx.putImageData(this.bottomLayerSnapshot, 0, 0);
+        
+        // Re-insert top layer
+        frameData.layers.splice(this.layerIndex, 0, this.topLayerData);
+        frameData.currentLayerIndex = this.layerIndex;
+        this.editor.updateLayersUI();
+        this.editor.compositeLayersToFrame();
+        this.editor.redrawCanvas();
+    }
+}
+
 class DrawingEditor {
     constructor() {
         
@@ -328,6 +441,13 @@ class DrawingEditor {
         this.animationInterval = null;
         this.animationMode = 'cycle'; // 'cycle' or 'boomerang'
         this.animationDirection = 1; // 1 for forward, -1 for backward (boomerang)
+        
+        // Layer system
+        this.layersEnabled = false;
+        this.layers = []; // Array of layers for current frame: [{name, canvas, visible}, ...]
+        this.currentLayerIndex = 0;
+        this.frameLayers = {}; // Store layers per frame: {frameIndex: {layers: [...], currentLayerIndex: 0}}
+        this.soloLayerIndex = null; // Index of layer in solo/focus mode, null when not in solo mode
         
         // Create first frame after frames array is initialized
         this.frames.push(this.createEmptyFrame());
@@ -2177,6 +2297,470 @@ class DrawingEditor {
         this.textPreviewCanvas = canvas;
     }
 
+    // === LAYER SYSTEM METHODS ===
+    
+    toggleLayersMode() {
+        this.layersEnabled = document.getElementById('layersEnabled').checked;
+        const layersPanel = document.getElementById('layersPanel');
+        const canvasArea = document.querySelector('.canvas-area');
+        const mobileToolbar = document.querySelector('.mobile-bottom-toolbar');
+        const toolsPanel = document.querySelector('.tools-panel');
+        const exportPanel = document.querySelector('.export-panel');
+        
+        if (this.layersEnabled) {
+            // Show layers panel
+            layersPanel.style.display = 'flex';
+            
+            // Add classes to adjust layout
+            if (canvasArea) canvasArea.classList.add('with-layers');
+            if (mobileToolbar) mobileToolbar.classList.add('with-layers');
+            if (toolsPanel) toolsPanel.classList.add('with-layers');
+            if (exportPanel) exportPanel.classList.add('with-layers');
+            
+            // Initialize layers for current frame if not already done
+            if (!this.frameLayers[this.currentFrameIndex]) {
+                this.initializeLayersForFrame(this.currentFrameIndex);
+            }
+            
+            // Update layers UI
+            this.updateLayersUI();
+        } else {
+            // Hide layers panel
+            layersPanel.style.display = 'none';
+            
+            // Remove layout adjustment classes
+            if (canvasArea) canvasArea.classList.remove('with-layers');
+            if (mobileToolbar) mobileToolbar.classList.remove('with-layers');
+            if (toolsPanel) toolsPanel.classList.remove('with-layers');
+            if (exportPanel) exportPanel.classList.remove('with-layers');
+            
+            // Flatten all layers into main canvas
+            this.flattenAllFrames();
+        }
+        
+        this.redrawCanvas();
+    }
+    
+    initializeLayersForFrame(frameIndex) {
+        const frameCanvas = this.frames[frameIndex];
+        
+        // Create initial layer with current frame content
+        const layer1 = {
+            name: 'Layer 0',
+            canvas: document.createElement('canvas'),
+            visible: true
+        };
+        layer1.canvas.width = this.canvasWidth;
+        layer1.canvas.height = this.canvasHeight;
+        
+        // Copy current frame content to layer 1
+        const ctx = layer1.canvas.getContext('2d', { willReadFrequently: true });
+        ctx.drawImage(frameCanvas, 0, 0);
+        
+        // Store layers in a separate structure indexed by frame
+        if (!this.frameLayers) {
+            this.frameLayers = {};
+        }
+        this.frameLayers[frameIndex] = {
+            layers: [layer1],
+            currentLayerIndex: 0
+        };
+        
+        // Clear main frame canvas (will be composited from layers)
+        const frameCtx = frameCanvas.getContext('2d', { willReadFrequently: true });
+        frameCtx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
+    }
+    
+    updateLayersUI() {
+        const layersList = document.getElementById('layersList');
+        layersList.innerHTML = '';
+        
+        const frameData = this.frameLayers && this.frameLayers[this.currentFrameIndex];
+        if (!frameData) return;
+        
+        // Create layer items in normal order (left to right = Layer 0 to Layer N)
+        // This makes new layers appear on the right side
+        for (let i = 0; i < frameData.layers.length; i++) {
+            const layer = frameData.layers[i];
+            const layerItem = document.createElement('div');
+            layerItem.className = 'layer-item';
+            if (i === frameData.currentLayerIndex) {
+                layerItem.classList.add('active');
+            }
+            if (!layer.visible) {
+                layerItem.classList.add('layer-hidden');
+            }
+            if (this.soloLayerIndex === i) {
+                layerItem.classList.add('layer-solo');
+            }
+            
+            // Create preview canvas
+            const preview = document.createElement('div');
+            preview.className = 'layer-preview';
+            const previewCanvas = document.createElement('canvas');
+            previewCanvas.width = layer.canvas.width;
+            previewCanvas.height = layer.canvas.height;
+            const previewCtx = previewCanvas.getContext('2d', { willReadFrequently: true });
+            previewCtx.drawImage(layer.canvas, 0, 0);
+            preview.appendChild(previewCanvas);
+            
+            // Create layer info
+            const info = document.createElement('div');
+            info.className = 'layer-info';
+            
+            const nameSpan = document.createElement('span');
+            nameSpan.className = 'layer-name';
+            nameSpan.textContent = layer.name;
+            
+            const visibilityBtn = document.createElement('button');
+            visibilityBtn.className = 'layer-visibility';
+            visibilityBtn.textContent = layer.visible ? '👁️' : '👁️‍🗨️';
+            visibilityBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.toggleLayerVisibility(i);
+            });
+            
+            info.appendChild(nameSpan);
+            info.appendChild(visibilityBtn);
+            
+            layerItem.appendChild(preview);
+            layerItem.appendChild(info);
+            
+            // Click to select layer
+            layerItem.addEventListener('click', () => {
+                this.selectLayer(i);
+            });
+            
+            // Double-click to toggle solo mode
+            layerItem.addEventListener('dblclick', (e) => {
+                e.stopPropagation();
+                this.toggleSoloLayer(i);
+            });
+            
+            layersList.appendChild(layerItem);
+        }
+        
+        // Update button states
+        document.getElementById('deleteLayer').disabled = frameData.layers.length <= 1;
+        document.getElementById('mergeDown').disabled = frameData.currentLayerIndex === 0;
+    }
+    
+    selectLayer(layerIndex) {
+        const frameData = this.frameLayers && this.frameLayers[this.currentFrameIndex];
+        if (!frameData) return;
+        frameData.currentLayerIndex = layerIndex;
+        this.updateLayersUI();
+        this.redrawCanvas();
+    }
+    
+    toggleSoloLayer(layerIndex) {
+        // Toggle solo mode for the clicked layer
+        if (this.soloLayerIndex === layerIndex) {
+            // Exit solo mode
+            this.soloLayerIndex = null;
+        } else {
+            // Enter solo mode for this layer
+            this.soloLayerIndex = layerIndex;
+            // Also select this layer
+            const frameData = this.frameLayers && this.frameLayers[this.currentFrameIndex];
+            if (frameData) {
+                frameData.currentLayerIndex = layerIndex;
+            }
+        }
+        this.updateLayersUI();
+        this.redrawCanvas();
+    }
+    
+    toggleLayerVisibility(layerIndex) {
+        const frameData = this.frameLayers && this.frameLayers[this.currentFrameIndex];
+        if (!frameData) return;
+        const layer = frameData.layers[layerIndex];
+        layer.visible = !layer.visible;
+        this.updateLayersUI();
+        this.compositeLayersToFrame();
+        this.redrawCanvas();
+    }
+    
+    addLayer() {
+        const frameData = this.frameLayers && this.frameLayers[this.currentFrameIndex];
+        if (!frameData) {
+            this.initializeLayersForFrame(this.currentFrameIndex);
+            return;
+        }
+        
+        const newLayer = {
+            name: `Layer ${frameData.layers.length}`,
+            canvas: document.createElement('canvas'),
+            visible: true
+        };
+        newLayer.canvas.width = this.canvasWidth;
+        newLayer.canvas.height = this.canvasHeight;
+        
+        // Use command pattern for undo support
+        const command = new AddLayerCommand(this, this.currentFrameIndex, newLayer);
+        this.executeCommand(command);
+    }
+    
+    deleteLayer() {
+        const frameData = this.frameLayers && this.frameLayers[this.currentFrameIndex];
+        if (!frameData || frameData.layers.length <= 1) return;
+        
+        if (confirm(`Delete ${frameData.layers[frameData.currentLayerIndex].name}?`)) {
+            const layerIndex = frameData.currentLayerIndex;
+            const layerData = frameData.layers[layerIndex];
+            
+            // Clone the layer canvas for undo
+            const clonedLayer = {
+                name: layerData.name,
+                canvas: document.createElement('canvas'),
+                visible: layerData.visible
+            };
+            clonedLayer.canvas.width = layerData.canvas.width;
+            clonedLayer.canvas.height = layerData.canvas.height;
+            const ctx = clonedLayer.canvas.getContext('2d', { willReadFrequently: true });
+            ctx.drawImage(layerData.canvas, 0, 0);
+            
+            // Use command pattern for undo support
+            const command = new DeleteLayerCommand(this, this.currentFrameIndex, layerIndex, clonedLayer);
+            this.executeCommand(command);
+        }
+    }
+    
+    mergeLayerDown() {
+        const frameData = this.frameLayers && this.frameLayers[this.currentFrameIndex];
+        if (!frameData || frameData.currentLayerIndex === 0) return;
+        
+        const layerIndex = frameData.currentLayerIndex;
+        const currentLayer = frameData.layers[layerIndex];
+        const belowLayer = frameData.layers[layerIndex - 1];
+        
+        // Clone the top layer for undo
+        const clonedTopLayer = {
+            name: currentLayer.name,
+            canvas: document.createElement('canvas'),
+            visible: currentLayer.visible
+        };
+        clonedTopLayer.canvas.width = currentLayer.canvas.width;
+        clonedTopLayer.canvas.height = currentLayer.canvas.height;
+        const topCtx = clonedTopLayer.canvas.getContext('2d', { willReadFrequently: true });
+        topCtx.drawImage(currentLayer.canvas, 0, 0);
+        
+        // Snapshot bottom layer before merge
+        const bottomCtx = belowLayer.canvas.getContext('2d', { willReadFrequently: true });
+        const bottomSnapshot = bottomCtx.getImageData(0, 0, belowLayer.canvas.width, belowLayer.canvas.height);
+        
+        // Use command pattern for undo support
+        const command = new MergeLayerCommand(this, this.currentFrameIndex, layerIndex, clonedTopLayer, bottomSnapshot);
+        this.executeCommand(command);
+    }
+    
+    copyLayerToFrames() {
+        const frameData = this.frameLayers && this.frameLayers[this.currentFrameIndex];
+        if (!frameData) return;
+        
+        const currentLayer = frameData.layers[frameData.currentLayerIndex];
+        const layerIndex = frameData.currentLayerIndex;
+        
+        if (this.frames.length === 1) {
+            alert('Only one frame exists. Create more frames to copy layers between them.');
+            return;
+        }
+        
+        // Show the modal
+        const modal = document.getElementById('copyLayerModal');
+        const frameCheckboxList = document.getElementById('frameCheckboxList');
+        const layerNameSpan = document.getElementById('copyLayerName');
+        
+        // Set layer name in modal
+        layerNameSpan.textContent = currentLayer.name;
+        
+        // Clear previous checkboxes
+        frameCheckboxList.innerHTML = '';
+        
+        // Create checkbox for each frame (except current)
+        this.frames.forEach((_, i) => {
+            if (i !== this.currentFrameIndex) {
+                const checkboxWrapper = document.createElement('div');
+                checkboxWrapper.style.cssText = 'display: flex; align-items: center; padding: 8px; border-bottom: 1px solid #eee; cursor: pointer;';
+                checkboxWrapper.onmouseover = function() { this.style.background = '#f5f5f5'; };
+                checkboxWrapper.onmouseout = function() { this.style.background = 'white'; };
+                
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.id = `frame-checkbox-${i}`;
+                checkbox.value = i;
+                checkbox.style.cssText = 'margin-right: 10px; width: 18px; height: 18px; cursor: pointer;';
+                
+                const label = document.createElement('label');
+                label.htmlFor = `frame-checkbox-${i}`;
+                label.textContent = `Frame ${i + 1}`;
+                label.style.cssText = 'cursor: pointer; flex: 1; user-select: none;';
+                
+                // Make the whole row clickable
+                checkboxWrapper.onclick = function() {
+                    checkbox.checked = !checkbox.checked;
+                };
+                
+                checkboxWrapper.appendChild(checkbox);
+                checkboxWrapper.appendChild(label);
+                frameCheckboxList.appendChild(checkboxWrapper);
+            }
+        });
+        
+        // Set up select/deselect all buttons
+        document.getElementById('selectAllFrames').onclick = () => {
+            frameCheckboxList.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = true);
+        };
+        
+        document.getElementById('deselectAllFrames').onclick = () => {
+            frameCheckboxList.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+        };
+        
+        // Set up confirm button
+        document.getElementById('confirmCopyLayer').onclick = () => {
+            const selectedFrames = Array.from(frameCheckboxList.querySelectorAll('input[type="checkbox"]:checked'))
+                .map(cb => parseInt(cb.value));
+            
+            if (selectedFrames.length === 0) {
+                alert('Please select at least one frame!');
+                return;
+            }
+            
+            // Copy layer to selected frames
+            selectedFrames.forEach(frameIndex => {
+                const targetFrame = this.frameLayers[frameIndex];
+                
+                // Initialize layers if needed
+                if (!targetFrame) {
+                    this.initializeLayersForFrame(frameIndex);
+                }
+                
+                const targetData = this.frameLayers[frameIndex];
+                
+                // Create new layer
+                const newLayer = {
+                    name: currentLayer.name,
+                    canvas: document.createElement('canvas'),
+                    visible: currentLayer.visible
+                };
+                newLayer.canvas.width = this.canvasWidth;
+                newLayer.canvas.height = this.canvasHeight;
+                const ctx = newLayer.canvas.getContext('2d', { willReadFrequently: true });
+                ctx.drawImage(currentLayer.canvas, 0, 0);
+                
+                // Insert or replace at same index
+                if (layerIndex < targetData.layers.length) {
+                    targetData.layers[layerIndex] = newLayer;
+                } else {
+                    targetData.layers.push(newLayer);
+                }
+            });
+            
+            // Close modal and show success message
+            modal.style.display = 'none';
+            alert(`Layer copied to ${selectedFrames.length} frame(s)`);
+            this.markUnsavedChanges();
+        };
+        
+        // Show the modal
+        modal.style.display = 'block';
+    }
+    
+    compositeLayersToFrame() {
+        const frameData = this.frameLayers && this.frameLayers[this.currentFrameIndex];
+        if (!frameData) return;
+        
+        const frameCanvas = this.frames[this.currentFrameIndex];
+        
+        // Clear frame canvas
+        const ctx = frameCanvas.getContext('2d', { willReadFrequently: true });
+        ctx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
+        
+        // If in solo mode, only draw the solo layer
+        if (this.soloLayerIndex !== null && this.soloLayerIndex < frameData.layers.length) {
+            const soloLayer = frameData.layers[this.soloLayerIndex];
+            ctx.drawImage(soloLayer.canvas, 0, 0);
+        } else {
+            // Draw visible layers in order (bottom to top)
+            frameData.layers.forEach(layer => {
+                if (layer.visible) {
+                    ctx.drawImage(layer.canvas, 0, 0);
+                }
+            });
+        }
+    }
+    
+    flattenAllFrames() {
+        // Merge all layers into main canvas for each frame
+        this.frames.forEach((frameCanvas, i) => {
+            const frameData = this.frameLayers && this.frameLayers[i];
+            if (frameData) {
+                const ctx = frameCanvas.getContext('2d', { willReadFrequently: true });
+                ctx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
+                
+                frameData.layers.forEach(layer => {
+                    if (layer.visible) {
+                        ctx.drawImage(layer.canvas, 0, 0);
+                    }
+                });
+                
+                // Clear layers
+                delete this.frameLayers[i];
+            }
+        });
+    }
+    
+    getActiveCanvas() {
+        // Return the canvas that should be drawn on
+        if (this.layersEnabled) {
+            const frameData = this.frameLayers && this.frameLayers[this.currentFrameIndex];
+            if (frameData && frameData.layers[frameData.currentLayerIndex]) {
+                return frameData.layers[frameData.currentLayerIndex].canvas;
+            }
+        }
+        return this.frames[this.currentFrameIndex];
+    }
+    
+    getActiveContext() {
+        return this.getActiveCanvas().getContext('2d', { willReadFrequently: true });
+    }
+
+    flattenAllFrames() {
+        // Merge all layers into main canvas for each frame
+        if (!this.frameLayers) return;
+        
+        Object.keys(this.frameLayers).forEach(frameIndex => {
+            const frameData = this.frameLayers[frameIndex];
+            const frameCanvas = this.frames[frameIndex];
+            const ctx = frameCanvas.getContext('2d', { willReadFrequently: true });
+            ctx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
+            
+            frameData.layers.forEach(layer => {
+                if (layer.visible) {
+                    ctx.drawImage(layer.canvas, 0, 0);
+                }
+            });
+        });
+        
+        // Clear layers
+        this.frameLayers = {};
+    }
+    
+    getActiveCanvas() {
+        // Return the canvas that should be drawn on
+        if (this.layersEnabled) {
+            const frameData = this.frameLayers && this.frameLayers[this.currentFrameIndex];
+            if (frameData && frameData.layers[frameData.currentLayerIndex]) {
+                return frameData.layers[frameData.currentLayerIndex].canvas;
+            }
+        }
+        return this.frames[this.currentFrameIndex];
+    }
+    
+    getActiveContext() {
+        return this.getActiveCanvas().getContext('2d', { willReadFrequently: true });
+    }
+
     initializeEvents() {
         // Get the canvas container for panning/zooming events
         const canvasContainer = document.querySelector('.canvas-container');
@@ -2686,6 +3270,13 @@ class DrawingEditor {
         
         // Animation toggle button
         document.getElementById('animationToggle').addEventListener('click', () => this.toggleAnimationSettings());
+        
+        // Layers system
+        document.getElementById('layersEnabled').addEventListener('change', () => this.toggleLayersMode());
+        document.getElementById('addLayer').addEventListener('click', () => this.addLayer());
+        document.getElementById('deleteLayer').addEventListener('click', () => this.deleteLayer());
+        document.getElementById('mergeDown').addEventListener('click', () => this.mergeLayerDown());
+        document.getElementById('copyLayerToFrames').addEventListener('click', () => this.copyLayerToFrames());
         
         // Keyboard shortcuts
         document.addEventListener('keydown', (e) => this.handleKeyboardShortcuts(e));
@@ -6404,6 +6995,10 @@ class DrawingEditor {
     }
     
     getCurrentFrameContext() {
+        // Use active layer if layers are enabled, otherwise use frame canvas
+        if (this.layersEnabled) {
+            return this.getActiveContext();
+        }
         return this.frames[this.currentFrameIndex].getContext('2d');
     }
     
@@ -7267,6 +7862,11 @@ class DrawingEditor {
         // Safety check - ensure we have proper context
         if (!this.drawingCtx) return;
         
+        // Composite layers if layers are enabled
+        if (this.layersEnabled) {
+            this.compositeLayersToFrame();
+        }
+        
         // Clear the drawing canvas - leave it transparent for onion skin to show through
         this.drawingCtx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
         
@@ -7530,34 +8130,29 @@ class DrawingEditor {
     
     
     clearCurrentFrame() {
-        // Capture canvas state before clearing for undo system
+        // If layers are enabled, clear the current layer
+        if (this.layersEnabled) {
+            const frameData = this.frameLayers && this.frameLayers[this.currentFrameIndex];
+            if (frameData) {
+                const currentLayer = frameData.layers[frameData.currentLayerIndex];
+                const ctx = currentLayer.canvas.getContext('2d', { willReadFrequently: true });
+                const canvasSnapshot = ctx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
+                
+                // Create and execute clear command
+                const command = new ClearCanvasCommand(this, canvasSnapshot, this.currentFrameIndex);
+                this.executeCommand(command);
+                return;
+            }
+        }
+        
+        // Normal frame clearing (no layers)
         const frame = this.frames[this.currentFrameIndex];
         const ctx = frame.getContext('2d', { willReadFrequently: true });
         const canvasSnapshot = ctx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
         
         // Create and execute clear command
-        const command = new ClearCanvasCommand(this, canvasSnapshot);
-        command.execute();
-        
-        // Add to undo system
-        this.undoStack.push(command);
-        this.redoStack = [];
-        
-        // Limit undo stack size
-        if (this.undoStack.length > this.maxUndoStackSize) {
-            this.undoStack.shift();
-        }
-        
-        // Mark as unsaved if canvas wasn't already blank
-        if (!this.checkIfBlank()) {
-            this.isBlankCanvas = true; // Canvas is now blank
-            this.hasUnsavedChanges = false; // Clearing to blank doesn't count as unsaved
-            this.updateWindowTitle();
-        }
-        
-        this.updateUndoRedoUI();
-        this.generateThumbnail(this.currentFrameIndex);
-        this.generateCode();
+        const command = new ClearCanvasCommand(this, canvasSnapshot, this.currentFrameIndex);
+        this.executeCommand(command);
     }
 
     // Frame management methods will be added in the next part
@@ -7565,6 +8160,12 @@ class DrawingEditor {
         const newFrame = this.createEmptyFrame();
         this.frames.splice(this.currentFrameIndex + 1, 0, newFrame);
         this.currentFrameIndex++;
+        
+        // Initialize layers for new frame if layers are enabled
+        if (this.layersEnabled) {
+            this.initializeLayersForFrame(this.currentFrameIndex);
+            this.updateLayersUI();
+        }
         
         // If this is the first frame added (now we have 2 frames), switch to animation format
         if (this.frames.length === 2) {
@@ -7626,17 +8227,25 @@ class DrawingEditor {
     
     previousFrame() {
         if (this.currentFrameIndex > 0) {
+            this.soloLayerIndex = null; // Exit solo mode when switching frames
             this.currentFrameIndex--;
             this.updateUI();
             this.redrawCanvas();
+            if (this.layersEnabled) {
+                this.updateLayersUI();
+            }
         }
     }
     
     nextFrame() {
         if (this.currentFrameIndex < this.frames.length - 1) {
+            this.soloLayerIndex = null; // Exit solo mode when switching frames
             this.currentFrameIndex++;
             this.updateUI();
             this.redrawCanvas();
+            if (this.layersEnabled) {
+                this.updateLayersUI();
+            }
         }
     }
     
@@ -7894,6 +8503,8 @@ class DrawingEditor {
             code = this.generateSingleFrameHPP();
         } else if (format === 'animation') {
             code = this.generateAnimationHPP();
+        } else if (format === 'layers') {
+            code = this.generateLayersHPP();
         }
         
         document.getElementById('codeOutput').value = code;
@@ -8012,6 +8623,84 @@ class DrawingEditor {
         const frameRate = parseFloat(document.getElementById('frameRate').value);
         const animationSpeed = Math.round(1000 / frameRate); // Convert FPS to milliseconds per frame
         code += `#define ${assetName.toUpperCase()}_SPEED ${animationSpeed}  // milliseconds per frame\n`;
+        
+        return code;
+    }
+    
+    generateLayersHPP() {
+        if (!this.layersEnabled || !this.frameLayers[this.currentFrameIndex]) {
+            // Fallback to single frame export if layers not enabled
+            return this.generateSingleFrameHPP();
+        }
+        
+        const frameData = this.frameLayers[this.currentFrameIndex];
+        const layers = frameData.layers;
+        
+        if (layers.length === 0) {
+            return '// No layers to export\n';
+        }
+        
+        // Get the asset name from the input and clean it
+        const rawAssetName = document.getElementById('assetName').value || 'my_layers';
+        const assetName = this.cleanAssetName(rawAssetName);
+        
+        let code = `// Generated layer data for ${this.canvasWidth}x${this.canvasHeight} image\n`;
+        code += `// ${layers.length} layers - Created with Kywy Drawing Editor\n\n`;
+        
+        // Generate data for each layer
+        const layerDataArrays = [];
+        layers.forEach((layer, index) => {
+            const ctx = layer.canvas.getContext('2d');
+            const imageData = ctx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
+            const data = imageData.data;
+            
+            const bytes = [];
+            for (let byte = 0; byte < Math.ceil((this.canvasWidth * this.canvasHeight) / 8); byte++) {
+                let byteValue = 0;
+                for (let bit = 0; bit < 8; bit++) {
+                    const pixelIndex = byte * 8 + bit;
+                    if (pixelIndex < this.canvasWidth * this.canvasHeight) {
+                        const dataIndex = pixelIndex * 4;
+                        const isWhite = data[dataIndex] >= 128;
+                        if (isWhite) {
+                            byteValue |= (1 << (7 - bit));
+                        }
+                    }
+                }
+                bytes.push(`0x${byteValue.toString(16).padStart(2, '0').toUpperCase()}`);
+            }
+            
+            layerDataArrays.push({ name: layer.name, bytes: bytes, visible: layer.visible });
+        });
+        
+        // Output individual layer arrays
+        layerDataArrays.forEach((layerData, index) => {
+            const layerName = this.cleanAssetName(layerData.name).toLowerCase();
+            code += `// ${layerData.visible ? 'Visible' : 'Hidden'} layer: ${layerData.name}\n`;
+            code += `uint8_t ${assetName}_${layerName}[${layerData.bytes.length}] = {\n`;
+            for (let i = 0; i < layerData.bytes.length; i += 12) {
+                code += '    ' + layerData.bytes.slice(i, i + 12).join(', ');
+                if (i + 12 < layerData.bytes.length) code += ',';
+                code += '\n';
+            }
+            code += `};\n\n`;
+        });
+        
+        // Output layer pointer array
+        code += `const uint8_t* ${assetName}_layers[${layers.length}] = {\n`;
+        layerDataArrays.forEach((layerData, index) => {
+            const layerName = this.cleanAssetName(layerData.name).toLowerCase();
+            code += `    ${assetName}_${layerName}`;
+            if (index < layers.length - 1) code += ',';
+            code += `  // ${layerData.name}\n`;
+        });
+        code += `};\n\n`;
+        
+        // Output constants
+        code += `// Layer Constants\n`;
+        code += `#define ${assetName.toUpperCase()}_LAYER_COUNT ${layers.length}\n`;
+        code += `#define ${assetName.toUpperCase()}_WIDTH ${this.canvasWidth}\n`;
+        code += `#define ${assetName.toUpperCase()}_HEIGHT ${this.canvasHeight}\n`;
         
         return code;
     }
@@ -8816,13 +9505,11 @@ class DrawingEditor {
         switch (format) {
             case 'hpp':
             case 'animation':
+            case 'layers':
                 this.downloadCode();
                 break;
             case 'png':
                 this.exportPNG();
-                break;
-            case 'gif':
-                this.exportGIF();
                 break;
         }
     }
@@ -8859,46 +9546,91 @@ class DrawingEditor {
             return;
         }
         
-        // Create a temporary canvas for GIF frames
+        // Check if GIF library is loaded
+        if (typeof GIF === 'undefined') {
+            alert('GIF library not loaded. Please check your internet connection and reload the page.');
+            return;
+        }
+        
+        // Show progress message
+        const originalText = document.getElementById('exportBtn').textContent;
+        document.getElementById('exportBtn').textContent = '⏳ Creating GIF...';
+        document.getElementById('exportBtn').disabled = true;
+        
+        // Create a temporary canvas for rendering frames
         const tempCanvas = document.createElement('canvas');
         tempCanvas.width = this.canvasWidth;
         tempCanvas.height = this.canvasHeight;
         const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
         tempCtx.imageSmoothingEnabled = false;
         
-        // Create frames data
-        const frames = [];
+        // Get frame rate and calculate delay
         const frameRate = parseInt(document.getElementById('frameRate').value);
-        const delay = Math.round(100 / frameRate); // Convert FPS to centiseconds
+        const delay = Math.round(1000 / frameRate); // Convert FPS to milliseconds
         
+        // Initialize GIF encoder with local worker script
+        const gif = new GIF({
+            workers: 2,
+            quality: 10,
+            width: this.canvasWidth,
+            height: this.canvasHeight,
+            workerScript: 'gif.worker.js'
+        });
+        
+        // Add each frame to the GIF
         for (let i = 0; i < this.frames.length; i++) {
-            // Clear and draw frame
+            // Clear and set white background
             tempCtx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
             tempCtx.fillStyle = 'white';
             tempCtx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
             
-            const frameData = this.frames[i];
-            for (let y = 0; y < this.canvasHeight; y++) {
-                for (let x = 0; x < this.canvasWidth; x++) {
-                    const index = y * this.canvasWidth + x;
-                    if (frameData[index] === 1) {
-                        tempCtx.fillStyle = 'black';
-                        tempCtx.fillRect(x, y, 1, 1);
+            // If layers are enabled, composite them for this frame
+            if (this.layersEnabled && this.frameLayers[i]) {
+                const frameData = this.frameLayers[i];
+                frameData.layers.forEach(layer => {
+                    if (layer.visible) {
+                        tempCtx.drawImage(layer.canvas, 0, 0);
                     }
-                }
+                });
+            } else {
+                // Draw the frame canvas directly
+                tempCtx.drawImage(this.frames[i], 0, 0);
             }
             
-            // Get image data
-            const imageData = tempCtx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
-            frames.push({
-                data: imageData.data,
-                delay: delay
-            });
+            // Add frame to GIF with delay
+            gif.addFrame(tempCanvas, { copy: true, delay: delay });
         }
         
-        // Since we don't have a GIF encoder library, we'll create a simple animated PNG sequence
-        // For a full GIF implementation, you would need to include a library like gif.js
-        this.createAnimatedPNGSequence(frames);
+        // Handle GIF completion
+        gif.on('finished', (blob) => {
+            // Download the GIF
+            const assetName = document.getElementById('assetName').value || 'my_animation';
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${assetName}.gif`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            // Reset button
+            document.getElementById('exportBtn').textContent = originalText;
+            document.getElementById('exportBtn').disabled = false;
+            
+            alert(`GIF exported successfully! (${this.frames.length} frames at ${frameRate} FPS)`);
+        });
+        
+        // Handle errors
+        gif.on('error', (error) => {
+            console.error('GIF encoding error:', error);
+            alert('Error creating GIF. Please try again.');
+            document.getElementById('exportBtn').textContent = originalText;
+            document.getElementById('exportBtn').disabled = false;
+        });
+        
+        // Start rendering
+        gif.render();
     }
     
     createAnimatedPNGSequence(frames) {
@@ -8906,27 +9638,29 @@ class DrawingEditor {
         const frameRate = parseInt(document.getElementById('frameRate').value);
         
         // Create individual frame downloads
-        for (let i = 0; i < frames.length; i++) {
+        for (let i = 0; i < this.frames.length; i++) {
             const tempCanvas = document.createElement('canvas');
             tempCanvas.width = this.canvasWidth;
             tempCanvas.height = this.canvasHeight;
             const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
             tempCtx.imageSmoothingEnabled = false;
             
-            // Draw frame
+            // Draw frame - composite layers if enabled
             tempCtx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
             tempCtx.fillStyle = 'white';
             tempCtx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
             
-            const frameData = this.frames[i];
-            for (let y = 0; y < this.canvasHeight; y++) {
-                for (let x = 0; x < this.canvasWidth; x++) {
-                    const index = y * this.canvasWidth + x;
-                    if (frameData[index] === 1) {
-                        tempCtx.fillStyle = 'black';
-                        tempCtx.fillRect(x, y, 1, 1);
+            // If layers are enabled, composite them for this frame
+            if (this.layersEnabled && this.frameLayers[i]) {
+                const frameData = this.frameLayers[i];
+                frameData.layers.forEach(layer => {
+                    if (layer.visible) {
+                        tempCtx.drawImage(layer.canvas, 0, 0);
                     }
-                }
+                });
+            } else {
+                // Draw the frame canvas directly
+                tempCtx.drawImage(this.frames[i], 0, 0);
             }
             
             // Download frame
@@ -8949,10 +9683,10 @@ class DrawingEditor {
         setTimeout(() => {
             const assetName = document.getElementById('assetName').value || 'my_image';
             const info = `Animation Info:
-Frames: ${frames.length}
+Frames: ${this.frames.length}
 Frame Rate: ${frameRate} FPS
 Dimensions: ${this.canvasWidth}x${this.canvasHeight}
-Duration: ${(frames.length / frameRate).toFixed(2)} seconds
+Duration: ${(this.frames.length / frameRate).toFixed(2)} seconds
 
 Instructions:
 1. These PNG frames can be imported into animation software
@@ -8968,9 +9702,9 @@ Instructions:
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
-        }, frames.length * 200 + 500);
+        }, this.frames.length * 200 + 500);
         
-        alert(`Downloading ${frames.length} PNG frames. Check your downloads folder.`);
+        alert(`Downloading ${this.frames.length} PNG frames. Check your downloads folder.`);
     }
     
     // Selection tool methods

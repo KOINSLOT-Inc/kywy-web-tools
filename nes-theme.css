@@ -537,3 +537,90 @@ a:hover {
 .emoji-dither-btn.active {
     background: #808080 !important;
 }
+
+/* Layer Panel Styles */
+.layers-panel {
+    background: #000000 !important;
+    border-top: 3px solid #ffffff !important;
+    border-radius: 0 !important;
+}
+
+.layers-header {
+    background: #404040 !important;
+    border-bottom: 2px solid #ffffff !important;
+}
+
+.layers-header h3 {
+    color: #ffffff !important;
+    font-weight: bold !important;
+    text-transform: uppercase !important;
+}
+
+.layer-btn {
+    background: #d92020 !important;
+    border: 2px solid #ffffff !important;
+    color: #ffffff !important;
+    border-radius: 0 !important;
+    font-weight: bold !important;
+    text-transform: uppercase !important;
+    box-shadow: 2px 2px 0px #000000 !important;
+}
+
+.layer-btn:hover {
+    background: #ff3030 !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 3px 3px 0px #000000 !important;
+}
+
+.layer-btn:active {
+    transform: translateY(0) !important;
+    box-shadow: 1px 1px 0px #000000 !important;
+}
+
+.layer-btn:disabled {
+    opacity: 0.5 !important;
+    color: #888888 !important;
+    box-shadow: 2px 2px 0px #000000 !important;
+}
+
+.layer-item {
+    background: #404040 !important;
+    border: 3px solid #ffffff !important;
+    border-radius: 0 !important;
+    box-shadow: 3px 3px 0px #000000 !important;
+}
+
+.layer-item:hover {
+    border-color: #d92020 !important;
+}
+
+.layer-item.active {
+    border-color: #d92020 !important;
+    background: #606060 !important;
+}
+
+.layer-item.layer-solo {
+    border-color: #ffcc00 !important;
+    background: #505030 !important;
+}
+
+.layer-preview {
+    background: #000000 !important;
+    border: 2px solid #808080 !important;
+    border-radius: 0 !important;
+}
+
+.layer-name {
+    color: #ffffff !important;
+    text-transform: uppercase !important;
+}
+
+.layer-item.layer-solo .layer-name {
+    color: #ffcc00 !important;
+}
+
+.layer-item.layer-solo::after {
+    background: #ffcc00 !important;
+    color: #000000 !important;
+}
+

@@ -593,3 +593,66 @@ body.menu-page, .desktop {
 .emoji-dither-btn.active {
     background: #666666 !important;
 }
+
+/* Layer Panel Styles */
+.layers-panel {
+    background: #2a2a2a !important;
+    border-top: 2px solid #555555 !important;
+}
+
+.layers-header {
+    background: #333333 !important;
+    border-bottom: 1px solid #555555 !important;
+}
+
+.layers-header h3 {
+    color: #e0e0e0 !important;
+}
+
+.layer-btn {
+    background: #3a3a3a !important;
+    border: 1px solid #555555 !important;
+    color: #e0e0e0 !important;
+}
+
+.layer-btn:hover {
+    background: #4a4a4a !important;
+}
+
+.layer-btn:disabled {
+    opacity: 0.4 !important;
+    color: #666666 !important;
+}
+
+.layer-item {
+    background: #333333 !important;
+    border: 2px solid #555555 !important;
+}
+
+.layer-item:hover {
+    border-color: #4287f5 !important;
+}
+
+.layer-item.active {
+    border-color: #4287f5 !important;
+    background: #3a4a5a !important;
+}
+
+.layer-item.layer-solo {
+    border-color: #ff9800 !important;
+    background: #4a3a2a !important;
+}
+
+.layer-preview {
+    background: #2a2a2a !important;
+    border: 1px solid #444444 !important;
+}
+
+.layer-name {
+    color: #e0e0e0 !important;
+}
+
+.layer-item.layer-solo .layer-name {
+    color: #ff9800 !important;
+}
+

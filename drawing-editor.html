@@ -559,6 +559,9 @@
                         <label>
                             <input type="checkbox" id="pixelGrid"> Show Grid
                         </label>
+                        <label>
+                            <input type="checkbox" id="layersEnabled"> Layers
+                        </label>
                     </div>
                     <div class="canvas-info">
                         <span id="canvasInfo">144×168</span>
@@ -581,8 +584,8 @@
                         <select id="exportFormat">
                             <option value="hpp">HPP (C++)</option>
                             <option value="animation">Animation HPP</option>
+                            <option value="layers">Individual Layers HPP</option>
                             <option value="png">PNG Image</option>
-                            <option value="gif">GIF Animation</option>
                         </select>
                     </div>
                     <div class="export-options">
@@ -804,6 +807,33 @@
         </footer>
     </div>
 
+    <!-- Copy Layer to Frames Modal -->
+    <div id="copyLayerModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Copy Layer to Frames</h2>
+                <span class="close" onclick="document.getElementById('copyLayerModal').style.display='none'">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p id="copyLayerModalText" style="margin-bottom: 15px; font-weight: 500;">Select frames to copy "<span id="copyLayerName"></span>" to:</p>
+                
+                <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                    <button id="selectAllFrames" class="btn" style="flex: 1;">Select All</button>
+                    <button id="deselectAllFrames" class="btn" style="flex: 1;">Deselect All</button>
+                </div>
+                
+                <div id="frameCheckboxList" style="max-height: 300px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px; padding: 10px; background: white;">
+                    <!-- Frame checkboxes will be populated here by JavaScript -->
+                </div>
+                
+                <div class="modal-footer" style="margin-top: 20px; display: flex; gap: 10px; justify-content: flex-end;">
+                    <button onclick="document.getElementById('copyLayerModal').style.display='none'" class="btn">Cancel</button>
+                    <button id="confirmCopyLayer" class="btn" style="background: var(--primary-color); color: white;">Copy</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Mobile Menu Overlay -->
     <div id="mobileMenuOverlay" class="mobile-overlay"></div>
 
@@ -850,8 +880,24 @@
                 <!-- Canvas transform tools -->
             </div>
         </div>
+        </div>
+    
+    <!-- Layers Panel (bottom of screen) -->
+    <div class="layers-panel" id="layersPanel" style="display: none;">
+        <div class="layers-header">
+            <h3>📚 Layers</h3>
+            <div class="layers-actions">
+                <button id="addLayer" class="layer-btn" title="Add Layer">➕ Add</button>
+                <button id="deleteLayer" class="layer-btn" title="Delete Layer">🗑️</button>
+                <button id="mergeDown" class="layer-btn" title="Merge with Layer Below">⬇️ Merge</button>
+                <button id="copyLayerToFrames" class="layer-btn" title="Copy Layer to Other Frames">📋 Copy to Frames</button>
+            </div>
+        </div>
+        <div class="layers-list" id="layersList">
+            <!-- Layers will be added here dynamically -->
+        </div>
     </div>
-
+    
     <!-- Mobile Bottom Toolbar -->
     <div class="mobile-bottom-toolbar">
         <!-- Quick Tool Buttons (3x2 grid) -->
