@@ -266,16 +266,30 @@ header h1 {
     height: calc(100% - 65px);
     z-index: 50;
     box-shadow: -2px 0 8px rgba(0,0,0,0.1);
+    display: flex;
+    flex-direction: column;
 }
 
 .tool-section {
     margin-bottom: 25px;
     padding-bottom: 20px;
     border-bottom: 1px solid #eee;
+    flex-shrink: 0;
+}
+
+/* Frame List section should grow to fill available space */
+.tool-section:has(#frameList) {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 200px;
+    overflow: hidden;
 }
 
 .tool-section:last-child {
     border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
 }
 
 .tool-section h3 {
@@ -1383,8 +1397,9 @@ textarea::placeholder {
     display: flex;
     flex-direction: column;
     gap: 8px;
-    max-height: 300px;
     overflow-y: auto;
+    flex: 1 1 auto;
+    min-height: 0; /* Important for flex scrolling */
 }
 
 .frame-thumb {
@@ -1430,7 +1445,7 @@ textarea::placeholder {
     border-radius: 4px;
     font-family: 'Monaco', 'Menlo', monospace;
     font-size: 0.8rem;
-    resize: vertical;
+    resize: none;
     background: #f8f9fa;
     margin-bottom: 10px;
 }
