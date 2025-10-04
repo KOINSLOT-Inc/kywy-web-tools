@@ -8926,8 +8926,8 @@ class DrawingEditor {
                 const pixelIndex = byte * 8 + bit;
                 if (pixelIndex < this.canvasWidth * this.canvasHeight) {
                     const dataIndex = pixelIndex * 4;
-                    const isBlack = data[dataIndex] < 128; // R value < 128 = black
-                    if (isBlack) {
+                    const isWhite = data[dataIndex] >= 128; // R value >= 128 = white
+                    if (isWhite) {
                         byteValue |= (1 << (7 - bit));
                     }
                 }
@@ -8977,8 +8977,8 @@ class DrawingEditor {
                     const pixelIndex = byte * 8 + bit;
                     if (pixelIndex < this.canvasWidth * this.canvasHeight) {
                         const dataIndex = pixelIndex * 4;
-                        const isBlack = data[dataIndex] < 128;
-                        if (isBlack) {
+                        const isWhite = data[dataIndex] >= 128;
+                        if (isWhite) {
                             byteValue |= (1 << (7 - bit));
                         }
                     }
@@ -9088,13 +9088,14 @@ class DrawingEditor {
                         const isTransparent = a < 128;
                         const isOpaqueBlack = (a >= 128) && (r < 128 && g < 128 && b < 128);
                         
-                        if (isOpaqueBlack) {
-                            // Black pixel - set bit to 1
+                        if (!isTransparent && !isOpaqueBlack) {
+                            // White pixel - set bit to 1
                             byteValue |= (1 << (7 - bit));
-                            blackPixelCount++;
-                        } else {
-                            // White or transparent - leave bit as 0
                             whitePixelCount++;
+                        } else {
+                            // Black or transparent - leave bit as 0
+                            if (isOpaqueBlack) blackPixelCount++;
+                            else whitePixelCount++;
                         }
                     }
                 }
@@ -10069,23 +10070,23 @@ class DrawingEditor {
                             if (byteIndex < layerInfo.data.length) {
                                 const byte = layerInfo.data[byteIndex];
                                 const bitValue = (byte >> bitIndex) & 1;
-                                // Bit = 1 means BLACK, bit = 0 means WHITE
-                                const isBlack = bitValue === 1;
+                                // Bit = 1 means WHITE, bit = 0 means BLACK
+                                const isWhite = bitValue === 1;
                                 
                                 const dataIndex = pixelIndex * 4;
                                 
-                                if (isBlack) {
-                                    // Black pixel - fully opaque
-                                    data[dataIndex] = 0;       // R
-                                    data[dataIndex + 1] = 0;   // G
-                                    data[dataIndex + 2] = 0;   // B
-                                    data[dataIndex + 3] = 255; // A (fully opaque)
-                                } else {
+                                if (isWhite) {
                                     // White pixel - make transparent for layers
                                     data[dataIndex] = 255;     // R
                                     data[dataIndex + 1] = 255; // G
                                     data[dataIndex + 2] = 255; // B
                                     data[dataIndex + 3] = 0;   // A (fully transparent)
+                                } else {
+                                    // Black pixel - fully opaque
+                                    data[dataIndex] = 0;       // R
+                                    data[dataIndex + 1] = 0;   // G
+                                    data[dataIndex + 2] = 0;   // B
+                                    data[dataIndex + 3] = 255; // A (fully opaque)
                                 }
                             }
                         }
@@ -10140,11 +10141,11 @@ class DrawingEditor {
                             if (byteIndex < pixelData.length) {
                                 const byte = pixelData[byteIndex];
                                 const bitValue = (byte >> bitIndex) & 1;
-                                // Bit = 1 means BLACK, bit = 0 means WHITE
-                                const isBlack = bitValue === 1;
+                                // Bit = 1 means WHITE, bit = 0 means BLACK
+                                const isWhite = bitValue === 1;
                                 
                                 const dataIndex = pixelIndex * 4;
-                                const colorValue = isBlack ? 0 : 255; // Black or white
+                                const colorValue = isWhite ? 255 : 0; // White or black
                                 
                                 data[dataIndex] = colorValue;     // R
                                 data[dataIndex + 1] = colorValue; // G
