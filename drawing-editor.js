@@ -124,6 +124,7 @@ class DeleteLayerCommand {
         frameData.currentLayerIndex = Math.min(frameData.currentLayerIndex, frameData.layers.length - 1);
         this.editor.updateLayersUI();
         this.editor.compositeLayersToFrame();
+        this.editor.generateCode();
         this.editor.redrawCanvas();
     }
     
@@ -140,6 +141,7 @@ class DeleteLayerCommand {
         frameData.currentLayerIndex = this.layerIndex;
         this.editor.updateLayersUI();
         this.editor.compositeLayersToFrame(this.frameIndex);
+        this.editor.generateCode();
         this.editor.redrawCanvas();
     }
 }
@@ -2557,7 +2559,11 @@ class DrawingEditor {
             info.appendChild(nameSpan);
             info.appendChild(visibilityBtn);
             info.appendChild(soloBtn);
-            info.appendChild(transparencyBtn);
+            
+            // Only show transparency button for layers above the bottom layer
+            if (i > 0) {
+                info.appendChild(transparencyBtn);
+            }
             
             layerItem.appendChild(preview);
             layerItem.appendChild(info);
@@ -2833,10 +2839,14 @@ class DrawingEditor {
         // Get context with proper settings
         const ctx = frameCanvas.getContext('2d', { willReadFrequently: true });
         
-        // Ensure proper compositing mode and clear the canvas
+        // Ensure proper compositing mode and fill with white background
         ctx.globalCompositeOperation = 'source-over';
         ctx.globalAlpha = 1.0;
-        ctx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
+        
+        // Fill with WHITE instead of clearing to transparent!
+        // This ensures the bottom layer has something to composite onto
+        ctx.fillStyle = 'white';
+        ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
         
         // If in solo mode, only draw the solo layer
         if (this.soloLayerIndex !== null && this.soloLayerIndex < frameData.layers.length) {
@@ -2847,7 +2857,14 @@ class DrawingEditor {
             // Draw visible layers in order (bottom to top)
             frameData.layers.forEach((layer, index) => {
                 if (layer.visible) {
-                    this.drawLayerWithTransparency(ctx, layer);
+                    // Bottom layer (index 0) should NOT have transparency applied
+                    if (index === 0) {
+                        // Draw bottom layer directly - no transparency processing
+                        ctx.drawImage(layer.canvas, 0, 0);
+                    } else {
+                        // Upper layers use transparency
+                        this.drawLayerWithTransparency(ctx, layer);
+                    }
                 }
             });
         }
@@ -9140,8 +9157,77 @@ class DrawingEditor {
         let code = `// KYWY_FORMAT: LAYERS\n`;
         code += `// Generated layer data for ${this.canvasWidth}x${this.canvasHeight} image\n`;
         code += `// ${layers.length} total layers (${layers.filter(l => l.visible).length} visible, ${layers.filter(l => !l.visible).length} hidden)\n`;
-        code += `// Only visible layers are exported\n`;
+        code += `// Composited result with transparency applied\n`;
         code += `// Created with Kywy Drawing Editor\n\n`;
+        
+        // USE THE ALREADY COMPOSITED FRAME CANVAS!
+        // The compositeLayersToFrame() function already did the work for us
+        const frameCanvas = this.frames[this.currentFrameIndex];
+        const ctx = frameCanvas.getContext('2d', { willReadFrequently: true });
+        const imageData = ctx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
+        const data = imageData.data;
+        
+        console.log('Exporting composited frame data:', {
+            width: this.canvasWidth,
+            height: this.canvasHeight,
+            dataLength: data.length,
+            firstPixels: Array.from(data.slice(0, 40))
+        });
+        
+        const bytes = [];
+        let whitePixelCount = 0;
+        let blackPixelCount = 0;
+        
+        for (let byte = 0; byte < Math.ceil((this.canvasWidth * this.canvasHeight) / 8); byte++) {
+            let byteValue = 0;
+            for (let bit = 0; bit < 8; bit++) {
+                const pixelIndex = byte * 8 + bit;
+                if (pixelIndex < this.canvasWidth * this.canvasHeight) {
+                    const dataIndex = pixelIndex * 4;
+                    const r = data[dataIndex];
+                    const g = data[dataIndex + 1];
+                    const b = data[dataIndex + 2];
+                    
+                    // Debug first few pixels
+                    if (byte === 0 && bit < 8) {
+                        console.log(`Pixel ${pixelIndex}: R=${r}, G=${g}, B=${b}, isBlack=${r < 128}`);
+                    }
+                    
+                    // White = 0, Black = 1
+                    const isBlack = (r < 128);  // Simplified - just check R channel
+                    
+                    if (isBlack) {
+                        // Black pixel - set bit to 1
+                        byteValue |= (1 << (7 - bit));
+                        blackPixelCount++;
+                    } else {
+                        // White pixel - leave bit as 0
+                        whitePixelCount++;
+                    }
+                }
+            }
+            bytes.push(`0x${byteValue.toString(16).padStart(2, '0').toUpperCase()}`);
+            
+            // Debug first byte
+            if (byte === 0) {
+                console.log(`First byte value: 0x${byteValue.toString(16).padStart(2, '0').toUpperCase()} (binary: ${byteValue.toString(2).padStart(8, '0')})`);
+            }
+        }
+        
+        console.log(`Final result: ${whitePixelCount} white pixels, ${blackPixelCount} black pixels`);
+        
+        // Output the composited data
+        code += `// Composited layers result (${layers.filter(l => l.visible).length} visible layers merged)\n`;
+        code += `uint8_t ${assetName}_data[${bytes.length}] = {\n`;
+        for (let i = 0; i < bytes.length; i += 12) {
+            code += '    ' + bytes.slice(i, i + 12).join(', ');
+            if (i + 12 < bytes.length) {
+                code += ',\n';
+            } else {
+                code += '\n';
+            }
+        }
+        code += `};\n\n`;
         
         // Generate data for each layer (only visible layers)
         const layerDataArrays = [];
@@ -9152,12 +9238,25 @@ class DrawingEditor {
             const ctx = layer.canvas.getContext('2d', { willReadFrequently: true });
             const imageData = ctx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
             const data = imageData.data;
+            const transparencyMode = layer.transparencyMode || 'white';
+            
+            // Debug: Check first few pixels
+            let debugPixels = [];
+            for (let i = 0; i < Math.min(20, data.length); i += 4) {
+                debugPixels.push({
+                    r: data[i],
+                    g: data[i+1],
+                    b: data[i+2],
+                    a: data[i+3]
+                });
+            }
             
             console.log(`Exporting layer ${index} (${layer.name}):`, {
                 width: this.canvasWidth,
                 height: this.canvasHeight,
                 dataLength: data.length,
-                firstPixels: Array.from(data.slice(0, 16))
+                transparencyMode: transparencyMode,
+                debugPixels: debugPixels
             });
             
             const bytes = [];
@@ -9175,22 +9274,26 @@ class DrawingEditor {
                         const b = data[dataIndex + 2];
                         const a = data[dataIndex + 3];
                         
-                        // For layers: 
-                        // - Transparent pixels (alpha < 128) = treat as WHITE (bit = 0)
-                        // - Opaque black pixels (RGB < 128, alpha >= 128) = BLACK (bit = 1)
-                        // - Opaque white pixels (RGB >= 128, alpha >= 128) = WHITE (bit = 0)
-                        // Result: 0x00 = all black pixels, 0xFF = all white pixels
-                        const isTransparent = a < 128;
-                        const isOpaqueBlack = (a >= 128) && (r < 128 && g < 128 && b < 128);
+                        // For layers export:
+                        // Based on transparency mode, treat specified color as transparent (bit = 0)
+                        // Opposite color is opaque and should be rendered (bit = 1)
+                        let isTransparentColor = false;
                         
-                        if (!isTransparent && !isOpaqueBlack) {
-                            // White pixel - set bit to 1
-                            byteValue |= (1 << (7 - bit));
-                            whitePixelCount++;
+                        if (transparencyMode === 'white') {
+                            // White is transparent - white pixels = bit 0, black pixels = bit 1
+                            isTransparentColor = (r >= 128 && g >= 128 && b >= 128);
                         } else {
-                            // Black or transparent - leave bit as 0
-                            if (isOpaqueBlack) blackPixelCount++;
-                            else whitePixelCount++;
+                            // Black is transparent - black pixels = bit 0, white pixels = bit 1
+                            isTransparentColor = (r < 128 && g < 128 && b < 128);
+                        }
+                        
+                        if (!isTransparentColor) {
+                            // Opaque pixel (not the transparency color) - set bit to 1
+                            byteValue |= (1 << (7 - bit));
+                            blackPixelCount++;
+                        } else {
+                            // Transparent pixel - leave bit as 0
+                            whitePixelCount++;
                         }
                     }
                 }
@@ -9202,41 +9305,138 @@ class DrawingEditor {
             layerDataArrays.push({ name: layer.name, bytes: bytes, visible: layer.visible, originalIndex: index });
         });
         
-        // Output individual layer arrays (only visible layers)
-        layerDataArrays.forEach((layerData, exportIndex) => {
-            const layerName = this.cleanAssetName(layerData.name).toLowerCase();
-            code += `// Layer ${exportIndex}: ${layerData.name}\n`;
-            code += `uint8_t ${assetName}_layer_${exportIndex}[${layerData.bytes.length}] = {\n`;
-            for (let i = 0; i < layerData.bytes.length; i += 12) {
-                code += '    ' + layerData.bytes.slice(i, i + 12).join(', ');
-                if (i + 12 < layerData.bytes.length) code += ',';
+        // For layers export, we need to composite all visible layers respecting transparency
+        // Create a composited result where transparency allows lower layers to show through
+        const compositedData = new Uint8ClampedArray(this.canvasWidth * this.canvasHeight * 4);
+        
+        // Initialize with white (bottom layer default)
+        for (let i = 0; i < compositedData.length; i += 4) {
+            compositedData[i] = 255;     // R
+            compositedData[i + 1] = 255; // G
+            compositedData[i + 2] = 255; // B
+            compositedData[i + 3] = 255; // A
+        }
+        
+        // Composite layers from bottom to top
+        layers.forEach((layer, index) => {
+            if (!layer.visible) return;
+            
+            const ctx = layer.canvas.getContext('2d', { willReadFrequently: true });
+            const imageData = ctx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
+            const layerData = imageData.data;
+            const transparencyMode = layer.transparencyMode || 'white';
+            
+            console.log(`Compositing layer ${index} (${layer.name}) with transparency mode: ${transparencyMode}`);
+            
+            let transparentCount = 0;
+            let opaqueCount = 0;
+            
+            // Apply this layer on top of composited result
+            for (let i = 0; i < layerData.length; i += 4) {
+                const r = layerData[i];
+                const g = layerData[i + 1];
+                const b = layerData[i + 2];
+                
+                // Bottom layer (index 0) is ALWAYS fully opaque - no transparency
+                let isTransparent = false;
+                if (index > 0) {
+                    // Only apply transparency for layers above the bottom
+                    if (transparencyMode === 'white') {
+                        // White is transparent
+                        isTransparent = (r >= 254 && g >= 254 && b >= 254);
+                    } else {
+                        // Black is transparent
+                        isTransparent = (r <= 1 && g <= 1 && b <= 1);
+                    }
+                }
+                
+                // If not transparent, overwrite the composited pixel
+                if (!isTransparent) {
+                    compositedData[i] = r;
+                    compositedData[i + 1] = g;
+                    compositedData[i + 2] = b;
+                    compositedData[i + 3] = 255;
+                    opaqueCount++;
+                } else {
+                    transparentCount++;
+                }
+            }
+            
+            console.log(`Layer ${index} compositing: ${opaqueCount} opaque pixels, ${transparentCount} transparent pixels`);
+        });
+        
+        // Now export the composited result
+        console.log('Exporting composited layer result:', {
+            width: this.canvasWidth,
+            height: this.canvasHeight,
+            firstPixels: Array.from(compositedData.slice(0, 40)).map((v, i) => {
+                if (i % 4 === 0) return `[${i/4}] R:${v}`;
+                if (i % 4 === 1) return `G:${v}`;
+                if (i % 4 === 2) return `B:${v}`;
+                return `A:${v}`;
+            }).join(' ')
+        });
+        
+        const compositedBytes = [];
+        let compositedWhiteCount = 0;
+        let compositedBlackCount = 0;
+        
+        for (let byte = 0; byte < Math.ceil((this.canvasWidth * this.canvasHeight) / 8); byte++) {
+            let byteValue = 0;
+            for (let bit = 0; bit < 8; bit++) {
+                const pixelIndex = byte * 8 + bit;
+                if (pixelIndex < this.canvasWidth * this.canvasHeight) {
+                    const dataIndex = pixelIndex * 4;
+                    const r = compositedData[dataIndex];
+                    const g = compositedData[dataIndex + 1];
+                    const b = compositedData[dataIndex + 2];
+                    
+                    // Debug first few pixels
+                    if (byte === 0 && bit < 8) {
+                        console.log(`Pixel ${pixelIndex}: R=${r}, G=${g}, B=${b}, isBlack=${r < 128 && g < 128 && b < 128}`);
+                    }
+                    
+                    // White = 0, Black = 1
+                    const isBlack = (r < 128 && g < 128 && b < 128);
+                    
+                    if (isBlack) {
+                        // Black pixel - set bit to 1
+                        byteValue |= (1 << (7 - bit));
+                        compositedBlackCount++;
+                    } else {
+                        // White pixel - leave bit as 0
+                        compositedWhiteCount++;
+                    }
+                }
+            }
+            compositedBytes.push(`0x${byteValue.toString(16).padStart(2, '0').toUpperCase()}`);
+            
+            // Debug first byte
+            if (byte === 0) {
+                console.log(`First byte value: 0x${byteValue.toString(16).padStart(2, '0').toUpperCase()} (binary: ${byteValue.toString(2).padStart(8, '0')})`);
+            }
+        }
+        
+        console.log(`Composited result: ${compositedWhiteCount} white pixels, ${compositedBlackCount} black pixels`);
+        
+        // Output the composited layer data
+        code += `// Composited layers (${layers.filter(l => l.visible).length} visible layers)\n`;
+        code += `uint8_t ${assetName}_composited[${compositedBytes.length}] = {\n`;
+        for (let i = 0; i < compositedBytes.length; i += 12) {
+            code += '    ' + compositedBytes.slice(i, i + 12).join(', ');
+            if (i + 12 < compositedBytes.length) {
+                code += ',\n';
+            } else {
                 code += '\n';
             }
-            code += `};\n\n`;
-        });
-        
-        // Output layer pointer array with index table
-        code += `// Layer Index Table\n`;
-        code += `const uint8_t* ${assetName}_layers[${layerDataArrays.length}] = {\n`;
-        layerDataArrays.forEach((layerData, exportIndex) => {
-            code += `    ${assetName}_layer_${exportIndex}`;
-            if (exportIndex < layerDataArrays.length - 1) code += ',';
-            code += `  // [${exportIndex}] ${layerData.name}\n`;
-        });
+        }
         code += `};\n\n`;
         
-        // Output layer name table for reference
-        code += `// Layer Names (for reference)\n`;
-        layerDataArrays.forEach((layerData, exportIndex) => {
-            code += `// [${exportIndex}] = "${layerData.name}"\n`;
-        });
-        code += `\n`;
-        
         // Output constants
-        code += `// Layer Constants\n`;
-        code += `#define ${assetName.toUpperCase()}_LAYER_COUNT ${layerDataArrays.length}\n`;
+        code += `// Image Constants\n`;
         code += `#define ${assetName.toUpperCase()}_WIDTH ${this.canvasWidth}\n`;
         code += `#define ${assetName.toUpperCase()}_HEIGHT ${this.canvasHeight}\n`;
+        code += `#define ${assetName.toUpperCase()}_LAYER_COUNT ${layers.filter(l => l.visible).length}\n`;
         
         return code;
     }
