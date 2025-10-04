@@ -711,6 +711,20 @@ body:not(.menu-page) h6 {
     background: linear-gradient(180deg, #0077aa 0%, #005588 100%) !important;
 }
 
+.modal-body p,
+.modal-body li,
+.modal-body ul,
+.modal-body ol {
+    color: #ffffff !important;
+    text-shadow: 1px 1px 0px rgba(0,0,0,0.5) !important;
+}
+
+.modal-body h4,
+.modal-body h3 {
+    color: #ffffff !important;
+    text-shadow: 1px 1px 0px rgba(0,0,0,0.5) !important;
+}
+
 .import-section {
     background: linear-gradient(180deg, #0066aa 0%, #004477 100%) !important;
     border: 2px solid #ffffff !important;

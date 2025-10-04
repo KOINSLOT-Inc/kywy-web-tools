@@ -713,6 +713,29 @@ body.menu-page, .desktop {
     background-color: #1a1a1a !important;
 }
 
+.modal-body p,
+.modal-body li,
+.modal-body ul,
+.modal-body ol {
+    color: #e0e0e0 !important;
+}
+
+.modal-body h4 {
+    color: #e0e0e0 !important;
+}
+
+.modal-body button,
+.modal-content button {
+    color: #1a1a1a !important;
+    background: #e0e0e0 !important;
+}
+
+.modal-body button:hover,
+.modal-content button:hover {
+    background: #ff9800 !important;
+    color: #ffffff !important;
+}
+
 .import-section {
     background: #252525 !important;
     border: 1px solid #444444 !important;

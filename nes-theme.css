@@ -540,7 +540,7 @@ a:hover {
 
 /* Layer Panel Styles */
 .layers-panel {
-    background: #000000 !important;
+    background: #606060 !important;
     border-top: 3px solid #ffffff !important;
     border-radius: 0 !important;
 }
@@ -598,11 +598,11 @@ a:hover {
 }
 
 .layer-item:hover {
-    border-color: #d92020 !important;
+    border-color: #ff8e8e !important;
 }
 
 .layer-item.active {
-    border-color: #d92020 !important;
+    border-color: #ff8e8e !important;
     background: #606060 !important;
 }
 
@@ -687,6 +687,17 @@ a:hover {
 
 .modal-body {
     background: #2b2b2b !important;
+}
+
+.modal-body p,
+.modal-body li,
+.modal-body ul,
+.modal-body ol {
+    color: #ffffff !important;
+}
+
+.modal-body h4 {
+    color: #ffffff !important;
 }
 
 .import-section {

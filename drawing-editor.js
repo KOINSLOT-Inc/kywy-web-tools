@@ -9461,25 +9461,17 @@ class DrawingEditor {
                         const b = data[dataIndex + 2];
                         const a = data[dataIndex + 3];
                         
-                        // For layers export:
-                        // Based on transparency mode, treat specified color as transparent (bit = 0)
-                        // Opposite color is opaque and should be rendered (bit = 1)
-                        let isTransparentColor = false;
+                        // For individual layers export:
+                        // Export the actual pixel color regardless of transparency mode
+                        // Black pixels = bit 1, White pixels = bit 0 (standard display format)
+                        const isBlack = (r < 128 && g < 128 && b < 128);
                         
-                        if (transparencyMode === 'white') {
-                            // White is transparent - white pixels = bit 0, black pixels = bit 1
-                            isTransparentColor = (r >= 128 && g >= 128 && b >= 128);
-                        } else {
-                            // Black is transparent - black pixels = bit 0, white pixels = bit 1
-                            isTransparentColor = (r < 128 && g < 128 && b < 128);
-                        }
-                        
-                        if (!isTransparentColor) {
-                            // Opaque pixel (not the transparency color) - set bit to 1
+                        if (isBlack) {
+                            // Black pixel - set bit to 1
                             byteValue |= (1 << (7 - bit));
                             blackPixelCount++;
                         } else {
-                            // Transparent pixel - leave bit as 0
+                            // White pixel - leave bit as 0
                             whitePixelCount++;
                         }
                     }
