@@ -419,6 +419,18 @@ class DrawingEditor {
         // Initialize brush controls display
         this.updateBrushControlsState();
         
+        // Initialize animation mode to match button state (cycle/loop is default)
+        const activeAnimationBtn = document.querySelector('.mode-btn[data-mode].active');
+        if (activeAnimationBtn) {
+            this.animationMode = activeAnimationBtn.dataset.mode;
+        }
+        
+        // Initialize onion skin mode to match button state (black on white is default)
+        const activeOnionBtn = document.getElementById('onionModeBlackOnWhite');
+        if (activeOnionBtn && activeOnionBtn.classList.contains('active')) {
+            // Already set correctly - black on white is active
+        }
+        
         // Initialize transparency button display
         this.updateTransparencyButton();
         
