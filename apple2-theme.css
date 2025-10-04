@@ -43,11 +43,11 @@ body, input, button, select, textarea {
 
 /* Early Mac OS black and white scheme with dithered background */
 body:not(.menu-page) {
-    background-color: #ffffff !important;
+    background-color: #d0d0d0 !important;
     color: #000000 !important;
     background-image: 
-        radial-gradient(circle at 1px 1px, #cccccc 1px, transparent 1px) !important;
-    background-size: 8px 8px !important;
+        radial-gradient(circle at 1px 1px, #888888 1px, transparent 1px) !important;
+    background-size: 4px 4px !important;
 }
 
 /* Early Mac button styling - black border, white fill, rounded corners */
@@ -352,7 +352,9 @@ header {
 }
 
 .canvas-container {
-    background-color: #000000 !important;
+    background-color: #d0d0d0 !important;
+    background-image: radial-gradient(circle at 1px 1px, #888888 1px, transparent 1px) !important;
+    background-size: 4px 4px !important;
     border: 3px solid #000000 !important;
     border-radius: 8px !important;
     padding: 12px !important;
@@ -360,7 +362,9 @@ header {
 }
 
 .main-content, .canvas-workspace {
-    background-color: #ffffff !important;
+    background-color: #d0d0d0 !important;
+    background-image: radial-gradient(circle at 1px 1px, #888888 1px, transparent 1px) !important;
+    background-size: 4px 4px !important;
     border: 2px solid #000000 !important;
     border-radius: 8px !important;
 }
@@ -592,7 +596,7 @@ a:hover {
 /* Ensure sidebars are positioned correctly with layers */
 .tools-panel.with-layers,
 .export-panel.with-layers {
-    bottom: 220px !important;
+    bottom: 310px !important;
 }
 
 .layers-header {
@@ -774,5 +778,34 @@ a:hover {
 #importOriginalImage canvas, #importProcessedImage canvas {
     border: 1px solid #888888 !important;
     image-rendering: pixelated !important;
+}
+
+/* Mode buttons (Pen Mode, Shape Mode) */
+.shape-mode-btn {
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    border: 2px solid #000000 !important;
+    border-radius: 8px !important;
+    box-shadow: 2px 2px 0px #888888 !important;
+}
+
+.shape-mode-btn:hover {
+    background-color: #000000 !important;
+    color: #ffffff !important;
+    border-color: #000000 !important;
+    box-shadow: inset 2px 2px 2px #333333 !important;
+}
+
+.shape-mode-btn.active {
+    background-color: #000000 !important;
+    color: #ffffff !important;
+    border-color: #000000 !important;
+    box-shadow: inset 2px 2px 2px #333333 !important;
+}
+
+.shape-mode-btn.active span,
+.shape-mode-btn.active #penModeText,
+.shape-mode-btn.active #penModeIcon {
+    color: #ffffff !important;
 }
 

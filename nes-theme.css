@@ -44,10 +44,10 @@ body, input, button, select, textarea {
     font-size: 12px !important;
 }
 
-/* NES color scheme - dark gray and red accents */
+/* NES color scheme - light gray background and pink/red accents */
 body:not(.menu-page) {
-    background-color: #2b2b2b !important;
-    color: #ffffff !important;
+    background-color: #c0c0c0 !important;
+    color: #000000 !important;
 }
 
 /* NES button styling - chunky pixel style */
@@ -548,12 +548,13 @@ a:hover {
 /* Ensure sidebars are positioned correctly with layers */
 .tools-panel.with-layers,
 .export-panel.with-layers {
-    bottom: 220px !important;
+    bottom: 310px !important;
 }
 
 .layers-header {
-    background: #404040 !important;
-    border-bottom: 2px solid #ffffff !important;
+    background: #ff6b6b !important;
+    border-bottom: 3px solid #ffffff !important;
+    border-top: 3px solid #ffffff !important;
 }
 
 .layers-header h3 {
@@ -563,8 +564,8 @@ a:hover {
 }
 
 .layer-btn {
-    background: #d92020 !important;
-    border: 2px solid #ffffff !important;
+    background: #ff6b6b !important;
+    border: 3px solid #ffffff !important;
     color: #ffffff !important;
     border-radius: 0 !important;
     font-weight: bold !important;
@@ -573,7 +574,7 @@ a:hover {
 }
 
 .layer-btn:hover {
-    background: #ff3030 !important;
+    background: #ff8e8e !important;
     transform: translateY(-2px) !important;
     box-shadow: 3px 3px 0px #000000 !important;
 }
