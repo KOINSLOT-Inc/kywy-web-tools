@@ -572,6 +572,6 @@ a:visited {
 /* Sidebar spacing for layers panel */
 .tools-panel.with-layers,
 .export-panel.with-layers {
-    bottom: 310px !important;
+    bottom: 320px !important;
 }
 

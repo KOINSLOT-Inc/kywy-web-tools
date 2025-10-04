@@ -272,7 +272,7 @@ header h1 {
     position: absolute;
     left: 0;
     top: 0;
-    bottom: 62px; /* Leave space for canvas-controls bar */
+    bottom: var(--canvas-controls-height, 80px);
     height: auto;
     z-index: 50;
     box-shadow: 2px 0 8px rgba(0,0,0,0.1);
@@ -291,7 +291,7 @@ header h1 {
     position: absolute;
     right: 0;
     top: 0;
-    bottom: 62px; /* Leave space for canvas-controls bar */
+    bottom: var(--canvas-controls-height, 80px);
     height: auto;
     z-index: 50;
     box-shadow: -2px 0 8px rgba(0,0,0,0.1);
@@ -2537,7 +2537,7 @@ button:focus, .toggle-btn:focus, .collapsible-btn:focus, .mode-btn:focus, .mobil
 /* Adjust sidebars when layers panel is visible */
 .tools-panel.with-layers,
 .export-panel.with-layers {
-    bottom: 310px; /* Canvas controls (~70px) + layers panel (240px) */
+    bottom: 320px; /* Canvas controls (80px) + layers panel (240px) */
 }
 
 /* Adjust mobile toolbar when layers panel is visible */

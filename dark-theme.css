@@ -603,7 +603,7 @@ body.menu-page, .desktop {
 /* Ensure sidebars are positioned correctly with layers */
 .tools-panel.with-layers,
 .export-panel.with-layers {
-    bottom: 310px !important;
+    bottom: 320px !important;
 }
 
 .layers-header {
