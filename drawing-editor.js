@@ -10939,9 +10939,9 @@ Instructions:
             if (dithering === 'floyd-steinberg') {
                 ditheredImageData = this.applyFloydSteinbergDithering(imageData);
             } else if (dithering === 'atkinson') {
-                ditheredImageData = this.applyAtkinsonDithering(imageData, threshold);
+                ditheredImageData = this.atkinsonDithering(imageData, threshold);
             } else if (dithering === 'ordered') {
-                ditheredImageData = this.applyOrderedDithering(imageData, threshold);
+                ditheredImageData = this.orderedDithering(imageData, threshold);
             }
             const ditherBinaryData = this.convertDitheredToBinary(ditheredImageData, false); // Don't invert yet
             
@@ -10967,10 +10967,10 @@ Instructions:
             imageData = this.applyFloydSteinbergDithering(imageData);
             binaryData = this.convertDitheredToBinary(imageData, invert);
         } else if (dithering === 'atkinson') {
-            imageData = this.applyAtkinsonDithering(imageData, threshold);
+            imageData = this.atkinsonDithering(imageData, threshold);
             binaryData = this.convertDitheredToBinary(imageData, invert);
         } else if (dithering === 'ordered') {
-            imageData = this.applyOrderedDithering(imageData, threshold);
+            imageData = this.orderedDithering(imageData, threshold);
             binaryData = this.convertDitheredToBinary(imageData, invert);
         } else {
             // No edge detection, no dithering - just threshold
@@ -11227,15 +11227,15 @@ Instructions:
             }
         }
         
-        // Handle border pixels (no edge detection applied)
+        // Handle border pixels (set to white background, no edge detection)
         for (let y = 0; y < height; y++) {
             for (let x = 0; x < width; x++) {
                 if (y === 0 || y === height - 1 || x === 0 || x === width - 1) {
                     const idx = (y * width + x) * 4;
-                    const invertedPixel = 255 - data[idx]; // Invert border pixels too
-                    output[idx] = invertedPixel;
-                    output[idx + 1] = invertedPixel;
-                    output[idx + 2] = invertedPixel;
+                    // Set border pixels to white (no edges at border)
+                    output[idx] = 255;
+                    output[idx + 1] = 255;
+                    output[idx + 2] = 255;
                     output[idx + 3] = 255;
                 }
             }
@@ -11300,27 +11300,60 @@ Instructions:
             for (let x = 0; x < width; x++) {
                 const idx = (y * width + x) * 4;
                 const oldPixel = newData[idx];
-                const newPixel = oldPixel > 128 ? 255 : 0;  // Use fixed threshold like Floyd-Steinberg
+                const newPixel = oldPixel > 128 ? 255 : 0;
                 const error = oldPixel - newPixel;
                 
                 newData[idx] = newData[idx + 1] = newData[idx + 2] = newPixel;
                 
+                // Atkinson dithering distributes 3/4 of error to 6 neighbors
                 const errorFraction = error / 8;
                 
-                // Apply error to right pixel
+                // Right pixel (x+1, y)
                 if (x + 1 < width) {
-                    const rightIdx = (y * width + (x + 1)) * 4;
-                    newData[rightIdx] = Math.max(0, Math.min(255, newData[rightIdx] + errorFraction));
-                    newData[rightIdx + 1] = Math.max(0, Math.min(255, newData[rightIdx + 1] + errorFraction));
-                    newData[rightIdx + 2] = Math.max(0, Math.min(255, newData[rightIdx + 2] + errorFraction));
+                    const idx1 = (y * width + (x + 1)) * 4;
+                    newData[idx1] = Math.max(0, Math.min(255, newData[idx1] + errorFraction));
+                    newData[idx1 + 1] = Math.max(0, Math.min(255, newData[idx1 + 1] + errorFraction));
+                    newData[idx1 + 2] = Math.max(0, Math.min(255, newData[idx1 + 2] + errorFraction));
                 }
                 
-                // Apply error to bottom pixel
+                // Two pixels right (x+2, y)
+                if (x + 2 < width) {
+                    const idx2 = (y * width + (x + 2)) * 4;
+                    newData[idx2] = Math.max(0, Math.min(255, newData[idx2] + errorFraction));
+                    newData[idx2 + 1] = Math.max(0, Math.min(255, newData[idx2 + 1] + errorFraction));
+                    newData[idx2 + 2] = Math.max(0, Math.min(255, newData[idx2 + 2] + errorFraction));
+                }
+                
                 if (y + 1 < height) {
-                    const bottomIdx = ((y + 1) * width + x) * 4;
-                    newData[bottomIdx] = Math.max(0, Math.min(255, newData[bottomIdx] + errorFraction));
-                    newData[bottomIdx + 1] = Math.max(0, Math.min(255, newData[bottomIdx + 1] + errorFraction));
-                    newData[bottomIdx + 2] = Math.max(0, Math.min(255, newData[bottomIdx + 2] + errorFraction));
+                    // Bottom left (x-1, y+1)
+                    if (x - 1 >= 0) {
+                        const idx3 = ((y + 1) * width + (x - 1)) * 4;
+                        newData[idx3] = Math.max(0, Math.min(255, newData[idx3] + errorFraction));
+                        newData[idx3 + 1] = Math.max(0, Math.min(255, newData[idx3 + 1] + errorFraction));
+                        newData[idx3 + 2] = Math.max(0, Math.min(255, newData[idx3 + 2] + errorFraction));
+                    }
+                    
+                    // Bottom center (x, y+1)
+                    const idx4 = ((y + 1) * width + x) * 4;
+                    newData[idx4] = Math.max(0, Math.min(255, newData[idx4] + errorFraction));
+                    newData[idx4 + 1] = Math.max(0, Math.min(255, newData[idx4 + 1] + errorFraction));
+                    newData[idx4 + 2] = Math.max(0, Math.min(255, newData[idx4 + 2] + errorFraction));
+                    
+                    // Bottom right (x+1, y+1)
+                    if (x + 1 < width) {
+                        const idx5 = ((y + 1) * width + (x + 1)) * 4;
+                        newData[idx5] = Math.max(0, Math.min(255, newData[idx5] + errorFraction));
+                        newData[idx5 + 1] = Math.max(0, Math.min(255, newData[idx5 + 1] + errorFraction));
+                        newData[idx5 + 2] = Math.max(0, Math.min(255, newData[idx5 + 2] + errorFraction));
+                    }
+                }
+                
+                if (y + 2 < height) {
+                    // Two pixels down (x, y+2)
+                    const idx6 = ((y + 2) * width + x) * 4;
+                    newData[idx6] = Math.max(0, Math.min(255, newData[idx6] + errorFraction));
+                    newData[idx6 + 1] = Math.max(0, Math.min(255, newData[idx6 + 1] + errorFraction));
+                    newData[idx6 + 2] = Math.max(0, Math.min(255, newData[idx6 + 2] + errorFraction));
                 }
             }
         }
