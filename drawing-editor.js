@@ -2876,14 +2876,23 @@ class DrawingEditor {
             const b = layerData[i + 2];
             const a = layerData[i + 3];
             
-            // Check if pixel matches transparency color
+            // Skip already transparent pixels
+            if (a === 0) {
+                tempData[i] = 0;
+                tempData[i + 1] = 0;
+                tempData[i + 2] = 0;
+                tempData[i + 3] = 0;
+                continue;
+            }
+            
+            // Check if pixel matches transparency color (only for opaque pixels)
             let isTransparent = false;
             if (transparencyMode === 'white') {
                 // White (255, 255, 255) is transparent
-                isTransparent = (r === 255 && g === 255 && b === 255);
+                isTransparent = (r >= 254 && g >= 254 && b >= 254);
             } else {
                 // Black (0, 0, 0) is transparent
-                isTransparent = (r === 0 && g === 0 && b === 0);
+                isTransparent = (r <= 1 && g <= 1 && b <= 1);
             }
             
             if (isTransparent) {
