@@ -2454,13 +2454,20 @@ class DrawingEditor {
         const layer1 = {
             name: 'Layer 0',
             canvas: document.createElement('canvas'),
-            visible: true
+            visible: true,
+            transparencyMode: 'white' // 'white' or 'black' - white by default
         };
         layer1.canvas.width = this.canvasWidth;
         layer1.canvas.height = this.canvasHeight;
         
         // Copy current frame content to layer 1
         const ctx = layer1.canvas.getContext('2d', { willReadFrequently: true });
+        
+        // First fill with white
+        ctx.fillStyle = 'white';
+        ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
+        
+        // Then draw frame content on top
         ctx.drawImage(frameCanvas, 0, 0);
         
         // Store layers in a separate structure indexed by frame
@@ -2538,9 +2545,19 @@ class DrawingEditor {
                 this.toggleSoloLayer(i);
             });
             
+            const transparencyBtn = document.createElement('button');
+            transparencyBtn.className = 'layer-transparency-btn';
+            transparencyBtn.textContent = layer.transparencyMode === 'white' ? '⚪' : '⚫';
+            transparencyBtn.title = `Transparency: ${layer.transparencyMode === 'white' ? 'White' : 'Black'}. Click to toggle.`;
+            transparencyBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.toggleLayerTransparency(i);
+            });
+            
             info.appendChild(nameSpan);
             info.appendChild(visibilityBtn);
             info.appendChild(soloBtn);
+            info.appendChild(transparencyBtn);
             
             layerItem.appendChild(preview);
             layerItem.appendChild(info);
@@ -2594,6 +2611,16 @@ class DrawingEditor {
         this.redrawCanvas();
     }
     
+    toggleLayerTransparency(layerIndex) {
+        const frameData = this.frameLayers && this.frameLayers[this.currentFrameIndex];
+        if (!frameData) return;
+        const layer = frameData.layers[layerIndex];
+        layer.transparencyMode = layer.transparencyMode === 'white' ? 'black' : 'white';
+        this.updateLayersUI();
+        this.compositeLayersToFrame();
+        this.redrawCanvas();
+    }
+    
     addLayer() {
         const frameData = this.frameLayers && this.frameLayers[this.currentFrameIndex];
         if (!frameData) {
@@ -2604,10 +2631,16 @@ class DrawingEditor {
         const newLayer = {
             name: `Layer ${frameData.layers.length}`,
             canvas: document.createElement('canvas'),
-            visible: true
+            visible: true,
+            transparencyMode: 'white' // Default to white transparency
         };
         newLayer.canvas.width = this.canvasWidth;
         newLayer.canvas.height = this.canvasHeight;
+        
+        // Fill new layer with white by default
+        const ctx = newLayer.canvas.getContext('2d', { willReadFrequently: true });
+        ctx.fillStyle = 'white';
+        ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
         
         // Use command pattern for undo support
         const command = new AddLayerCommand(this, this.currentFrameIndex, newLayer);
@@ -2626,7 +2659,8 @@ class DrawingEditor {
             const clonedLayer = {
                 name: layerData.name,
                 canvas: document.createElement('canvas'),
-                visible: layerData.visible
+                visible: layerData.visible,
+                transparencyMode: layerData.transparencyMode || 'white'
             };
             clonedLayer.canvas.width = layerData.canvas.width;
             clonedLayer.canvas.height = layerData.canvas.height;
@@ -2807,15 +2841,71 @@ class DrawingEditor {
         // If in solo mode, only draw the solo layer
         if (this.soloLayerIndex !== null && this.soloLayerIndex < frameData.layers.length) {
             const soloLayer = frameData.layers[this.soloLayerIndex];
+            // In solo mode, draw layer directly without transparency processing
             ctx.drawImage(soloLayer.canvas, 0, 0);
         } else {
             // Draw visible layers in order (bottom to top)
             frameData.layers.forEach((layer, index) => {
                 if (layer.visible) {
-                    ctx.drawImage(layer.canvas, 0, 0);
+                    this.drawLayerWithTransparency(ctx, layer);
                 }
             });
         }
+    }
+    
+    drawLayerWithTransparency(ctx, layer) {
+        const transparencyMode = layer.transparencyMode || 'white';
+        
+        // Get layer pixel data
+        const layerCtx = layer.canvas.getContext('2d', { willReadFrequently: true });
+        const layerImageData = layerCtx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
+        const layerData = layerImageData.data;
+        
+        // Create a temporary canvas for the layer with transparency applied
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = this.canvasWidth;
+        tempCanvas.height = this.canvasHeight;
+        const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
+        const tempImageData = tempCtx.createImageData(this.canvasWidth, this.canvasHeight);
+        const tempData = tempImageData.data;
+        
+        // Copy pixels, making the transparency color transparent
+        for (let i = 0; i < layerData.length; i += 4) {
+            const r = layerData[i];
+            const g = layerData[i + 1];
+            const b = layerData[i + 2];
+            const a = layerData[i + 3];
+            
+            // Check if pixel matches transparency color
+            let isTransparent = false;
+            if (transparencyMode === 'white') {
+                // White (255, 255, 255) is transparent
+                isTransparent = (r === 255 && g === 255 && b === 255);
+            } else {
+                // Black (0, 0, 0) is transparent
+                isTransparent = (r === 0 && g === 0 && b === 0);
+            }
+            
+            if (isTransparent) {
+                // Make pixel fully transparent
+                tempData[i] = 0;
+                tempData[i + 1] = 0;
+                tempData[i + 2] = 0;
+                tempData[i + 3] = 0;
+            } else {
+                // Copy pixel as-is
+                tempData[i] = r;
+                tempData[i + 1] = g;
+                tempData[i + 2] = b;
+                tempData[i + 3] = a;
+            }
+        }
+        
+        // Draw the processed image data to temp canvas
+        tempCtx.putImageData(tempImageData, 0, 0);
+        
+        // Draw temp canvas to destination
+        ctx.drawImage(tempCanvas, 0, 0);
     }
     
     flattenAllFrames() {
@@ -8435,14 +8525,9 @@ class DrawingEditor {
                 const currentLayer = frameData.layers[frameData.currentLayerIndex];
                 const ctx = currentLayer.canvas.getContext('2d', { willReadFrequently: true });
                 
-                // Layer 0 (background) should be cleared to white
-                // All other layers should be cleared to transparent
-                if (frameData.currentLayerIndex === 0) {
-                    ctx.fillStyle = 'white';
-                    ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
-                } else {
-                    ctx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
-                }
+                // All layers should be cleared to white
+                ctx.fillStyle = 'white';
+                ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
                 
                 // Composite and redraw
                 this.compositeLayersToFrame(this.currentFrameIndex);
@@ -8479,7 +8564,8 @@ class DrawingEditor {
                 layers: [{
                     name: 'Layer 0',
                     canvas: document.createElement('canvas'),
-                    visible: true
+                    visible: true,
+                    transparencyMode: 'white'
                 }],
                 currentLayerIndex: 0
             };

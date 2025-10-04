@@ -2733,6 +2733,24 @@ button:focus, .toggle-btn:focus, .collapsible-btn:focus, .mode-btn:focus, .mobil
     border-color: #ff8800;
 }
 
+.layer-transparency-btn {
+    background: #444;
+    border: 1px solid #666;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 16px;
+    padding: 2px 6px;
+    margin-left: 4px;
+    transition: all 0.2s;
+    line-height: 1;
+}
+
+.layer-transparency-btn:hover {
+    background: #555;
+    border-color: #888;
+    transform: scale(1.1);
+}
+
 .layer-item.layer-hidden {
     opacity: 0.5;
 }
