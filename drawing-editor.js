@@ -527,16 +527,27 @@ class DrawingEditor {
         // Initialize brush controls display
         this.updateBrushControlsState();
         
-        // Initialize animation mode to match button state (cycle/loop is default)
-        const activeAnimationBtn = document.querySelector('.mode-btn[data-mode].active');
-        if (activeAnimationBtn) {
-            this.animationMode = activeAnimationBtn.dataset.mode;
+        // Initialize animation mode (cycle is default)
+        this.animationMode = 'cycle';
+        this.animationDirection = 1;
+        const cycleBtn = document.getElementById('cycleMode');
+        const boomerangBtn = document.getElementById('boomerangMode');
+        if (cycleBtn) {
+            cycleBtn.classList.add('active');
+        }
+        if (boomerangBtn) {
+            boomerangBtn.classList.remove('active');
         }
         
-        // Initialize onion skin mode to match button state (black on white is default)
+        // Initialize onion skin mode (black on white is default)
+        this.onionSkinMode = 'blackOnWhite';
         const activeOnionBtn = document.getElementById('onionModeBlackOnWhite');
-        if (activeOnionBtn && activeOnionBtn.classList.contains('active')) {
-            // Already set correctly - black on white is active
+        if (activeOnionBtn) {
+            activeOnionBtn.classList.add('active');
+        }
+        const inactiveOnionBtn = document.getElementById('onionModeWhiteOnBlack');
+        if (inactiveOnionBtn) {
+            inactiveOnionBtn.classList.remove('active');
         }
         
         // Initialize transparency button display
@@ -602,10 +613,69 @@ class DrawingEditor {
             canvas.style.height = `${displayHeight}px`;
         });
         
+        // Resize all frame canvases
+        if (this.frames) {
+            this.frames.forEach(frame => {
+                // Save current content
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = frame.width;
+                tempCanvas.height = frame.height;
+                const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
+                tempCtx.drawImage(frame, 0, 0);
+                
+                // Resize frame
+                frame.width = width;
+                frame.height = height;
+                const ctx = frame.getContext('2d', { willReadFrequently: true });
+                ctx.fillStyle = 'white';
+                ctx.fillRect(0, 0, width, height);
+                
+                // Restore content (top-left aligned)
+                ctx.drawImage(tempCanvas, 0, 0);
+            });
+        }
+        
+        // Resize all layer canvases if layers are enabled
+        if (this.layersEnabled && this.frameLayers) {
+            Object.keys(this.frameLayers).forEach(frameIndex => {
+                const frameData = this.frameLayers[frameIndex];
+                if (frameData && frameData.layers) {
+                    frameData.layers.forEach(layer => {
+                        // Save current content
+                        const tempCanvas = document.createElement('canvas');
+                        tempCanvas.width = layer.canvas.width;
+                        tempCanvas.height = layer.canvas.height;
+                        const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
+                        tempCtx.drawImage(layer.canvas, 0, 0);
+                        
+                        // Resize layer
+                        layer.canvas.width = width;
+                        layer.canvas.height = height;
+                        const ctx = layer.canvas.getContext('2d', { willReadFrequently: true });
+                        
+                        // Fill layer 0 with white, others stay transparent
+                        if (frameData.layers.indexOf(layer) === 0) {
+                            ctx.fillStyle = 'white';
+                            ctx.fillRect(0, 0, width, height);
+                        }
+                        
+                        // Restore content (top-left aligned)
+                        ctx.drawImage(tempCanvas, 0, 0);
+                    });
+                    
+                    // Recomposite layers to frame after resize
+                    this.compositeLayersToFrame(parseInt(frameIndex));
+                }
+            });
+        }
+        
         // Re-initialize background canvas after size change
         this.initializeBackgroundCanvas();
         this.redrawCanvas();
         this.updateCanvasInfo();
+        
+        // Regenerate all frame thumbnails after size change
+        this.regenerateAllThumbnails();
     }
     
     createEmptyFrame() {
@@ -3196,10 +3266,12 @@ class DrawingEditor {
         });
         
         // Animation mode buttons
-        document.querySelectorAll('.mode-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                this.setAnimationMode(btn.dataset.mode);
-            });
+        // Animation mode buttons (Cycle/Boomerang) - use specific IDs
+        document.getElementById('cycleMode')?.addEventListener('click', () => {
+            this.setAnimationMode('cycle');
+        });
+        document.getElementById('boomerangMode')?.addEventListener('click', () => {
+            this.setAnimationMode('boomerang');
         });
         
         // Shape fill mode buttons
@@ -8095,17 +8167,26 @@ class DrawingEditor {
     }
 
     setOnionMode(mode) {
-        // Update active button states
-        document.getElementById('onionModeBlackOnWhite').classList.remove('active');
-        document.getElementById('onionModeWhiteOnBlack').classList.remove('active');
+        // Store the mode
+        this.onionSkinMode = mode;
         
-        if (mode === 'blackOnWhite') {
-            document.getElementById('onionModeBlackOnWhite').classList.add('active');
-        } else {
-            document.getElementById('onionModeWhiteOnBlack').classList.add('active');
+        // Update active button states
+        const blackOnWhiteBtn = document.getElementById('onionModeBlackOnWhite');
+        const whiteOnBlackBtn = document.getElementById('onionModeWhiteOnBlack');
+        
+        if (blackOnWhiteBtn && whiteOnBlackBtn) {
+            blackOnWhiteBtn.classList.remove('active');
+            whiteOnBlackBtn.classList.remove('active');
+            
+            if (mode === 'blackOnWhite') {
+                blackOnWhiteBtn.classList.add('active');
+            } else {
+                whiteOnBlackBtn.classList.add('active');
+            }
         }
         
         this.updateOnionSkin();
+        this.redrawCanvas(); // Ensure canvas is redrawn with new onion skin
     }
     
     
@@ -8345,10 +8426,14 @@ class DrawingEditor {
         this.animationMode = mode;
         this.animationDirection = 1; // Reset direction
         
-        // Update button states
-        document.querySelectorAll('.mode-btn').forEach(btn => {
-            btn.classList.toggle('active', btn.dataset.mode === mode);
-        });
+        // Update button states - only for animation mode buttons
+        const cycleBtn = document.getElementById('cycleMode');
+        const boomerangBtn = document.getElementById('boomerangMode');
+        
+        if (cycleBtn && boomerangBtn) {
+            cycleBtn.classList.toggle('active', mode === 'cycle');
+            boomerangBtn.classList.toggle('active', mode === 'boomerang');
+        }
     }
     
     generateThumbnail(frameIndex) {
@@ -8359,6 +8444,23 @@ class DrawingEditor {
         ctx.imageSmoothingEnabled = false;
         ctx.clearRect(0, 0, 64, 64);
         ctx.drawImage(this.frames[frameIndex], 0, 0, 64, 64);
+    }
+    
+    regenerateAllThumbnails() {
+        // Regenerate thumbnails for all frames
+        // Only regenerate if frames and thumbnails exist
+        if (!this.frames || this.frames.length === 0) {
+            return; // Frames haven't been initialized yet
+        }
+        
+        const thumbCanvases = document.querySelectorAll('.thumb-canvas');
+        if (thumbCanvases.length === 0) {
+            return; // Thumbnails haven't been created yet
+        }
+        
+        for (let i = 0; i < this.frames.length; i++) {
+            this.generateThumbnail(i);
+        }
     }
     
     updateFrameList() {
