@@ -4,317 +4,77 @@
  * Licensed under the BSD 3-Clause License
  */
 
-// Command Pattern for Undo/Redo System
-class Command {
+// Simplified Undo/Redo System using Canvas Snapshots
+class CanvasStateSnapshot {
     constructor(editor, frameIndex = null) {
         this.editor = editor;
         this.frameIndex = frameIndex !== null ? frameIndex : editor.currentFrameIndex;
         this.timestamp = Date.now();
+        this.layersEnabled = editor.layersEnabled;
         
-        // Store the layer index if layers are enabled
-        if (editor.layersEnabled) {
+        // Always capture the composited frame state for cross-mode compatibility
+        const frameCanvas = editor.frames[this.frameIndex];
+        this.frameSnapshot = frameCanvas.getContext('2d', { willReadFrequently: true })
+            .getImageData(0, 0, editor.canvasWidth, editor.canvasHeight);
+        
+        // Additionally capture layer data if layers are enabled
+        if (this.layersEnabled) {
             const frameData = editor.frameLayers && editor.frameLayers[this.frameIndex];
-            this.layerIndex = frameData ? frameData.currentLayerIndex : 0;
-        } else {
-            this.layerIndex = null;
-        }
-    }
-    
-    execute() {
-        throw new Error('Execute method must be implemented');
-    }
-    
-    undo() {
-        throw new Error('Undo method must be implemented');
-    }
-    
-    // Get the context for the frame this command affects
-    getFrameContext() {
-        // If layers are enabled and we have a stored layer index, use that specific layer
-        if (this.layerIndex !== null && this.layerIndex !== undefined) {
-            const frameData = this.editor.frameLayers && this.editor.frameLayers[this.frameIndex];
-            if (frameData && frameData.layers[this.layerIndex]) {
-                return frameData.layers[this.layerIndex].canvas.getContext('2d', { willReadFrequently: true });
+            if (frameData) {
+                this.layerIndex = frameData.currentLayerIndex;
+                // Store snapshot of the active layer
+                const layerCanvas = frameData.layers[this.layerIndex].canvas;
+                this.layerSnapshot = layerCanvas.getContext('2d', { willReadFrequently: true })
+                    .getImageData(0, 0, editor.canvasWidth, editor.canvasHeight);
             }
         }
-        // Otherwise get the frame canvas
-        return this.editor.frames[this.frameIndex].getContext('2d', { willReadFrequently: true });
-    }
-}
-
-// Command for drawing strokes (continuous pen/brush drawing)
-class DrawStrokeCommand extends Command {
-    constructor(editor, pixelData, frameIndex = null) {
-        super(editor, frameIndex);
-        this.pixelData = pixelData; // Array of {x, y, oldColor, newColor} objects
-        this.tool = editor.currentTool;
-        this.brushSize = editor.brushSize;
-        this.brushShape = editor.brushShape;
     }
     
-    execute() {
-        const ctx = this.getFrameContext();
-        this.pixelData.forEach(pixel => {
-            this.editor.setPixelInFrameWithColor(pixel.x, pixel.y, pixel.newColor, ctx);
-        });
-        // Only redraw if this is the current frame
-        if (this.frameIndex === this.editor.currentFrameIndex) {
-            this.editor.redrawCanvas();
-        } else if (this.editor.layersEnabled) {
-            // If it's a different frame, just composite that frame
-            this.editor.compositeLayersToFrame(this.frameIndex);
-        }
-    }
-    
-    undo() {
-        // If this command was created before layers were enabled but layers are now enabled,
-        // we can't properly undo it (the frame canvas is now managed by layers)
-        if (this.layerIndex === null && this.editor.layersEnabled) {
-            console.warn('Cannot undo: command was created before layers were enabled');
-            return;
+    restore() {
+        // If snapshot and current state match layer mode, prefer layer restoration
+        if (this.layersEnabled && this.editor.layersEnabled) {
+            // Restore layer snapshot
+            const frameData = this.editor.frameLayers && this.editor.frameLayers[this.frameIndex];
+            if (frameData && frameData.layers[this.layerIndex]) {
+                const ctx = frameData.layers[this.layerIndex].canvas.getContext('2d', { willReadFrequently: true });
+                ctx.putImageData(this.layerSnapshot, 0, 0);
+                // Composite layers to frame
+                this.editor.compositeLayersToFrame(this.frameIndex);
+                return true;
+            }
+            // If layer doesn't exist, fall through to frame restoration
         }
         
-        const ctx = this.getFrameContext();
-        this.pixelData.forEach(pixel => {
-            this.editor.setPixelInFrameWithColor(pixel.x, pixel.y, pixel.oldColor, ctx);
-        });
-        // Only redraw if this is the current frame
-        if (this.frameIndex === this.editor.currentFrameIndex) {
-            this.editor.redrawCanvas();
-        } else if (this.editor.layersEnabled) {
-            // If it's a different frame, just composite that frame
-            this.editor.compositeLayersToFrame(this.frameIndex);
-        }
-    }
-}
-
-// Command for shape drawing (circles, rectangles)
-class DrawShapeCommand extends Command {
-    constructor(editor, shapeData, frameIndex = null) {
-        super(editor, frameIndex);
-        this.shapeData = shapeData; // {type, startX, startY, endX, endY, pixelData}
-        this.shapeFillMode = editor.shapeFillMode;
-        this.shapeThickness = editor.shapeThickness;
-        this.shapeStrokePosition = editor.shapeStrokePosition;
-    }
-    
-    execute() {
-        const ctx = this.getFrameContext();
-        this.shapeData.pixelData.forEach(pixel => {
-            this.editor.setPixelInFrameWithColor(pixel.x, pixel.y, pixel.newColor, ctx);
-        });
-        // Only redraw if this is the current frame
-        if (this.frameIndex === this.editor.currentFrameIndex) {
-            this.editor.redrawCanvas();
-        } else if (this.editor.layersEnabled) {
-            this.editor.compositeLayersToFrame(this.frameIndex);
-        }
-    }
-    
-    undo() {
-        const ctx = this.getFrameContext();
-        this.shapeData.pixelData.forEach(pixel => {
-            this.editor.setPixelInFrameWithColor(pixel.x, pixel.y, pixel.oldColor, ctx);
-        });
-        // Only redraw if this is the current frame
-        if (this.frameIndex === this.editor.currentFrameIndex) {
-            this.editor.redrawCanvas();
-        } else if (this.editor.layersEnabled) {
-            this.editor.compositeLayersToFrame(this.frameIndex);
-        }
-    }
-}
-
-// Command for flood fill operations
-class FloodFillCommand extends Command {
-    constructor(editor, pixelData, frameIndex = null) {
-        super(editor, frameIndex);
-        this.pixelData = pixelData; // Array of {x, y, oldColor, newColor} objects
-    }
-    
-    execute() {
-        const ctx = this.getFrameContext();
-        this.pixelData.forEach(pixel => {
-            this.editor.setPixelInFrameWithColor(pixel.x, pixel.y, pixel.newColor, ctx);
-        });
-        // Only redraw if this is the current frame
-        if (this.frameIndex === this.editor.currentFrameIndex) {
-            this.editor.redrawCanvas();
-        } else if (this.editor.layersEnabled) {
-            this.editor.compositeLayersToFrame(this.frameIndex);
-        }
-    }
-    
-    undo() {
-        const ctx = this.getFrameContext();
-        this.pixelData.forEach(pixel => {
-            this.editor.setPixelInFrameWithColor(pixel.x, pixel.y, pixel.oldColor, ctx);
-        });
-        // Only redraw if this is the current frame
-        if (this.frameIndex === this.editor.currentFrameIndex) {
-            this.editor.redrawCanvas();
-        } else if (this.editor.layersEnabled) {
-            this.editor.compositeLayersToFrame(this.frameIndex);
-        }
-    }
-}
-
-// Command for paste operations
-class PasteCommand extends Command {
-    constructor(editor, pasteData, frameIndex = null) {
-        super(editor, frameIndex);
-        this.pasteData = pasteData; // Array of {x, y, oldColor, newColor} objects
-    }
-    
-    execute() {
-        const ctx = this.getFrameContext();
-        this.pasteData.forEach(pixel => {
-            this.editor.setPixelInFrameWithColor(pixel.x, pixel.y, pixel.newColor, ctx);
-        });
-        // Only redraw if this is the current frame
-        if (this.frameIndex === this.editor.currentFrameIndex) {
-            this.editor.redrawCanvas();
-        } else if (this.editor.layersEnabled) {
-            this.editor.compositeLayersToFrame(this.frameIndex);
-        }
-    }
-    
-    undo() {
-        const ctx = this.getFrameContext();
-        this.pasteData.forEach(pixel => {
-            this.editor.setPixelInFrameWithColor(pixel.x, pixel.y, pixel.oldColor, ctx);
-        });
-        // Only redraw if this is the current frame
-        if (this.frameIndex === this.editor.currentFrameIndex) {
-            this.editor.redrawCanvas();
-        } else if (this.editor.layersEnabled) {
-            this.editor.compositeLayersToFrame(this.frameIndex);
-        }
-    }
-}
-
-// Command for clear canvas operations
-class ClearCanvasCommand extends Command {
-    constructor(editor, canvasSnapshot, frameIndex = null) {
-        super(editor, frameIndex);
-        this.canvasSnapshot = canvasSnapshot; // ImageData of the canvas before clearing
-    }
-    
-    execute() {
-        const ctx = this.getFrameContext();
-        ctx.fillStyle = 'white';
-        ctx.fillRect(0, 0, this.editor.canvasWidth, this.editor.canvasHeight);
-        // Only redraw if this is the current frame
-        if (this.frameIndex === this.editor.currentFrameIndex) {
-            this.editor.redrawCanvas();
-        } else if (this.editor.layersEnabled) {
-            this.editor.compositeLayersToFrame(this.frameIndex);
-        }
-    }
-    
-    undo() {
-        const ctx = this.getFrameContext();
-        ctx.putImageData(this.canvasSnapshot, 0, 0);
-        // Only redraw if this is the current frame
-        if (this.frameIndex === this.editor.currentFrameIndex) {
-            this.editor.redrawCanvas();
-        } else if (this.editor.layersEnabled) {
-            this.editor.compositeLayersToFrame(this.frameIndex);
-        }
-    }
-}
-
-class RotateSelectionCommand extends Command {
-    constructor(editor, canvasSnapshot, selectionBounds, frameIndex = null) {
-        super(editor, frameIndex);
-        this.canvasSnapshot = canvasSnapshot; // ImageData before rotation
-        this.selectionBounds = selectionBounds; // {startX, startY, endX, endY} before rotation
-    }
-    
-    execute() {
-        // Rotation is already applied, this is for redo
-        // We would need to reapply the same rotation, but since we don't store the angle,
-        // we can't easily redo. For now, we'll just not support redo for rotations.
-    }
-    
-    undo() {
-        const ctx = this.getFrameContext();
-        ctx.putImageData(this.canvasSnapshot, 0, 0);
+        // Restore frame snapshot (works for both modes)
+        const frameCanvas = this.editor.frames[this.frameIndex];
+        const ctx = frameCanvas.getContext('2d', { willReadFrequently: true });
+        ctx.putImageData(this.frameSnapshot, 0, 0);
         
-        // Restore selection bounds
-        this.editor.selection = {
-            active: true,
-            startX: this.selectionBounds.startX,
-            startY: this.selectionBounds.startY,
-            endX: this.selectionBounds.endX,
-            endY: this.selectionBounds.endY
-        };
+        // If we're in layer mode but restoring a non-layer snapshot,
+        // copy the frame to the active layer
+        if (this.editor.layersEnabled && !this.layersEnabled) {
+            const frameData = this.editor.frameLayers && this.editor.frameLayers[this.frameIndex];
+            if (frameData) {
+                const activeLayer = frameData.layers[frameData.currentLayerIndex];
+                if (activeLayer) {
+                    const layerCtx = activeLayer.canvas.getContext('2d', { willReadFrequently: true });
+                    // Clear the layer first
+                    layerCtx.clearRect(0, 0, this.editor.canvasWidth, this.editor.canvasHeight);
+                    // Copy frame content to active layer
+                    layerCtx.drawImage(frameCanvas, 0, 0);
+                }
+            }
+        }
         
-        // Only redraw if this is the current frame
-        if (this.frameIndex === this.editor.currentFrameIndex) {
-            this.editor.redrawCanvas();
-            this.editor.drawSelectionOverlay();
-        } else if (this.editor.layersEnabled) {
-            this.editor.compositeLayersToFrame(this.frameIndex);
-        }
-        this.editor.generateThumbnail(this.frameIndex !== null ? this.frameIndex : this.editor.currentFrameIndex);
-        this.editor.generateCode();
-    }
-}
-
-// Command for canvas transform operations (flip, rotate)
-class TransformCommand extends Command {
-    constructor(editor, canvasSnapshot, transformType, frameIndex = null) {
-        super(editor, frameIndex);
-        this.canvasSnapshot = canvasSnapshot; // ImageData before transform
-        this.transformType = transformType; // 'flipH', 'flipV', 'rotateL', 'rotateR'
-    }
-    
-    execute() {
-        // Transform is already applied, this is for redo
-        this.applyTransform();
-        // Only redraw if this is the current frame
-        if (this.frameIndex === this.editor.currentFrameIndex) {
-            this.editor.redrawCanvas();
-        } else if (this.editor.layersEnabled) {
-            this.editor.compositeLayersToFrame(this.frameIndex);
-        }
-    }
-    
-    undo() {
-        const ctx = this.getFrameContext();
-        ctx.putImageData(this.canvasSnapshot, 0, 0);
-        // Only redraw if this is the current frame
-        if (this.frameIndex === this.editor.currentFrameIndex) {
-            this.editor.redrawCanvas();
-        } else if (this.editor.layersEnabled) {
-            this.editor.compositeLayersToFrame(this.frameIndex);
-        }
-    }
-    
-    applyTransform() {
-        // Reapply the specific transform using internal methods to avoid recursion
-        switch(this.transformType) {
-            case 'flipH':
-                this.editor._flipCanvasHorizontalInternal();
-                break;
-            case 'flipV':
-                this.editor._flipCanvasVerticalInternal();
-                break;
-            case 'rotateL':
-                this.editor._rotateCanvasInternal(-90);
-                break;
-            case 'rotateR':
-                this.editor._rotateCanvasInternal(90);
-                break;
-        }
+        return true;
     }
 }
 
 // Layer Commands
-class AddLayerCommand extends Command {
+class AddLayerCommand {
     constructor(editor, frameIndex, layerData) {
-        super(editor, frameIndex);
+        this.editor = editor;
+        this.frameIndex = frameIndex;
         this.layerData = layerData; // The layer that was added
     }
     
@@ -340,9 +100,10 @@ class AddLayerCommand extends Command {
     }
 }
 
-class DeleteLayerCommand extends Command {
+class DeleteLayerCommand {
     constructor(editor, frameIndex, layerIndex, layerData) {
-        super(editor, frameIndex);
+        this.editor = editor;
+        this.frameIndex = frameIndex;
         this.layerIndex = layerIndex;
         this.layerData = layerData; // Store the deleted layer
     }
@@ -383,9 +144,10 @@ class DeleteLayerCommand extends Command {
     }
 }
 
-class MergeLayerCommand extends Command {
+class MergeLayerCommand {
     constructor(editor, frameIndex, layerIndex, topLayerData, bottomLayerSnapshot) {
-        super(editor, frameIndex);
+        this.editor = editor;
+        this.frameIndex = frameIndex;
         this.layerIndex = layerIndex; // Index of the layer that was merged down
         this.topLayerData = topLayerData; // The layer that was merged (now deleted)
         this.bottomLayerSnapshot = bottomLayerSnapshot; // Snapshot of bottom layer before merge
@@ -421,6 +183,141 @@ class MergeLayerCommand extends Command {
         this.editor.updateLayersUI();
         this.editor.compositeLayersToFrame(this.frameIndex);
         this.editor.redrawCanvas();
+    }
+}
+
+// Frame Commands
+class AddFrameCommand {
+    constructor(editor, frameIndex, frameCanvas, frameLayerData = null) {
+        this.editor = editor;
+        this.frameIndex = frameIndex; // Index where frame was inserted
+        this.frameCanvas = frameCanvas; // The frame canvas that was added
+        this.frameLayerData = frameLayerData; // Layer data if layers were enabled
+    }
+    
+    execute() {
+        this.editor.frames.splice(this.frameIndex, 0, this.frameCanvas);
+        
+        if (this.frameLayerData) {
+            if (!this.editor.frameLayers) {
+                this.editor.frameLayers = {};
+            }
+            
+            // Shift all frame layers at or after this index up by one
+            for (let i = this.editor.frames.length - 1; i > this.frameIndex; i--) {
+                if (this.editor.frameLayers[i - 1]) {
+                    this.editor.frameLayers[i] = this.editor.frameLayers[i - 1];
+                }
+            }
+            
+            // Insert the new frame layer data
+            this.editor.frameLayers[this.frameIndex] = this.frameLayerData;
+        }
+        
+        this.editor.currentFrameIndex = this.frameIndex;
+        if (this.editor.layersEnabled) {
+            this.editor.updateLayersUI();
+        }
+        this.editor.updateUI();
+        this.editor.redrawCanvas();
+        this.editor.generateThumbnail(this.frameIndex);
+        this.editor.generateCode();
+    }
+    
+    undo() {
+        this.editor.frames.splice(this.frameIndex, 1);
+        
+        if (this.frameLayerData && this.editor.frameLayers) {
+            // Delete the frame layer at this index
+            delete this.editor.frameLayers[this.frameIndex];
+            
+            // Shift all frame layers after this index down by one
+            for (let i = this.frameIndex; i < this.editor.frames.length; i++) {
+                if (this.editor.frameLayers[i + 1]) {
+                    this.editor.frameLayers[i] = this.editor.frameLayers[i + 1];
+                }
+            }
+            // Delete the last one (it's now a duplicate)
+            delete this.editor.frameLayers[this.editor.frames.length];
+        }
+        
+        if (this.editor.currentFrameIndex >= this.editor.frames.length) {
+            this.editor.currentFrameIndex = this.editor.frames.length - 1;
+        }
+        
+        if (this.editor.layersEnabled) {
+            this.editor.updateLayersUI();
+        }
+        this.editor.updateUI();
+        this.editor.redrawCanvas();
+        this.editor.generateCode();
+    }
+}
+
+class DeleteFrameCommand {
+    constructor(editor, frameIndex, frameCanvas, frameLayerData = null) {
+        this.editor = editor;
+        this.frameIndex = frameIndex; // Index where frame was deleted
+        this.frameCanvas = frameCanvas; // The frame canvas that was deleted
+        this.frameLayerData = frameLayerData; // Layer data if layers were enabled
+    }
+    
+    execute() {
+        this.editor.frames.splice(this.frameIndex, 1);
+        
+        if (this.frameLayerData && this.editor.frameLayers) {
+            // Delete the frame layer at this index
+            delete this.editor.frameLayers[this.frameIndex];
+            
+            // Shift all frame layers after this index down by one
+            for (let i = this.frameIndex; i < this.editor.frames.length; i++) {
+                if (this.editor.frameLayers[i + 1]) {
+                    this.editor.frameLayers[i] = this.editor.frameLayers[i + 1];
+                }
+            }
+            // Delete the last one (it's now a duplicate)
+            delete this.editor.frameLayers[this.editor.frames.length];
+        }
+        
+        if (this.editor.currentFrameIndex >= this.editor.frames.length) {
+            this.editor.currentFrameIndex = this.editor.frames.length - 1;
+        }
+        
+        if (this.editor.layersEnabled) {
+            this.editor.updateLayersUI();
+        }
+        this.editor.updateUI();
+        this.editor.redrawCanvas();
+        this.editor.generateCode();
+    }
+    
+    undo() {
+        this.editor.frames.splice(this.frameIndex, 0, this.frameCanvas);
+        
+        if (this.frameLayerData) {
+            if (!this.editor.frameLayers) {
+                this.editor.frameLayers = {};
+            }
+            
+            // Shift all frame layers at or after this index up by one
+            for (let i = this.editor.frames.length - 1; i > this.frameIndex; i--) {
+                if (this.editor.frameLayers[i - 1]) {
+                    this.editor.frameLayers[i] = this.editor.frameLayers[i - 1];
+                }
+            }
+            
+            // Insert the restored frame layer data
+            this.editor.frameLayers[this.frameIndex] = this.frameLayerData;
+        }
+        
+        this.editor.currentFrameIndex = this.frameIndex;
+        if (this.editor.layersEnabled) {
+            this.editor.updateLayersUI();
+        }
+        this.editor.updateUI();
+        this.editor.redrawCanvas();
+        this.editor.generateThumbnail(this.frameIndex);
+        this.editor.generateCode();
     }
 }
 
@@ -598,11 +495,11 @@ class DrawingEditor {
         };
         this.currentEmojiCategory = 'food';
         
-        // Undo/Redo system
+        // Undo/Redo system using snapshots
         this.undoStack = [];
         this.redoStack = [];
         this.maxUndoStackSize = 50;
-        this.currentStroke = null; // For grouping continuous drawing operations
+        this.pendingSnapshot = null; // Snapshot taken before an operation starts
         
         // Unsaved work tracking
         this.hasUnsavedChanges = false;
@@ -1692,7 +1589,7 @@ class DrawingEditor {
     renderEmoji(ctx, emoji, x, y) {
         // Create temporary canvas for emoji rendering and processing
         const tempCanvas = document.createElement('canvas');
-        const tempCtx = tempCanvas.getContext('2d');
+        const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
         
         // Configure font first to measure text
         const emojiFont = `${this.fontSize}px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Android Emoji", "EmojiSymbols", "EmojiOne Mozilla", "Twemoji Mozilla", "Segoe UI Symbol", sans-serif`;
@@ -1723,7 +1620,7 @@ class DrawingEditor {
         // Get image data and create mask from the emoji's actual alpha channel
         const originalImageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
         const maskCanvas = document.createElement('canvas');
-        const maskCtx = maskCanvas.getContext('2d');
+        const maskCtx = maskCanvas.getContext('2d', { willReadFrequently: true });
         maskCanvas.width = tempCanvas.width;
         maskCanvas.height = tempCanvas.height;
         
@@ -2143,7 +2040,7 @@ class DrawingEditor {
     measureEmojiWidth(ctx, emoji) {
         // Create temporary canvas to measure emoji dimensions accurately
         const tempCanvas = document.createElement('canvas');
-        const tempCtx = tempCanvas.getContext('2d');
+        const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
         
         const emojiFont = `${this.fontSize}px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Android Emoji", "EmojiSymbols", "EmojiOne Mozilla", "Twemoji Mozilla", "Segoe UI Symbol", sans-serif`;
         tempCtx.font = emojiFont;
@@ -2255,7 +2152,7 @@ class DrawingEditor {
     async checkFontAvailability(fonts) {
         const availableFonts = [];
         const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
         
         // Test string and baseline font
         const testString = 'mmmmmmmmmmmmmmm';
@@ -2341,7 +2238,7 @@ class DrawingEditor {
     generateTextCanvas() {
         // Create a canvas with the text rendered
         const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
         
         // Set canvas size to be large enough for text
         canvas.width = this.canvasWidth;
@@ -2413,6 +2310,8 @@ class DrawingEditor {
                 this.initializeLayersForFrame(this.currentFrameIndex);
             }
             
+            // Undo/redo stacks are preserved - snapshots support cross-mode restoration
+            
             // Update layers UI
             this.updateLayersUI();
         } else {
@@ -2427,6 +2326,8 @@ class DrawingEditor {
             
             // Flatten all layers into main canvas
             this.flattenAllFrames();
+            
+            // Undo/redo stacks are preserved - snapshots support cross-mode restoration
         }
         
         this.redrawCanvas();
@@ -2691,7 +2592,7 @@ class DrawingEditor {
                 
                 const label = document.createElement('label');
                 label.htmlFor = `frame-checkbox-${i}`;
-                label.textContent = `Frame ${i + 1}`;
+                label.textContent = `Frame ${i}`;
                 label.style.cssText = 'cursor: pointer; flex: 1; user-select: none;';
                 
                 // Make the whole row clickable
@@ -2752,12 +2653,21 @@ class DrawingEditor {
                 } else {
                     targetData.layers.push(newLayer);
                 }
+                
+                // Composite the layers to the frame canvas
+                this.compositeLayersToFrame(frameIndex);
+                
+                // Generate thumbnail for this frame
+                this.generateThumbnail(frameIndex);
             });
             
             // Close modal and show success message
             modal.style.display = 'none';
             alert(`Layer copied to ${selectedFrames.length} frame(s)`);
-            this.markUnsavedChanges();
+            
+            // Mark as unsaved and update code
+            this.markAsUnsaved();
+            this.generateCode();
         };
         
         // Show the modal
@@ -2772,8 +2682,12 @@ class DrawingEditor {
         
         const frameCanvas = this.frames[targetFrameIndex];
         
-        // Clear frame canvas
+        // Get context with proper settings
         const ctx = frameCanvas.getContext('2d', { willReadFrequently: true });
+        
+        // Ensure proper compositing mode and clear the canvas
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.globalAlpha = 1.0;
         ctx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
         
         // If in solo mode, only draw the solo layer
@@ -5111,7 +5025,7 @@ class DrawingEditor {
         const tempCanvas = document.createElement('canvas');
         tempCanvas.width = this.clipboard.width;
         tempCanvas.height = this.clipboard.height;
-        const tempCtx = tempCanvas.getContext('2d');
+        const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
         tempCtx.drawImage(this.clipboard.data, 0, 0);
         const imageData = tempCtx.getImageData(0, 0, this.clipboard.width, this.clipboard.height);
         const data = imageData.data;
@@ -5343,6 +5257,8 @@ class DrawingEditor {
     startShape(shapeType, pos) {
         this.shapeStart = pos;
         this.currentShape = shapeType;
+        // Capture snapshot before drawing shape
+        this.captureSnapshot();
     }
     
     updateShapePreview(pos) {
@@ -5963,32 +5879,8 @@ class DrawingEditor {
             }
         }
         
-        // Capture canvas state after drawing
-        const afterImageData = ctx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
-        
-        // Find exactly which pixels changed
-        const pixelData = this.compareImageData(beforeImageData, afterImageData);
-        
-        // Create and add command to undo system
-        const shapeData = {
-            type: this.currentShape,
-            startX, startY, endX, endY,
-            pixelData: pixelData
-        };
-        const command = new DrawShapeCommand(this, shapeData);
-        // Add to undo stack without re-executing (shape already drawn)
-        this.undoStack.push(command);
-        this.redoStack = [];
-        
-        // Limit undo stack size
-        if (this.undoStack.length > this.maxUndoStackSize) {
-            this.undoStack.shift();
-        }
-        
-        // Mark as unsaved
-        this.markAsUnsaved();
-        
-        this.updateUndoRedoUI();
+        // Push undo snapshot after shape is drawn
+        this.pushUndo();
         
         // Clear overlay
         this.overlayCtx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
@@ -6821,8 +6713,8 @@ class DrawingEditor {
         
         if (this.colorsEqual(targetColor, fillColor)) return;
         
-        // Capture canvas state before flood fill
-        const beforeImageData = ctx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
+        // Capture snapshot before flood fill
+        this.captureSnapshot();
         
         // Perform flood fill
         this.performFloodFill(x, y, ctx);
@@ -6830,37 +6722,25 @@ class DrawingEditor {
         // Perform mirrored flood fills if mirroring is enabled
         if (this.mirrorHorizontal || this.mirrorVertical) {
             // Get the filled pixels from the original fill
-            const afterOriginalFill = ctx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
-            const originalFilledPixels = this.getFilledPixels(beforeImageData, afterOriginalFill);
+            const beforeImageData = ctx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
+            const originalFilledPixels = this.getFilledPixels(beforeImageData, beforeImageData); // This logic may need adjustment
             
             // Apply the same fill pattern to mirror positions
             this.performMirroredFill(originalFilledPixels, ctx);
         }
         
-        // Capture canvas state after all fills (including mirrors)
-        const afterImageData = ctx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
-        
-        // Find exactly which pixels changed
-        const pixelData = this.compareImageData(beforeImageData, afterImageData);
-        
-        // Execute the flood fill command if pixels changed
-        if (pixelData.length > 0) {
-            const command = new FloodFillCommand(this, pixelData, this.currentFrameIndex);
-            // Add to undo stack without re-executing (flood fill already performed)
-            this.undoStack.push(command);
-            this.redoStack = [];
-            
-            // Limit undo stack size
-            if (this.undoStack.length > this.maxUndoStackSize) {
-                this.undoStack.shift();
-            }
-            
-            // Mark as unsaved
-            this.markAsUnsaved();
-            this.updateUndoRedoUI();
+        // Composite layers if needed and redraw
+        if (this.layersEnabled) {
+            this.compositeLayersToFrame(this.currentFrameIndex);
         }
-        
         this.redrawCanvas();
+        
+        // Push undo snapshot
+        this.pushUndo();
+        
+        // Generate thumbnail and code
+        this.generateThumbnail(this.currentFrameIndex);
+        this.generateCode();
     }
     
     getFilledPixels(beforeImageData, afterImageData) {
@@ -7099,13 +6979,15 @@ class DrawingEditor {
         if (this.layersEnabled) {
             return this.getActiveContext();
         }
-        return this.frames[this.currentFrameIndex].getContext('2d');
+        return this.frames[this.currentFrameIndex].getContext('2d', { willReadFrequently: true });
     }
     
     // Text tool methods
     startTextPlacement(pos) {
         this.isPlacingText = true;
         this.textPlacementPos = pos;
+        // Capture snapshot before placing text
+        this.captureSnapshot();
         this.generateTextCanvas();
         this.clearOverlayAndRedrawBase();
         this.showTextPreview(pos);
@@ -7124,7 +7006,7 @@ class DrawingEditor {
         
         // Create temporary canvas for binarization
         const tempCanvas = document.createElement('canvas');
-        const tempCtx = tempCanvas.getContext('2d');
+        const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
         
         // Set temp canvas size
         tempCanvas.width = this.textPreviewData.width + 10; // Add padding
@@ -7244,7 +7126,7 @@ class DrawingEditor {
         
         // Create temporary canvas for binarization
         const tempCanvas = document.createElement('canvas');
-        const tempCtx = tempCanvas.getContext('2d');
+        const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
         
         // Set temp canvas size
         tempCanvas.width = this.textPreviewData.width + 10; // Add padding
@@ -7342,19 +7224,12 @@ class DrawingEditor {
             });
         }
         
-        // Capture changes for undo system
-        const afterImageData = ctx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
-        const changedPixels = this.compareImageData(beforeImageData, afterImageData);
-        
-        if (changedPixels.length > 0) {
-            const command = new DrawStrokeCommand(this, changedPixels);
-            this.executeCommand(command);
-        }
+        // Push undo snapshot after text is placed
+        this.pushUndo();
         
         this.isPlacingText = false;
         this.clearOverlayAndRedrawBase();
         this.redrawCanvas();
-        this.markAsUnsaved();
     }
     
     setTool(tool) {
@@ -7968,11 +7843,16 @@ class DrawingEditor {
         }
         
         // Clear the drawing canvas - leave it transparent for onion skin to show through
+        this.drawingCtx.globalCompositeOperation = 'source-over';
+        this.drawingCtx.globalAlpha = 1.0;
         this.drawingCtx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
         
+        // Check if onion skin is active (it's a toggle button with 'active' class)
+        const onionSkinToggle = document.getElementById('onionSkinToggle');
+        const isOnionSkinActive = onionSkinToggle && onionSkinToggle.classList.contains('active');
+        
         // If onion skin is OFF, we need to draw the current frame on the drawing canvas
-        const onionSkinElement = document.getElementById('onionSkin');
-        if (!onionSkinElement || !onionSkinElement.checked) {
+        if (!isOnionSkinActive) {
             // Draw current frame on drawing canvas when onion skin is disabled
             if (this.frames && Array.isArray(this.frames) && this.frames[this.currentFrameIndex]) {
                 this.drawingCtx.drawImage(this.frames[this.currentFrameIndex], 0, 0);
@@ -8230,17 +8110,31 @@ class DrawingEditor {
     
     
     clearCurrentFrame() {
+        // Capture snapshot before clearing
+        this.captureSnapshot();
+        
         // If layers are enabled, clear the current layer
         if (this.layersEnabled) {
             const frameData = this.frameLayers && this.frameLayers[this.currentFrameIndex];
             if (frameData) {
                 const currentLayer = frameData.layers[frameData.currentLayerIndex];
                 const ctx = currentLayer.canvas.getContext('2d', { willReadFrequently: true });
-                const canvasSnapshot = ctx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
                 
-                // Create and execute clear command
-                const command = new ClearCanvasCommand(this, canvasSnapshot, this.currentFrameIndex);
-                this.executeCommand(command);
+                // Layer 0 (background) should be cleared to white
+                // All other layers should be cleared to transparent
+                if (frameData.currentLayerIndex === 0) {
+                    ctx.fillStyle = 'white';
+                    ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
+                } else {
+                    ctx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
+                }
+                
+                // Composite and redraw
+                this.compositeLayersToFrame(this.currentFrameIndex);
+                this.redrawCanvas();
+                
+                // Push undo
+                this.pushUndo();
                 return;
             }
         }
@@ -8248,24 +8142,42 @@ class DrawingEditor {
         // Normal frame clearing (no layers)
         const frame = this.frames[this.currentFrameIndex];
         const ctx = frame.getContext('2d', { willReadFrequently: true });
-        const canvasSnapshot = ctx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
+        ctx.fillStyle = 'white';
+        ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
         
-        // Create and execute clear command
-        const command = new ClearCanvasCommand(this, canvasSnapshot, this.currentFrameIndex);
-        this.executeCommand(command);
+        this.redrawCanvas();
+        
+        // Push undo
+        this.pushUndo();
     }
 
     // Frame management methods will be added in the next part
     addFrame() {
         const newFrame = this.createEmptyFrame();
-        this.frames.splice(this.currentFrameIndex + 1, 0, newFrame);
-        this.currentFrameIndex++;
+        const insertIndex = this.currentFrameIndex + 1;
         
-        // Initialize layers for new frame if layers are enabled
+        // Get layer data if layers are enabled
+        let layerData = null;
         if (this.layersEnabled) {
-            this.initializeLayersForFrame(this.currentFrameIndex);
-            this.updateLayersUI();
+            // Initialize will be done in command execute
+            layerData = {
+                layers: [{
+                    name: 'Layer 0',
+                    canvas: document.createElement('canvas'),
+                    visible: true
+                }],
+                currentLayerIndex: 0
+            };
+            layerData.layers[0].canvas.width = this.canvasWidth;
+            layerData.layers[0].canvas.height = this.canvasHeight;
+            const ctx = layerData.layers[0].canvas.getContext('2d', { willReadFrequently: true });
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
         }
+        
+        // Use command pattern for undo support
+        const command = new AddFrameCommand(this, insertIndex, newFrame, layerData);
+        this.executeCommand(command);
         
         // If this is the first frame added (now we have 2 frames), switch to animation format
         if (this.frames.length === 2) {
@@ -8275,28 +8187,48 @@ class DrawingEditor {
                 this.updateAssetNameDefault('animation');
             }
         }
-        
-        this.updateUI();
-        this.redrawCanvas();
-        this.generateThumbnail(this.currentFrameIndex);
-        this.generateCode(); // Update code when frames change
     }
     
     copyFrame() {
         // Get the current frame's canvas data
         const currentCanvas = this.frames[this.currentFrameIndex];
-        const currentCtx = currentCanvas.getContext('2d');
+        const currentCtx = currentCanvas.getContext('2d', { willReadFrequently: true });
         
         // Create a new frame with the same dimensions
         const newFrame = this.createEmptyFrame();
-        const newCtx = newFrame.getContext('2d');
+        const newCtx = newFrame.getContext('2d', { willReadFrequently: true });
         
         // Copy the current frame's content to the new frame
         newCtx.drawImage(currentCanvas, 0, 0);
         
-        // Insert the copied frame after the current frame
-        this.frames.splice(this.currentFrameIndex + 1, 0, newFrame);
-        this.currentFrameIndex++;
+        const insertIndex = this.currentFrameIndex + 1;
+        
+        // Copy layer data if layers are enabled
+        let layerData = null;
+        if (this.layersEnabled && this.frameLayers && this.frameLayers[this.currentFrameIndex]) {
+            const originalLayerData = this.frameLayers[this.currentFrameIndex];
+            layerData = {
+                layers: [],
+                currentLayerIndex: originalLayerData.currentLayerIndex
+            };
+            
+            for (const layer of originalLayerData.layers) {
+                const copiedLayer = {
+                    name: layer.name,
+                    canvas: document.createElement('canvas'),
+                    visible: layer.visible
+                };
+                copiedLayer.canvas.width = layer.canvas.width;
+                copiedLayer.canvas.height = layer.canvas.height;
+                const layerCtx = copiedLayer.canvas.getContext('2d', { willReadFrequently: true });
+                layerCtx.drawImage(layer.canvas, 0, 0);
+                layerData.layers.push(copiedLayer);
+            }
+        }
+        
+        // Use command pattern for undo support
+        const command = new AddFrameCommand(this, insertIndex, newFrame, layerData);
+        this.executeCommand(command);
         
         // If this is the first frame added (now we have 2 frames), switch to animation format
         if (this.frames.length === 2) {
@@ -8306,23 +8238,45 @@ class DrawingEditor {
                 this.updateAssetNameDefault('animation');
             }
         }
-        
-        this.updateUI();
-        this.redrawCanvas();
-        this.generateThumbnail(this.currentFrameIndex);
-        this.generateCode(); // Update code when frames change
     }
     
     deleteFrame() {
         if (this.frames.length === 1) return;
         
-        this.frames.splice(this.currentFrameIndex, 1);
-        if (this.currentFrameIndex >= this.frames.length) {
-            this.currentFrameIndex = this.frames.length - 1;
+        // Clone the frame canvas for undo
+        const frameToDelete = this.frames[this.currentFrameIndex];
+        const clonedFrame = document.createElement('canvas');
+        clonedFrame.width = frameToDelete.width;
+        clonedFrame.height = frameToDelete.height;
+        const ctx = clonedFrame.getContext('2d', { willReadFrequently: true });
+        ctx.drawImage(frameToDelete, 0, 0);
+        
+        // Clone layer data if layers are enabled
+        let clonedLayerData = null;
+        if (this.layersEnabled && this.frameLayers && this.frameLayers[this.currentFrameIndex]) {
+            const originalLayerData = this.frameLayers[this.currentFrameIndex];
+            clonedLayerData = {
+                layers: [],
+                currentLayerIndex: originalLayerData.currentLayerIndex
+            };
+            
+            for (const layer of originalLayerData.layers) {
+                const clonedLayer = {
+                    name: layer.name,
+                    canvas: document.createElement('canvas'),
+                    visible: layer.visible
+                };
+                clonedLayer.canvas.width = layer.canvas.width;
+                clonedLayer.canvas.height = layer.canvas.height;
+                const layerCtx = clonedLayer.canvas.getContext('2d', { willReadFrequently: true });
+                layerCtx.drawImage(layer.canvas, 0, 0);
+                clonedLayerData.layers.push(clonedLayer);
+            }
         }
-        this.updateUI();
-        this.redrawCanvas();
-        this.generateCode(); // Update code when frames change
+        
+        // Use command pattern for undo support
+        const command = new DeleteFrameCommand(this, this.currentFrameIndex, clonedFrame, clonedLayerData);
+        this.executeCommand(command);
     }
     
     previousFrame() {
@@ -8437,8 +8391,12 @@ class DrawingEditor {
             // Click handler
             thumbDiv.addEventListener('click', () => {
                 this.currentFrameIndex = index;
+                this.soloLayerIndex = null; // Exit solo mode when switching frames
                 this.updateUI();
                 this.redrawCanvas();
+                if (this.layersEnabled) {
+                    this.updateLayersUI();
+                }
             });
         });
     }
@@ -8612,7 +8570,7 @@ class DrawingEditor {
     
     generateSingleFrameHPP() {
         const frame = this.frames[this.currentFrameIndex];
-        const ctx = frame.getContext('2d');
+        const ctx = frame.getContext('2d', { willReadFrequently: true });
         const imageData = ctx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
         const data = imageData.data;
         
@@ -8670,7 +8628,7 @@ class DrawingEditor {
         // Generate frame data
         const frameDataArrays = [];
         this.frames.forEach((frame, index) => {
-            const ctx = frame.getContext('2d');
+            const ctx = frame.getContext('2d', { willReadFrequently: true });
             const imageData = ctx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
             const data = imageData.data;
             
@@ -8745,12 +8703,17 @@ class DrawingEditor {
         const assetName = this.cleanAssetName(rawAssetName);
         
         let code = `// Generated layer data for ${this.canvasWidth}x${this.canvasHeight} image\n`;
-        code += `// ${layers.length} layers - Created with Kywy Drawing Editor\n\n`;
+        code += `// ${layers.length} total layers (${layers.filter(l => l.visible).length} visible, ${layers.filter(l => !l.visible).length} hidden)\n`;
+        code += `// Only visible layers are exported\n`;
+        code += `// Created with Kywy Drawing Editor\n\n`;
         
-        // Generate data for each layer
+        // Generate data for each layer (only visible layers)
         const layerDataArrays = [];
         layers.forEach((layer, index) => {
-            const ctx = layer.canvas.getContext('2d');
+            // Skip hidden layers
+            if (!layer.visible) return;
+            
+            const ctx = layer.canvas.getContext('2d', { willReadFrequently: true });
             const imageData = ctx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
             const data = imageData.data;
             
@@ -8773,10 +8736,10 @@ class DrawingEditor {
             layerDataArrays.push({ name: layer.name, bytes: bytes, visible: layer.visible });
         });
         
-        // Output individual layer arrays
+        // Output individual layer arrays (only visible layers)
         layerDataArrays.forEach((layerData, index) => {
             const layerName = this.cleanAssetName(layerData.name).toLowerCase();
-            code += `// ${layerData.visible ? 'Visible' : 'Hidden'} layer: ${layerData.name}\n`;
+            code += `// Layer: ${layerData.name}\n`;
             code += `uint8_t ${assetName}_${layerName}[${layerData.bytes.length}] = {\n`;
             for (let i = 0; i < layerData.bytes.length; i += 12) {
                 code += '    ' + layerData.bytes.slice(i, i + 12).join(', ');
@@ -8787,18 +8750,18 @@ class DrawingEditor {
         });
         
         // Output layer pointer array
-        code += `const uint8_t* ${assetName}_layers[${layers.length}] = {\n`;
+        code += `const uint8_t* ${assetName}_layers[${layerDataArrays.length}] = {\n`;
         layerDataArrays.forEach((layerData, index) => {
             const layerName = this.cleanAssetName(layerData.name).toLowerCase();
             code += `    ${assetName}_${layerName}`;
-            if (index < layers.length - 1) code += ',';
+            if (index < layerDataArrays.length - 1) code += ',';
             code += `  // ${layerData.name}\n`;
         });
         code += `};\n\n`;
         
         // Output constants
         code += `// Layer Constants\n`;
-        code += `#define ${assetName.toUpperCase()}_LAYER_COUNT ${layers.length}\n`;
+        code += `#define ${assetName.toUpperCase()}_LAYER_COUNT ${layerDataArrays.length}\n`;
         code += `#define ${assetName.toUpperCase()}_WIDTH ${this.canvasWidth}\n`;
         code += `#define ${assetName.toUpperCase()}_HEIGHT ${this.canvasHeight}\n`;
         
@@ -8916,7 +8879,7 @@ class DrawingEditor {
             const tempCanvas = document.createElement('canvas');
             tempCanvas.width = this.clipboard.width;
             tempCanvas.height = this.clipboard.height;
-            const tempCtx = tempCanvas.getContext('2d');
+            const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
             tempCtx.drawImage(this.clipboard.data, 0, 0);
             const clipboardImageData = tempCtx.getImageData(0, 0, this.clipboard.width, this.clipboard.height);
             const clipboardData = clipboardImageData.data;
@@ -8981,7 +8944,7 @@ class DrawingEditor {
             const tempCanvas = document.createElement('canvas');
             tempCanvas.width = this.clipboard.width;
             tempCanvas.height = this.clipboard.height;
-            const tempCtx = tempCanvas.getContext('2d');
+            const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
             tempCtx.drawImage(this.clipboard.data, 0, 0);
             const clipboardImageData = tempCtx.getImageData(0, 0, this.clipboard.width, this.clipboard.height);
             const clipboardData = clipboardImageData.data;
@@ -9250,7 +9213,7 @@ class DrawingEditor {
         const tempCanvas = document.createElement('canvas');
         tempCanvas.width = this.clipboard.width;
         tempCanvas.height = this.clipboard.height;
-        const tempCtx = tempCanvas.getContext('2d');
+        const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
         tempCtx.drawImage(this.clipboard.data, 0, 0);
         const clipboardImageData = tempCtx.getImageData(0, 0, this.clipboard.width, this.clipboard.height);
         const clipboardData = clipboardImageData.data;
@@ -9328,8 +9291,22 @@ class DrawingEditor {
     
     newDrawing() {
         if (confirm('Create a new drawing? This will clear your current work.')) {
+            // Reset to single frame
             this.frames = [this.createEmptyFrame()];
             this.currentFrameIndex = 0;
+            
+            // Reset layers to single layer if layers are enabled
+            if (this.layersEnabled) {
+                this.frameLayers = {};
+                this.initializeLayersForFrame(0);
+                this.updateLayersUI();
+            }
+            
+            // Clear undo/redo stacks for fresh start
+            this.undoStack = [];
+            this.redoStack = [];
+            this.updateUndoRedoUI();
+            
             this.updateUI();
             this.redrawCanvas();
             this.generateCode();
@@ -9412,7 +9389,7 @@ class DrawingEditor {
                 const img = new Image();
                 img.onload = () => {
                     const canvas = this.createEmptyFrame();
-                    const ctx = canvas.getContext('2d');
+                    const ctx = canvas.getContext('2d', { willReadFrequently: true });
                     ctx.drawImage(img, 0, 0);
                     resolve(canvas);
                 };
@@ -9523,7 +9500,7 @@ class DrawingEditor {
                 // Create a canvas for each frame
                 allFrameData.forEach((pixelData, frameIndex) => {
                     const frameCanvas = this.createEmptyFrame();
-                    const ctx = frameCanvas.getContext('2d');
+                    const ctx = frameCanvas.getContext('2d', { willReadFrequently: true });
                     const imageData = ctx.createImageData(width, height);
                     const data = imageData.data;
                     
@@ -9978,7 +9955,7 @@ Instructions:
         }
         
         // Capture canvas state before rotation for undo
-        const currentCtx = this.frames[this.currentFrameIndex].getContext('2d');
+        const currentCtx = this.frames[this.currentFrameIndex].getContext('2d', { willReadFrequently: true });
         const canvasSnapshot = currentCtx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
         const selectionBounds = { startX, startY, endX, endY };
         
@@ -10241,7 +10218,7 @@ Instructions:
         
         // Create a canvas to show the original image
         const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
         
         // Scale down for display if too large
         const maxDisplaySize = 200;
@@ -10303,7 +10280,7 @@ Instructions:
 
         // Create canvas for processing
         const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
         canvas.width = width;
         canvas.height = height;
 
@@ -10344,7 +10321,7 @@ Instructions:
         
         // Create display canvas
         const displayCanvas = document.createElement('canvas');
-        const ctx = displayCanvas.getContext('2d');
+        const ctx = displayCanvas.getContext('2d', { willReadFrequently: true });
         
         // Scale for display
         const scale = Math.min(200 / width, 200 / height);
@@ -10368,7 +10345,7 @@ Instructions:
         
         // Create temporary canvas at actual size
         const tempCanvas = document.createElement('canvas');
-        const tempCtx = tempCanvas.getContext('2d');
+        const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
         tempCanvas.width = width;
         tempCanvas.height = height;
         tempCtx.putImageData(imageData, 0, 0);
@@ -10652,24 +10629,13 @@ Instructions:
     // Canvas transformation functions
     flipCanvasHorizontal() {
         // Capture state before transform for undo
-        const ctx = this.getCurrentFrameContext();
-        const beforeImageData = ctx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
+        this.captureSnapshot();
         
         // Perform the transform
         this._flipCanvasHorizontalInternal();
         
-        // Add to undo stack
-        const command = new TransformCommand(this, beforeImageData, 'flipH', this.currentFrameIndex);
-        this.undoStack.push(command);
-        this.redoStack = [];
-        
-        // Limit undo stack size
-        if (this.undoStack.length > this.maxUndoStackSize) {
-            this.undoStack.shift();
-        }
-        
-        this.markAsUnsaved();
-        this.updateUndoRedoUI();
+        // Push to undo stack
+        this.pushUndo();
     }
     
     _flipCanvasHorizontalInternal() {
@@ -10699,24 +10665,13 @@ Instructions:
     
     flipCanvasVertical() {
         // Capture state before transform for undo
-        const ctx = this.getCurrentFrameContext();
-        const beforeImageData = ctx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
+        this.captureSnapshot();
         
         // Perform the transform
         this._flipCanvasVerticalInternal();
         
-        // Add to undo stack
-        const command = new TransformCommand(this, beforeImageData, 'flipV', this.currentFrameIndex);
-        this.undoStack.push(command);
-        this.redoStack = [];
-        
-        // Limit undo stack size
-        if (this.undoStack.length > this.maxUndoStackSize) {
-            this.undoStack.shift();
-        }
-        
-        this.markAsUnsaved();
-        this.updateUndoRedoUI();
+        // Push to undo stack
+        this.pushUndo();
     }
     
     _flipCanvasVerticalInternal() {
@@ -10746,25 +10701,13 @@ Instructions:
     
     rotateCanvas(degrees) {
         // Capture state before transform for undo
-        const ctx = this.getCurrentFrameContext();
-        const beforeImageData = ctx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
+        this.captureSnapshot();
         
         // Perform the transform
         this._rotateCanvasInternal(degrees);
         
-        // Add to undo stack
-        const transformType = degrees === -90 ? 'rotateL' : 'rotateR';
-        const command = new TransformCommand(this, beforeImageData, transformType, this.currentFrameIndex);
-        this.undoStack.push(command);
-        this.redoStack = [];
-        
-        // Limit undo stack size
-        if (this.undoStack.length > this.maxUndoStackSize) {
-            this.undoStack.shift();
-        }
-        
-        this.markAsUnsaved();
-        this.updateUndoRedoUI();
+        // Push to undo stack
+        this.pushUndo();
     }
     
     _rotateCanvasInternal(degrees) {
@@ -10836,55 +10779,117 @@ Instructions:
         }
     }
 
-    // Undo/Redo System Methods
+    // Undo/Redo System Methods using Snapshots
+    captureSnapshot() {
+        // Capture current state before a change
+        this.pendingSnapshot = new CanvasStateSnapshot(this);
+    }
+    
+    pushUndo() {
+        // Push the pending snapshot to undo stack after a change is complete
+        if (this.pendingSnapshot) {
+            this.undoStack.push(this.pendingSnapshot);
+            this.redoStack = []; // Clear redo stack when new action is performed
+            
+            // Limit undo stack size
+            if (this.undoStack.length > this.maxUndoStackSize) {
+                this.undoStack.shift();
+            }
+            
+            this.pendingSnapshot = null;
+            this.markAsUnsaved();
+            this.updateUndoRedoUI();
+        }
+    }
+    
+    // Legacy command execution for layer commands - pushes them to undo stack
     executeCommand(command) {
-        // Execute the command
         command.execute();
-        
-        // Add to undo stack
+        // Push command to undo stack for structural changes
         this.undoStack.push(command);
-        
-        // Clear redo stack when new command is executed
-        this.redoStack = [];
+        this.redoStack = []; // Clear redo stack when new action is performed
         
         // Limit undo stack size
         if (this.undoStack.length > this.maxUndoStackSize) {
             this.undoStack.shift();
         }
         
-        // Mark as unsaved
         this.markAsUnsaved();
-        
         this.updateUndoRedoUI();
     }
-
+    
     undo() {
         if (this.undoStack.length === 0) return;
         
-        const command = this.undoStack.pop();
-        command.undo();
-        this.redoStack.push(command);
+        const item = this.undoStack.pop();
         
-        // Update layer UI if layers are enabled
-        if (this.layersEnabled) {
-            this.updateLayersUI();
+        // Check if it's a snapshot or a command
+        if (item instanceof CanvasStateSnapshot) {
+            // Capture current state for redo
+            const currentState = new CanvasStateSnapshot(this);
+            this.redoStack.push(currentState);
+            
+            // Restore previous state
+            if (item.restore()) {
+                // Update layer UI if layers are enabled
+                if (this.layersEnabled) {
+                    this.updateLayersUI();
+                }
+                
+                // Redraw canvas to show restored state
+                this.redrawCanvas();
+                
+                this.updateUndoRedoUI();
+                this.generateThumbnail(this.currentFrameIndex);
+                this.generateCode();
+            } else {
+                // Restore failed, put it back
+                this.undoStack.push(item);
+                this.redoStack.pop();
+            }
+        } else if (item && typeof item.undo === 'function') {
+            // It's a command object (layer command)
+            this.redoStack.push(item);
+            item.undo();
+            this.updateUndoRedoUI();
         }
-        
-        this.updateUndoRedoUI();
-        this.generateThumbnail(this.currentFrameIndex);
-        this.generateCode();
     }
 
     redo() {
         if (this.redoStack.length === 0) return;
         
-        const command = this.redoStack.pop();
-        command.execute();
-        this.undoStack.push(command);
+        const item = this.redoStack.pop();
         
-        this.updateUndoRedoUI();
-        this.generateThumbnail(this.currentFrameIndex);
-        this.generateCode();
+        // Check if it's a snapshot or a command
+        if (item instanceof CanvasStateSnapshot) {
+            // Capture current state for undo
+            const currentState = new CanvasStateSnapshot(this);
+            this.undoStack.push(currentState);
+            
+            // Restore redo state
+            if (item.restore()) {
+                // Update layer UI if layers are enabled
+                if (this.layersEnabled) {
+                    this.updateLayersUI();
+                }
+                
+                // Redraw canvas to show restored state
+                this.redrawCanvas();
+                
+                this.updateUndoRedoUI();
+                this.generateThumbnail(this.currentFrameIndex);
+                this.generateCode();
+            } else {
+                // Restore failed, put it back
+                this.redoStack.push(item);
+                this.undoStack.pop();
+            }
+        } else if (item && typeof item.execute === 'function') {
+            // It's a command object (layer command)
+            this.undoStack.push(item);
+            item.execute();
+            this.updateUndoRedoUI();
+        }
     }
 
     updateUndoRedoUI() {
@@ -10953,67 +10958,23 @@ Instructions:
 
     // Start a new stroke for grouping drawing operations
     startStroke() {
-        this.currentStroke = {
-            pixels: [],
-            tool: this.currentTool,
-            brushSize: this.brushSize,
-            brushShape: this.brushShape
-        };
+        // Capture snapshot before drawing starts
+        this.captureSnapshot();
+        this.currentStroke = true; // Flag to indicate a stroke is in progress
     }
 
-    // Add pixel to current stroke
+    // Add pixel to current stroke - no longer needed with snapshot system
     addPixelToStroke(x, y, oldColor, newColor) {
-        if (this.currentStroke) {
-            this.currentStroke.pixels.push({x, y, oldColor, newColor});
-        }
+        // This method is kept for compatibility but doesn't do anything
     }
     
-    // New pixel tracking system - captures exact changes
+    // Pixel tracking - no longer needed with snapshot system
     startPixelTracking() {
-        if (!this.currentStroke) return;
-        
-        // Capture current canvas state from active canvas (layer or frame)
-        const ctx = this.getActiveContext();
-        this.pixelTrackingSnapshot = ctx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
+        // This method is kept for compatibility but doesn't do anything
     }
     
     endPixelTracking() {
-        if (!this.currentStroke || !this.pixelTrackingSnapshot) return;
-        
-        // Capture new canvas state from active canvas (layer or frame)
-        const ctx = this.getActiveContext();
-        const newImageData = ctx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
-        
-        // Compare old and new states to find changed pixels
-        const oldData = this.pixelTrackingSnapshot.data;
-        const newData = newImageData.data;
-        
-        for (let i = 0; i < oldData.length; i += 4) {
-            const pixelIndex = i / 4;
-            const x = pixelIndex % this.canvasWidth;
-            const y = Math.floor(pixelIndex / this.canvasWidth);
-            
-            // Check if pixel changed
-            const oldR = oldData[i];
-            const oldG = oldData[i + 1];
-            const oldB = oldData[i + 2];
-            const oldA = oldData[i + 3];
-            
-            const newR = newData[i];
-            const newG = newData[i + 1];
-            const newB = newData[i + 2];
-            const newA = newData[i + 3];
-            
-            if (oldR !== newR || oldG !== newG || oldB !== newB || oldA !== newA) {
-                // Pixel changed - record it
-                const oldColor = this.rgbaToColorString(oldR, oldG, oldB, oldA);
-                const newColor = this.rgbaToColorString(newR, newG, newB, newA);
-                this.addPixelToStroke(x, y, oldColor, newColor);
-            }
-        }
-        
-        // Clean up
-        this.pixelTrackingSnapshot = null;
+        // This method is kept for compatibility but doesn't do anything
     }
     
     // Convert RGBA values to color string
@@ -11072,23 +11033,13 @@ Instructions:
 
     // Finish current stroke and create command
     finishStroke() {
-        if (this.currentStroke && this.currentStroke.pixels.length > 0) {
-            const command = new DrawStrokeCommand(this, this.currentStroke.pixels);
-            // Don't execute the command since stroke is already drawn
-            // Just add it to the undo stack for undo functionality
-            this.undoStack.push(command);
-            this.redoStack = [];
-            
-            // Limit undo stack size
-            if (this.undoStack.length > this.maxUndoStackSize) {
-                this.undoStack.shift();
-            }
-            
-            // Mark as unsaved
-            this.markAsUnsaved();
-            this.updateUndoRedoUI();
-        }
-        this.currentStroke = null;
+        // Push the snapshot that was captured at the start of the stroke
+        this.pushUndo();
+        this.currentStroke = false; // Clear the stroke flag
+        
+        // Generate thumbnail and code after stroke is complete
+        this.generateThumbnail(this.currentFrameIndex);
+        this.generateCode();
     }
 
     // Get pixels that will be affected by a shape
