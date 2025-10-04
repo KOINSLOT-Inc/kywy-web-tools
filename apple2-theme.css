@@ -589,6 +589,12 @@ a:hover {
     border-radius: 0 !important;
 }
 
+/* Ensure sidebars are positioned correctly with layers */
+.tools-panel.with-layers,
+.export-panel.with-layers {
+    bottom: 220px !important;
+}
+
 .layers-header {
     background: #cccccc !important;
     border-bottom: 2px solid #000000 !important;

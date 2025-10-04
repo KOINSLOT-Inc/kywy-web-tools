@@ -2751,7 +2751,7 @@ button:focus, .toggle-btn:focus, .collapsible-btn:focus, .mode-btn:focus, .mobil
 /* Adjust sidebars when layers panel is visible */
 .tools-panel.with-layers,
 .export-panel.with-layers {
-    bottom: 212px; /* Canvas controls (62px) + layers panel (150px) */
+    bottom: 220px; /* Canvas controls (~70px) + layers panel (150px) */
 }
 
 /* Adjust mobile toolbar when layers panel is visible */

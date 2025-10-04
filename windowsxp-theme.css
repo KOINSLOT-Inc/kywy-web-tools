@@ -548,6 +548,12 @@ a:hover {
     border-top: 2px solid #3c7fb1 !important;
 }
 
+/* Ensure sidebars are positioned correctly with layers */
+.tools-panel.with-layers,
+.export-panel.with-layers {
+    bottom: 220px !important;
+}
+
 .layers-header {
     background: linear-gradient(to bottom, #ffffff 0%, #ddeeff 20%, #c5d9f1 80%, #759dcb 100%) !important;
     border-bottom: 1px solid #3c7fb1 !important;

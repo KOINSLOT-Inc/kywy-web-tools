@@ -10,6 +10,14 @@ class Command {
         this.editor = editor;
         this.frameIndex = frameIndex !== null ? frameIndex : editor.currentFrameIndex;
         this.timestamp = Date.now();
+        
+        // Store the layer index if layers are enabled
+        if (editor.layersEnabled) {
+            const frameData = editor.frameLayers && editor.frameLayers[this.frameIndex];
+            this.layerIndex = frameData ? frameData.currentLayerIndex : 0;
+        } else {
+            this.layerIndex = null;
+        }
     }
     
     execute() {
@@ -22,6 +30,14 @@ class Command {
     
     // Get the context for the frame this command affects
     getFrameContext() {
+        // If layers are enabled and we have a stored layer index, use that specific layer
+        if (this.layerIndex !== null && this.layerIndex !== undefined) {
+            const frameData = this.editor.frameLayers && this.editor.frameLayers[this.frameIndex];
+            if (frameData && frameData.layers[this.layerIndex]) {
+                return frameData.layers[this.layerIndex].canvas.getContext('2d', { willReadFrequently: true });
+            }
+        }
+        // Otherwise get the frame canvas
         return this.editor.frames[this.frameIndex].getContext('2d', { willReadFrequently: true });
     }
 }
@@ -41,6 +57,9 @@ class DrawStrokeCommand extends Command {
         this.pixelData.forEach(pixel => {
             this.editor.setPixelInFrameWithColor(pixel.x, pixel.y, pixel.newColor, ctx);
         });
+        if (this.editor.layersEnabled) {
+            this.editor.compositeLayersToFrame(this.frameIndex);
+        }
         this.editor.redrawCanvas();
     }
     
@@ -49,6 +68,9 @@ class DrawStrokeCommand extends Command {
         this.pixelData.forEach(pixel => {
             this.editor.setPixelInFrameWithColor(pixel.x, pixel.y, pixel.oldColor, ctx);
         });
+        if (this.editor.layersEnabled) {
+            this.editor.compositeLayersToFrame(this.frameIndex);
+        }
         this.editor.redrawCanvas();
     }
 }
@@ -68,6 +90,9 @@ class DrawShapeCommand extends Command {
         this.shapeData.pixelData.forEach(pixel => {
             this.editor.setPixelInFrameWithColor(pixel.x, pixel.y, pixel.newColor, ctx);
         });
+        if (this.editor.layersEnabled) {
+            this.editor.compositeLayersToFrame(this.frameIndex);
+        }
         this.editor.redrawCanvas();
     }
     
@@ -76,6 +101,9 @@ class DrawShapeCommand extends Command {
         this.shapeData.pixelData.forEach(pixel => {
             this.editor.setPixelInFrameWithColor(pixel.x, pixel.y, pixel.oldColor, ctx);
         });
+        if (this.editor.layersEnabled) {
+            this.editor.compositeLayersToFrame(this.frameIndex);
+        }
         this.editor.redrawCanvas();
     }
 }
@@ -92,6 +120,9 @@ class FloodFillCommand extends Command {
         this.pixelData.forEach(pixel => {
             this.editor.setPixelInFrameWithColor(pixel.x, pixel.y, pixel.newColor, ctx);
         });
+        if (this.editor.layersEnabled) {
+            this.editor.compositeLayersToFrame(this.frameIndex);
+        }
         this.editor.redrawCanvas();
     }
     
@@ -100,6 +131,9 @@ class FloodFillCommand extends Command {
         this.pixelData.forEach(pixel => {
             this.editor.setPixelInFrameWithColor(pixel.x, pixel.y, pixel.oldColor, ctx);
         });
+        if (this.editor.layersEnabled) {
+            this.editor.compositeLayersToFrame(this.frameIndex);
+        }
         this.editor.redrawCanvas();
     }
 }
@@ -116,6 +150,9 @@ class PasteCommand extends Command {
         this.pasteData.forEach(pixel => {
             this.editor.setPixelInFrameWithColor(pixel.x, pixel.y, pixel.newColor, ctx);
         });
+        if (this.editor.layersEnabled) {
+            this.editor.compositeLayersToFrame(this.frameIndex);
+        }
         this.editor.redrawCanvas();
     }
     
@@ -124,6 +161,9 @@ class PasteCommand extends Command {
         this.pasteData.forEach(pixel => {
             this.editor.setPixelInFrameWithColor(pixel.x, pixel.y, pixel.oldColor, ctx);
         });
+        if (this.editor.layersEnabled) {
+            this.editor.compositeLayersToFrame(this.frameIndex);
+        }
         this.editor.redrawCanvas();
     }
 }
@@ -139,12 +179,18 @@ class ClearCanvasCommand extends Command {
         const ctx = this.getFrameContext();
         ctx.fillStyle = 'white';
         ctx.fillRect(0, 0, this.editor.canvasWidth, this.editor.canvasHeight);
+        if (this.editor.layersEnabled) {
+            this.editor.compositeLayersToFrame(this.frameIndex);
+        }
         this.editor.redrawCanvas();
     }
     
     undo() {
         const ctx = this.getFrameContext();
         ctx.putImageData(this.canvasSnapshot, 0, 0);
+        if (this.editor.layersEnabled) {
+            this.editor.compositeLayersToFrame(this.frameIndex);
+        }
         this.editor.redrawCanvas();
     }
 }
@@ -175,6 +221,9 @@ class RotateSelectionCommand extends Command {
             endY: this.selectionBounds.endY
         };
         
+        if (this.editor.layersEnabled) {
+            this.editor.compositeLayersToFrame(this.frameIndex);
+        }
         this.editor.redrawCanvas();
         this.editor.drawSelectionOverlay();
         this.editor.generateThumbnail(this.frameIndex !== null ? this.frameIndex : this.editor.currentFrameIndex);
@@ -193,11 +242,17 @@ class TransformCommand extends Command {
     execute() {
         // Transform is already applied, this is for redo
         this.applyTransform();
+        if (this.editor.layersEnabled) {
+            this.editor.compositeLayersToFrame(this.frameIndex);
+        }
     }
     
     undo() {
         const ctx = this.getFrameContext();
         ctx.putImageData(this.canvasSnapshot, 0, 0);
+        if (this.editor.layersEnabled) {
+            this.editor.compositeLayersToFrame(this.frameIndex);
+        }
         this.editor.redrawCanvas();
     }
     
@@ -2666,11 +2721,12 @@ class DrawingEditor {
         modal.style.display = 'block';
     }
     
-    compositeLayersToFrame() {
-        const frameData = this.frameLayers && this.frameLayers[this.currentFrameIndex];
+    compositeLayersToFrame(frameIndex = null) {
+        const targetFrameIndex = frameIndex !== null ? frameIndex : this.currentFrameIndex;
+        const frameData = this.frameLayers && this.frameLayers[targetFrameIndex];
         if (!frameData) return;
         
-        const frameCanvas = this.frames[this.currentFrameIndex];
+        const frameCanvas = this.frames[targetFrameIndex];
         
         // Clear frame canvas
         const ctx = frameCanvas.getContext('2d', { willReadFrequently: true });
@@ -10867,16 +10923,16 @@ Instructions:
     startPixelTracking() {
         if (!this.currentStroke) return;
         
-        // Capture current canvas state
-        const ctx = this.getCurrentFrameContext();
+        // Capture current canvas state from active canvas (layer or frame)
+        const ctx = this.getActiveContext();
         this.pixelTrackingSnapshot = ctx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
     }
     
     endPixelTracking() {
         if (!this.currentStroke || !this.pixelTrackingSnapshot) return;
         
-        // Capture new canvas state
-        const ctx = this.getCurrentFrameContext();
+        // Capture new canvas state from active canvas (layer or frame)
+        const ctx = this.getActiveContext();
         const newImageData = ctx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
         
         // Compare old and new states to find changed pixels

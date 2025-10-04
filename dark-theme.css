@@ -600,6 +600,12 @@ body.menu-page, .desktop {
     border-top: 2px solid #555555 !important;
 }
 
+/* Ensure sidebars are positioned correctly with layers */
+.tools-panel.with-layers,
+.export-panel.with-layers {
+    bottom: 220px !important;
+}
+
 .layers-header {
     background: #333333 !important;
     border-bottom: 1px solid #555555 !important;
