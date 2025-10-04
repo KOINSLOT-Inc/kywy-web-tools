@@ -714,10 +714,10 @@ a:hover {
     border-radius: 0 !important;
 }
 
+.modal-header h2,
 .modal-header h3 {
     color: #000000 !important;
     font-weight: bold !important;
-    text-transform: uppercase !important;
 }
 
 .close {
@@ -738,6 +738,19 @@ a:hover {
     background: #e8e8e8 !important;
     background-image: radial-gradient(circle at 1px 1px, #d0d0d0 1px, transparent 1px) !important;
     background-size: 8px 8px !important;
+}
+
+.modal-body p,
+.modal-body li,
+.modal-body ul,
+.modal-body ol {
+    color: #000000 !important;
+}
+
+.modal-body h4,
+.modal-body h3 {
+    color: #000000 !important;
+    font-weight: bold !important;
 }
 
 .import-section {
