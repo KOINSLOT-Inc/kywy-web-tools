@@ -2385,7 +2385,7 @@ class DrawingEditor {
             // Update layers UI
             this.updateLayersUI();
         } else {
-            // Hide layers panel
+            // Hide layers panel (but keep layer data intact)
             layersPanel.style.display = 'none';
             
             // Remove layout adjustment classes
@@ -2394,8 +2394,14 @@ class DrawingEditor {
             if (toolsPanel) toolsPanel.classList.remove('with-layers');
             if (exportPanel) exportPanel.classList.remove('with-layers');
             
-            // Flatten all layers into main canvas
-            this.flattenAllFrames();
+            // Composite all layers to their frame canvases so they're visible in non-layer mode
+            // This preserves the visual appearance while hiding the layer system
+            Object.keys(this.frameLayers).forEach(frameIndex => {
+                this.compositeLayersToFrame(parseInt(frameIndex));
+            });
+            
+            // Note: We intentionally DON'T call flattenAllFrames() or delete frameLayers
+            // This preserves all layer data so it can be restored when layers are re-enabled
             
             // Undo/redo stacks are preserved - snapshots support cross-mode restoration
         }
@@ -9421,8 +9427,25 @@ class DrawingEditor {
         const data = {
             width: this.canvasWidth,
             height: this.canvasHeight,
-            frames: this.frames.map(frame => frame.toDataURL())
+            frames: this.frames.map(frame => frame.toDataURL()),
+            layersEnabled: this.layersEnabled
         };
+        
+        // Save layer data if layers are being used
+        if (this.frameLayers && Object.keys(this.frameLayers).length > 0) {
+            data.layers = {};
+            Object.keys(this.frameLayers).forEach(frameIndex => {
+                const frameData = this.frameLayers[frameIndex];
+                data.layers[frameIndex] = {
+                    currentLayerIndex: frameData.currentLayerIndex,
+                    layers: frameData.layers.map(layer => ({
+                        canvas: layer.canvas.toDataURL(),
+                        visible: layer.visible,
+                        name: layer.name
+                    }))
+                };
+            });
+        }
         
         const assetName = document.getElementById('assetName').value || 'my_image';
         const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
@@ -9503,9 +9526,82 @@ class DrawingEditor {
         
         Promise.all(loadPromises).then(frames => {
             this.frames = frames;
-            this.updateUI();
-            this.redrawCanvas();
-            this.generateCode();
+            
+            // Restore layer data if it exists
+            if (data.layers) {
+                this.frameLayers = {};
+                
+                const layerLoadPromises = [];
+                
+                Object.keys(data.layers).forEach(frameIndex => {
+                    const savedFrameData = data.layers[frameIndex];
+                    
+                    // Create frame layer structure
+                    this.frameLayers[frameIndex] = {
+                        currentLayerIndex: savedFrameData.currentLayerIndex,
+                        layers: []
+                    };
+                    
+                    // Load each layer
+                    savedFrameData.layers.forEach((layerData, layerIndex) => {
+                        const promise = new Promise(resolve => {
+                            const img = new Image();
+                            img.onload = () => {
+                                const layerCanvas = document.createElement('canvas');
+                                layerCanvas.width = this.canvasWidth;
+                                layerCanvas.height = this.canvasHeight;
+                                const layerCtx = layerCanvas.getContext('2d', { willReadFrequently: true });
+                                layerCtx.drawImage(img, 0, 0);
+                                
+                                this.frameLayers[frameIndex].layers[layerIndex] = {
+                                    canvas: layerCanvas,
+                                    visible: layerData.visible !== undefined ? layerData.visible : true,
+                                    name: layerData.name || `Layer ${layerIndex + 1}`
+                                };
+                                resolve();
+                            };
+                            img.src = layerData.canvas;
+                        });
+                        layerLoadPromises.push(promise);
+                    });
+                });
+                
+                // Wait for all layers to load, then update UI
+                Promise.all(layerLoadPromises).then(() => {
+                    // Auto-enable layers if layer data exists
+                    // Use saved state if available, otherwise default to true since layers exist
+                    const shouldEnableLayers = data.layersEnabled !== undefined ? data.layersEnabled : true;
+                    
+                    this.layersEnabled = shouldEnableLayers;
+                    document.getElementById('layersEnabled').checked = shouldEnableLayers;
+                    
+                    if (shouldEnableLayers) {
+                        const layersPanel = document.getElementById('layersPanel');
+                        layersPanel.style.display = 'flex';
+                        
+                        const canvasArea = document.querySelector('.canvas-area');
+                        const mobileToolbar = document.querySelector('.mobile-bottom-toolbar');
+                        const toolsPanel = document.querySelector('.tools-panel');
+                        const exportPanel = document.querySelector('.export-panel');
+                        
+                        if (canvasArea) canvasArea.classList.add('with-layers');
+                        if (mobileToolbar) mobileToolbar.classList.add('with-layers');
+                        if (toolsPanel) toolsPanel.classList.add('with-layers');
+                        if (exportPanel) exportPanel.classList.add('with-layers');
+                        
+                        this.updateLayersUI();
+                    }
+                    
+                    this.updateUI();
+                    this.redrawCanvas();
+                    this.generateCode();
+                });
+            } else {
+                // No layer data, just update normally
+                this.updateUI();
+                this.redrawCanvas();
+                this.generateCode();
+            }
         });
     }
     
