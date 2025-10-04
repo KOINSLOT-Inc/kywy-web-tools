@@ -821,20 +821,26 @@ a:hover {
 }
 
 .frame-thumb {
-    background-color: #ffffff !important;
+    background-color: #d0d0d0 !important;
+    background-image: radial-gradient(circle at 1px 1px, #888888 1px, transparent 1px) !important;
+    background-size: 4px 4px !important;
     border: 2px solid #000000 !important;
     border-radius: 8px !important;
     box-shadow: 2px 2px 0px #888888 !important;
 }
 
 .frame-thumb:hover {
-    background-color: #000000 !important;
+    background-color: #d0d0d0 !important;
+    background-image: radial-gradient(circle at 1px 1px, #888888 1px, transparent 1px) !important;
+    background-size: 4px 4px !important;
     border-color: #000000 !important;
     box-shadow: inset 2px 2px 2px #333333 !important;
 }
 
 .frame-thumb.active {
-    background-color: #000000 !important;
+    background-color: #d0d0d0 !important;
+    background-image: radial-gradient(circle at 1px 1px, #888888 1px, transparent 1px) !important;
+    background-size: 4px 4px !important;
     border-color: #000000 !important;
     box-shadow: inset 2px 2px 2px #333333 !important;
 }
@@ -845,11 +851,16 @@ a:hover {
 
 .frame-thumb.active .frame-label,
 .frame-thumb:hover .frame-label {
-    color: #ffffff !important;
+    color: #000000 !important;
 }
 
 .thumb-canvas {
     border: 1px solid #000000 !important;
-    background-color: #ffffff !important;
+    background-color: transparent !important;
+}
+
+.frame-thumb.active .thumb-canvas,
+.frame-thumb:hover .thumb-canvas {
+    background-color: transparent !important;
 }
 

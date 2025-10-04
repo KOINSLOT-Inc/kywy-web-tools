@@ -2589,6 +2589,30 @@ class DrawingEditor {
         this.redrawCanvas();
     }
     
+    selectPreviousLayer() {
+        const frameData = this.frameLayers && this.frameLayers[this.currentFrameIndex];
+        if (!frameData || frameData.layers.length <= 1) return;
+        
+        const newIndex = frameData.currentLayerIndex - 1;
+        if (newIndex >= 0) {
+            frameData.currentLayerIndex = newIndex;
+            this.updateLayersUI();
+            this.redrawCanvas();
+        }
+    }
+    
+    selectNextLayer() {
+        const frameData = this.frameLayers && this.frameLayers[this.currentFrameIndex];
+        if (!frameData || frameData.layers.length <= 1) return;
+        
+        const newIndex = frameData.currentLayerIndex + 1;
+        if (newIndex < frameData.layers.length) {
+            frameData.currentLayerIndex = newIndex;
+            this.updateLayersUI();
+            this.redrawCanvas();
+        }
+    }
+    
     toggleSoloLayer(layerIndex) {
         // Toggle solo mode for the clicked layer
         if (this.soloLayerIndex === layerIndex) {
@@ -2625,6 +2649,23 @@ class DrawingEditor {
         this.updateLayersUI();
         this.compositeLayersToFrame();
         this.redrawCanvas();
+    }
+    
+    toggleCurrentLayerTransparency() {
+        const frameData = this.frameLayers && this.frameLayers[this.currentFrameIndex];
+        if (!frameData) return;
+        
+        // Don't allow toggling transparency on the bottom layer (layer 0)
+        if (frameData.currentLayerIndex === 0) {
+            return;
+        }
+        
+        const layer = frameData.layers[frameData.currentLayerIndex];
+        layer.transparencyMode = layer.transparencyMode === 'white' ? 'black' : 'white';
+        this.updateLayersUI();
+        this.compositeLayersToFrame();
+        this.redrawCanvas();
+        this.generateCode();
     }
     
     addLayer() {
@@ -3625,26 +3666,89 @@ class DrawingEditor {
             return;
         }
         
+        // Handle F7 for layer panel toggle
+        if (e.key === 'F7') {
+            const layersCheckbox = document.getElementById('layersEnabled');
+            layersCheckbox.checked = !layersCheckbox.checked;
+            this.toggleLayersMode();
+            e.preventDefault();
+            return;
+        }
+        
         switch (e.key.toLowerCase()) {
             case 'p':
+                // P: Pen tool (freehand)
                 this.setTool('pen');
+                this.penMode = 'freehand';
+                this.updatePenModeButton();
                 e.preventDefault();
+                break;
+            case 'l':
+                if ((e.ctrlKey || e.metaKey) && e.shiftKey) {
+                    // Ctrl+Shift+L: Add new layer
+                    if (this.layersEnabled) {
+                        this.addLayer();
+                        e.preventDefault();
+                    }
+                } else {
+                    // L: Line tool
+                    this.setTool('pen');
+                    this.penMode = 'line';
+                    this.updatePenModeButton();
+                    e.preventDefault();
+                }
                 break;
             case 'c':
                 if (e.ctrlKey || e.metaKey) {
                     this.copySelection();
                     e.preventDefault();
                 } else {
+                    // C: Circle tool
                     this.setTool('circle');
                     e.preventDefault();
                 }
                 break;
-            case 'r': // Rectangle/Square
+            case 'r':
+                // R: Rectangle/Square tool
                 this.setTool('square');
                 e.preventDefault();
                 break;
+            case 'g':
+                if ((e.ctrlKey || e.metaKey) && e.shiftKey) {
+                    // Future use for Ctrl+Shift+G
+                } else {
+                    // G: Grid pen mode
+                    this.setTool('pen');
+                    this.penMode = 'grid';
+                    this.updatePenModeButton();
+                    e.preventDefault();
+                }
+                break;
+            case 's':
+                if (e.ctrlKey || e.metaKey) {
+                    this.saveDrawing();
+                    e.preventDefault();
+                } else {
+                    // S: Spray tool
+                    this.setTool('pen');
+                    this.penMode = 'spray';
+                    this.updatePenModeButton();
+                    e.preventDefault();
+                }
+                break;
             case 'f':
+                // F: Fill/Bucket tool
                 this.setTool('bucket');
+                e.preventDefault();
+                break;
+            case 'e':
+                // E: sElect tool
+                this.setTool('select');
+                e.preventDefault();
+                break;
+            case 'm':
+                // M: Hand tool (Move/pan)
+                this.setTool('hand');
                 e.preventDefault();
                 break;
             case 'h':
@@ -3652,26 +3756,38 @@ class DrawingEditor {
                     this.showHelp();
                     e.preventDefault();
                 } else {
+                    // H: Hand tool
                     this.setTool('hand');
                     e.preventDefault();
                 }
                 break;
-            case 'i':
-                this.showImageImportModal();
+            case 't':
+                // T: Text tool
+                this.setTool('text');
                 e.preventDefault();
                 break;
-            case 's':
+            case 'y':
                 if (e.ctrlKey || e.metaKey) {
-                    this.saveDrawing();
+                    // Ctrl+Y for redo (Windows style)
+                    this.redo();
                     e.preventDefault();
                 } else {
-                    this.setTool('select');
+                    // Y: PolYgon tool
+                    this.setTool('polygon');
                     e.preventDefault();
                 }
                 break;
-            case 't':
-                this.setTool('text');
-                e.preventDefault();
+            case 'i':
+                if (e.ctrlKey || e.metaKey) {
+                    // Ctrl+I: Toggle transparency mode for current layer
+                    if (this.layersEnabled) {
+                        this.toggleCurrentLayerTransparency();
+                        e.preventDefault();
+                    }
+                } else {
+                    this.showImageImportModal();
+                    e.preventDefault();
+                }
                 break;
             case 'z':
                 if (e.ctrlKey || e.metaKey) {
@@ -3685,32 +3801,24 @@ class DrawingEditor {
                     e.preventDefault();
                 }
                 break;
-            case 'y':
-                if (e.ctrlKey || e.metaKey) {
-                    // Ctrl+Y for redo (Windows style)
-                    this.redo();
-                    e.preventDefault();
-                }
-                break;
             case 'o':
                 if (e.ctrlKey || e.metaKey) {
                     this.loadDrawing();
-                    e.preventDefault();
-                } else {
-                    this.setTool('select');
                     e.preventDefault();
                 }
                 break;
             case 'n':
                 if (e.ctrlKey || e.metaKey) {
-                    this.newDrawing();
-                    e.preventDefault();
-                }
-                break;
-            case 'c':
-                if (e.ctrlKey || e.metaKey) {
-                    this.copySelection();
-                    e.preventDefault();
+                    if (e.shiftKey) {
+                        // Ctrl+Shift+N: Add new layer
+                        if (this.layersEnabled) {
+                            this.addLayer();
+                            e.preventDefault();
+                        }
+                    } else {
+                        this.newDrawing();
+                        e.preventDefault();
+                    }
                 }
                 break;
             case 'v':
@@ -3722,16 +3830,6 @@ class DrawingEditor {
             case 'x':
                 if (e.ctrlKey || e.metaKey) {
                     this.cutSelection();
-                    e.preventDefault();
-                }
-                break;
-            case 'z':
-                if (e.ctrlKey || e.metaKey) {
-                    if (e.shiftKey) {
-                        // Redo functionality could be added here
-                    } else {
-                        // Undo functionality could be added here
-                    }
                     e.preventDefault();
                 }
                 break;
@@ -3761,11 +3859,26 @@ class DrawingEditor {
             case '7':
             case '8':
             case '9':
-                const size = parseInt(e.key);
-                if (size <= 10) {
-                    this.brushSize = size;
-                    document.getElementById('brushSize').value = size;
-                    document.getElementById('brushSizeDisplay').textContent = size;
+                const num = parseInt(e.key);
+                // For circle/square tools, number keys change fill mode
+                if (this.currentTool === 'circle' || this.currentTool === 'square') {
+                    const fillModeSelect = document.getElementById('fillMode');
+                    if (num === 1) fillModeSelect.value = 'outline';
+                    else if (num === 2) fillModeSelect.value = 'filled';
+                    else if (num === 3) fillModeSelect.value = 'pattern';
+                    this.updateFillMode();
+                } 
+                // For polygon tool, number keys change polygon sides
+                else if (this.currentTool === 'polygon' && num >= 3) {
+                    this.polygonSides = num;
+                    document.getElementById('polygonSides').value = num;
+                    document.getElementById('polygonSidesDisplay').textContent = num;
+                }
+                // For other tools, number keys change brush size
+                else if (num <= 10) {
+                    this.brushSize = num;
+                    document.getElementById('brushSize').value = num;
+                    document.getElementById('brushSizeDisplay').textContent = num;
                 }
                 e.preventDefault();
                 break;
@@ -3799,6 +3912,20 @@ class DrawingEditor {
             case '?':
                 this.showHelp();
                 e.preventDefault();
+                break;
+            case '[':
+                // Switch to previous layer
+                if (this.layersEnabled) {
+                    this.selectPreviousLayer();
+                    e.preventDefault();
+                }
+                break;
+            case ']':
+                // Switch to next layer
+                if (this.layersEnabled) {
+                    this.selectNextLayer();
+                    e.preventDefault();
+                }
                 break;
             case 'escape':
                 this.hideHelp();
@@ -4025,6 +4152,24 @@ class DrawingEditor {
     
     onMouseWheel(e) {
         e.preventDefault();
+        
+        // Ctrl+Wheel: Change brush size or polygon sides
+        if (e.ctrlKey || e.metaKey) {
+            if (this.currentTool === 'polygon') {
+                // Change polygon sides
+                const delta = e.deltaY > 0 ? -1 : 1;
+                this.polygonSides = Math.max(3, Math.min(20, this.polygonSides + delta));
+                document.getElementById('polygonSides').value = this.polygonSides;
+                document.getElementById('polygonSidesDisplay').textContent = this.polygonSides;
+            } else {
+                // Change brush size
+                const delta = e.deltaY > 0 ? -1 : 1;
+                this.brushSize = Math.max(1, Math.min(10, this.brushSize + delta));
+                document.getElementById('brushSize').value = this.brushSize;
+                document.getElementById('brushSizeDisplay').textContent = this.brushSize;
+            }
+            return;
+        }
         
         // Zoom in/out based on wheel direction
         const zoomFactor = 1.1;
@@ -4443,6 +4588,11 @@ class DrawingEditor {
         if (this.currentTool === 'pen' || this.currentTool === 'circle' || this.currentTool === 'square' || this.currentTool === 'text') {
             this.generateThumbnail(this.currentFrameIndex);
             this.generateCode();
+            
+            // Update layer previews if layers are enabled
+            if (this.layersEnabled) {
+                this.updateLayersUI();
+            }
         }
         
         // Finish stroke for undo system
@@ -4878,6 +5028,12 @@ class DrawingEditor {
             this.drawSelectionOverlay();
         }
         
+        // Don't draw preview if start point is outside canvas
+        if (!this.isWithinCanvas(x0, y0)) {
+            this.overlayCtx.restore();
+            return;
+        }
+        
         // Phase 3: Draw actual pixels that will be drawn for the straight line (top layer)
         this.overlayCtx.save();
         this.overlayCtx.fillStyle = 'rgba(255, 0, 0, 0.9)'; // Very strong red with 90% opacity for clear visibility
@@ -4904,6 +5060,11 @@ class DrawingEditor {
     }
     
     drawStraightLine(x0, y0, x1, y1) {
+        // Don't draw if start point is outside canvas
+        if (!this.isWithinCanvas(x0, y0)) {
+            return;
+        }
+        
         // Draw the actual straight line to the canvas
         this.drawLine(x0, y0, x1, y1);
     }
@@ -7151,6 +7312,11 @@ class DrawingEditor {
         // Generate thumbnail and code
         this.generateThumbnail(this.currentFrameIndex);
         this.generateCode();
+        
+        // Update layer previews if layers are enabled
+        if (this.layersEnabled) {
+            this.updateLayersUI();
+        }
     }
     
     getFilledPixels(beforeImageData, afterImageData) {
@@ -7827,6 +7993,14 @@ class DrawingEditor {
         if (shapeThickness) {
             const showThickness = (this.currentTool === 'square' || this.currentTool === 'circle') && fillMode === 'outline';
             shapeThickness.style.display = showThickness ? 'block' : 'none';
+        }
+    }
+    
+    updateFillMode() {
+        // This is called from keyboard shortcuts to update fill mode from a select element
+        const fillModeSelect = document.getElementById('fillMode');
+        if (fillModeSelect && (this.currentTool === 'circle' || this.currentTool === 'square')) {
+            this.setShapeFillMode(fillModeSelect.value);
         }
     }
     
@@ -8898,66 +9072,79 @@ class DrawingEditor {
             return { x1, y1, x2, y2 };
         }
 
-        // Calculate line intersection with canvas boundaries
+        // Cohen-Sutherland line clipping algorithm
         const minX = 0;
         const maxX = this.canvasWidth - 1;
         const minY = 0;
         const maxY = this.canvasHeight - 1;
 
-        // Line equation: (x2-x1)*(y-y1) = (y2-y1)*(x-x1)
-        const dx = x2 - x1;
-        const dy = y2 - y1;
+        // Compute region codes for both endpoints
+        const computeCode = (x, y) => {
+            let code = 0;
+            if (x < minX) code |= 1; // left
+            else if (x > maxX) code |= 2; // right
+            if (y < minY) code |= 4; // top
+            else if (y > maxY) code |= 8; // bottom
+            return code;
+        };
 
+        let code1 = computeCode(x1, y1);
+        let code2 = computeCode(x2, y2);
+        
         let clampedX1 = x1, clampedY1 = y1;
         let clampedX2 = x2, clampedY2 = y2;
-
-        // Clamp start point if outside bounds
-        if (x1 < minX || x1 > maxX || y1 < minY || y1 > maxY) {
-            // Find intersection with canvas boundary
-            if (dx !== 0) {
-                if (x1 < minX) {
-                    clampedX1 = minX;
-                    clampedY1 = y1 + dy * (minX - x1) / dx;
-                } else if (x1 > maxX) {
-                    clampedX1 = maxX;
-                    clampedY1 = y1 + dy * (maxX - x1) / dx;
-                }
+        
+        while (true) {
+            // Both points inside - accept
+            if ((code1 | code2) === 0) {
+                break;
             }
-            if (dy !== 0) {
-                if (y1 < minY) {
-                    clampedY1 = minY;
-                    clampedX1 = x1 + dx * (minY - y1) / dy;
-                } else if (y1 > maxY) {
-                    clampedY1 = maxY;
-                    clampedX1 = x1 + dx * (maxY - y1) / dy;
-                }
+            
+            // Both points share an outside region - line is completely outside
+            if ((code1 & code2) !== 0) {
+                // Return clamped to nearest edge
+                clampedX1 = Math.max(minX, Math.min(maxX, clampedX1));
+                clampedY1 = Math.max(minY, Math.min(maxY, clampedY1));
+                clampedX2 = Math.max(minX, Math.min(maxX, clampedX2));
+                clampedY2 = Math.max(minY, Math.min(maxY, clampedY2));
+                break;
+            }
+            
+            // At least one point is outside - clip it
+            const codeOut = code1 !== 0 ? code1 : code2;
+            let x, y;
+            
+            const dx = clampedX2 - clampedX1;
+            const dy = clampedY2 - clampedY1;
+            
+            // Find intersection point with boundary
+            if (codeOut & 8) { // bottom
+                x = clampedX1 + dx * (maxY - clampedY1) / dy;
+                y = maxY;
+            } else if (codeOut & 4) { // top
+                x = clampedX1 + dx * (minY - clampedY1) / dy;
+                y = minY;
+            } else if (codeOut & 2) { // right
+                y = clampedY1 + dy * (maxX - clampedX1) / dx;
+                x = maxX;
+            } else { // left (codeOut & 1)
+                y = clampedY1 + dy * (minX - clampedX1) / dx;
+                x = minX;
+            }
+            
+            // Update the point that was outside
+            if (codeOut === code1) {
+                clampedX1 = x;
+                clampedY1 = y;
+                code1 = computeCode(clampedX1, clampedY1);
+            } else {
+                clampedX2 = x;
+                clampedY2 = y;
+                code2 = computeCode(clampedX2, clampedY2);
             }
         }
 
-        // Clamp end point if outside bounds
-        if (x2 < minX || x2 > maxX || y2 < minY || y2 > maxY) {
-            // Find intersection with canvas boundary
-            if (dx !== 0) {
-                if (x2 < minX) {
-                    clampedX2 = minX;
-                    clampedY2 = y1 + dy * (minX - x1) / dx;
-                } else if (x2 > maxX) {
-                    clampedX2 = maxX;
-                    clampedY2 = y1 + dy * (maxX - x1) / dx;
-                }
-            }
-            if (dy !== 0) {
-                if (y2 < minY) {
-                    clampedY2 = minY;
-                    clampedX2 = x1 + dx * (minY - y1) / dy;
-                } else if (y2 > maxY) {
-                    clampedY2 = maxY;
-                    clampedX2 = x1 + dx * (maxY - y1) / dy;
-                }
-            }
-        }
-
-        // Ensure clamped coordinates are within bounds
+        // Round and ensure within bounds
         clampedX1 = Math.max(minX, Math.min(maxX, Math.round(clampedX1)));
         clampedY1 = Math.max(minY, Math.min(maxY, Math.round(clampedY1)));
         clampedX2 = Math.max(minX, Math.min(maxX, Math.round(clampedX2)));

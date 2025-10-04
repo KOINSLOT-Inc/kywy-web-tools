@@ -631,14 +631,30 @@
                 <div class="help-section">
                     <h3>🔧 Tools</h3>
                     <div class="shortcut-grid">
-                        <span class="key">P</span><span>Pen Tool</span>
+                        <span class="key">P</span><span>Pen Tool (Freehand)</span>
+                        <span class="key">L</span><span>Line Tool</span>
+                        <span class="key">G</span><span>Grid Pen Mode</span>
+                        <span class="key">S</span><span>Spray Tool</span>
                         <span class="key">C</span><span>Circle Tool</span>
-                        <span class="key">R</span><span>Rectangle Tool</span>
-                        <span class="key">F</span><span>Fill Tool</span>
-                        <span class="key">H</span><span>Hand Tool (Pan)</span>
-                        <span class="key">O</span><span>Select Tool</span>
+                        <span class="key">R</span><span>Rectangle/Square Tool</span>
+                        <span class="key">Y</span><span>Polygon Tool</span>
+                        <span class="key">F</span><span>Fill/Bucket Tool</span>
+                        <span class="key">E</span><span>Select Tool</span>
+                        <span class="key">H or M</span><span>Hand Tool (Pan/Move)</span>
+                        <span class="key">T</span><span>Text Tool</span>
                         <span class="key">B</span><span>Black Color</span>
                         <span class="key">W</span><span>White Color</span>
+                    </div>
+                </div>
+                
+                <div class="help-section">
+                    <h3>🎨 Tool Modifiers</h3>
+                    <div class="shortcut-grid">
+                        <span class="key">1-9</span><span>Brush Size / Polygon Sides / Fill Mode</span>
+                        <span class="key">Ctrl+Wheel</span><span>Change Brush Size / Polygon Sides</span>
+                        <span class="key">Shift+Drag</span><span>Draw Straight Line (Pen)</span>
+                        <span class="key">Shift+Drag</span><span>Perfect Circle (from center)</span>
+                        <span class="key">Shift+Drag</span><span>Perfect Square (from center)</span>
                     </div>
                 </div>
                 
@@ -671,6 +687,18 @@
                 </div>
                 
                 <div class="help-section">
+                    <h3>🎨 Layers</h3>
+                    <div class="shortcut-grid">
+                        <span class="key">F7</span><span>Toggle Layer Panel</span>
+                        <span class="key">Ctrl+Shift+L</span><span>Add New Layer</span>
+                        <span class="key">Ctrl+Shift+N</span><span>Add New Layer</span>
+                        <span class="key">Ctrl+I</span><span>Toggle White/Black Transparency</span>
+                        <span class="key">[</span><span>Select Previous Layer</span>
+                        <span class="key">]</span><span>Select Next Layer</span>
+                    </div>
+                </div>
+                
+                <div class="help-section">
                     <h3>🔍 View Controls</h3>
                     <div class="shortcut-grid">
                         <span class="key">+</span><span>Zoom In</span>
@@ -693,6 +721,26 @@
                         <li>Export as Animation HPP for Kywy displays</li>
                         <li>Use selection tool to copy/move parts of your drawing</li>
                         <li>144×168 is the native Kywy display resolution</li>
+                    </ul>
+                </div>
+                
+                <div class="help-section">
+                    <h3>📚 Layer System</h3>
+                    <ul>
+                        <li><strong>Enable Layers:</strong> Check "Enable Layers" to activate the layer system for advanced compositing</li>
+                        <li><strong>Multiple Layers:</strong> Each frame can have multiple layers that are composited together</li>
+                        <li><strong>Transparency Modes:</strong> Each layer (except Layer 0) can use white or black as transparent color</li>
+                        <li><strong>Layer 0:</strong> The bottom layer is always opaque and shows fully - no transparency</li>
+                        <li><strong>Upper Layers:</strong> Layers above the bottom use transparency to show through to layers below</li>
+                        <li><strong>White Transparency:</strong> White pixels become transparent, black pixels are opaque</li>
+                        <li><strong>Black Transparency:</strong> Black pixels become transparent, white pixels are opaque</li>
+                        <li><strong>Toggle Transparency:</strong> Click the transparency button (⚪/⚫) or press Ctrl+I on current layer</li>
+                        <li><strong>Layer Visibility:</strong> Toggle eye icon to show/hide layers without deleting them</li>
+                        <li><strong>Solo Mode:</strong> Click 🔒 to view only one layer at a time for editing</li>
+                        <li><strong>Merge Down:</strong> Combine current layer with the layer below it</li>
+                        <li><strong>Copy to Frames:</strong> Duplicate a layer to multiple frames at once</li>
+                        <li><strong>Export Layers:</strong> Use "Layers HPP" format to export each layer as separate bitmaps</li>
+                        <li><strong>Undo Support:</strong> All layer operations (add, delete, merge, transparency changes) are undoable</li>
                     </ul>
                 </div>
             </div>
