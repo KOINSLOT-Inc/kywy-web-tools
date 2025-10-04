@@ -462,6 +462,8 @@ class DrawingEditor {
         // Touch tracking for gestures
         this.lastTouchDistance = null;
         this.lastTouchCenter = null;
+        this.activeTouchId = null; // Track the primary touch for drawing
+        this.touchStartTime = 0; // For palm rejection timing
         
         // Mirror drawing state
         this.mirrorHorizontal = false;
@@ -517,7 +519,6 @@ class DrawingEditor {
         // Now safe to initialize tools and events
         this.initializeTools();
         this.initializeEvents();
-        this.initializeMobileMenus();
         this.initializeFrameSystem();
         
         this.updateUI();
@@ -3185,21 +3186,88 @@ class DrawingEditor {
     }
     
     initializeMobileMenus() {
-        // Mobile dropdown toggle buttons
-        const toolsDropdown = document.getElementById('mobileToolsDropdown');
+        // Mobile menu dropdown toggle
         const menuDropdown = document.getElementById('mobileMenuDropdown');
-        
-        if (toolsDropdown) {
-            toolsDropdown.addEventListener('click', (e) => {
-                e.stopPropagation();
-                this.toggleMobileDropdown('mobileToolsMenu');
-            });
-        }
         
         if (menuDropdown) {
             menuDropdown.addEventListener('click', (e) => {
                 e.stopPropagation();
                 this.toggleMobileDropdown('mobileMainMenu');
+            });
+        }
+        
+        // Mobile panel toggles - left and right buttons
+        const toolsToggle = document.getElementById('mobileToolsToggle');
+        const exportToggle = document.getElementById('mobileExportToggle');
+        
+        if (toolsToggle) {
+            toolsToggle.addEventListener('click', () => {
+                const toolsPanel = document.getElementById('toolsPanel');
+                toolsPanel.classList.toggle('open');
+                toolsToggle.classList.toggle('active');
+                
+                // Close export panel if it's open
+                const exportPanel = document.getElementById('exportPanel');
+                if (exportPanel.classList.contains('open')) {
+                    exportPanel.classList.remove('open');
+                    exportToggle.classList.remove('active');
+                }
+            });
+        }
+        
+        if (exportToggle) {
+            exportToggle.addEventListener('click', () => {
+                const exportPanel = document.getElementById('exportPanel');
+                exportPanel.classList.toggle('open');
+                exportToggle.classList.toggle('active');
+                
+                // Close tools panel if it's open
+                const toolsPanel = document.getElementById('toolsPanel');
+                if (toolsPanel.classList.contains('open')) {
+                    toolsPanel.classList.remove('open');
+                    toolsToggle.classList.remove('active');
+                }
+            });
+        }
+        
+        // Mobile bottom bar controls
+        const mobileGridBtn = document.getElementById('mobileGridBtn');
+        const mobileZoomIn = document.getElementById('mobileZoomIn');
+        const mobileZoomOut = document.getElementById('mobileZoomOut');
+        const mobileFitBtn = document.getElementById('mobileFitBtn');
+        const mobileCenterBtn = document.getElementById('mobileCenterBtn');
+        
+        if (mobileGridBtn) {
+            mobileGridBtn.addEventListener('click', () => {
+                this.toggleGrid();
+                mobileGridBtn.classList.toggle('active');
+            });
+        }
+        
+        if (mobileZoomIn) {
+            mobileZoomIn.addEventListener('click', () => {
+                this.setZoom(this.zoom * 1.5);
+                this.updateMobileZoomDisplay();
+            });
+        }
+        
+        if (mobileZoomOut) {
+            mobileZoomOut.addEventListener('click', () => {
+                this.setZoom(this.zoom / 1.5);
+                this.updateMobileZoomDisplay();
+            });
+        }
+        
+        if (mobileFitBtn) {
+            mobileFitBtn.addEventListener('click', () => {
+                this.fitToScreen();
+                this.updateMobileZoomDisplay();
+            });
+        }
+        
+        if (mobileCenterBtn) {
+            mobileCenterBtn.addEventListener('click', () => {
+                this.centerCanvas();
             });
         }
         
@@ -3209,29 +3277,49 @@ class DrawingEditor {
         // Handle window resize to manage mobile state
         window.addEventListener('resize', () => this.handleMobileResize());
         
-        // Initialize mobile state
+        // Initialize mobile state - ensure panels start collapsed
         this.handleMobileResize();
+        
+        // Ensure panels start collapsed on mobile
+        if (window.innerWidth <= 768) {
+            const toolsPanel = document.getElementById('toolsPanel');
+            const exportPanel = document.getElementById('exportPanel');
+            if (toolsPanel) toolsPanel.classList.remove('open');
+            if (exportPanel) exportPanel.classList.remove('open');
+            if (toolsToggle) toolsToggle.classList.remove('active');
+            if (exportToggle) exportToggle.classList.remove('active');
+        }
+        
+        // Initialize mobile zoom display
+        this.updateMobileZoomDisplay();
+    }
+    
+    updateMobileZoomDisplay() {
+        const mobileZoomDisplay = document.getElementById('mobileZoomDisplay');
+        if (mobileZoomDisplay) {
+            mobileZoomDisplay.textContent = Math.round(this.zoom * 100 / 4) + '%';
+        }
     }
     
     toggleMobileDropdown(menuId) {
         const menu = document.getElementById(menuId);
         if (menu) {
-            const isVisible = menu.style.display === 'block';
+            const isActive = menu.classList.contains('active');
             // Close all dropdowns first
             this.closeMobileDropdowns();
             // Open this one if it wasn't already visible
-            if (!isVisible) {
-                menu.style.display = 'block';
+            if (!isActive) {
+                menu.classList.add('active');
             }
         }
     }
     
     closeMobileDropdowns() {
-        const dropdowns = ['mobileToolsMenu', 'mobileMainMenu'];
+        const dropdowns = ['mobileMainMenu'];
         dropdowns.forEach(id => {
             const menu = document.getElementById(id);
             if (menu) {
-                menu.style.display = 'none';
+                menu.classList.remove('active');
             }
         });
     }
@@ -3844,67 +3932,158 @@ class DrawingEditor {
     
     // Touch event handlers
     onTouchStart(e) {
-        e.preventDefault();
-        
         const touches = e.touches;
         
         if (touches.length === 1) {
-            // Single touch - treat as mouse down
+            // Single touch - treat as drawing/tool use
+            e.preventDefault();
             const touch = touches[0];
+            
+            // Store the active touch ID for consistent tracking
+            this.activeTouchId = touch.identifier;
+            this.touchStartTime = Date.now();
+            
             const mouseEvent = this.createMouseEventFromTouch(touch, 'mousedown');
             this.onMouseDown(mouseEvent);
         } else if (touches.length === 2) {
-            // Two finger touch - prepare for pinch zoom
+            // Two finger touch - prepare for pinch zoom and pan
+            e.preventDefault();
             this.lastTouchDistance = this.getTouchDistance(touches[0], touches[1]);
             this.lastTouchCenter = this.getTouchCenter(touches[0], touches[1]);
+            
+            // Enable panning mode for two-finger gestures
+            this.isPanning = true;
+            
+            // Clear active touch ID since we're now in gesture mode
+            this.activeTouchId = null;
+            
+            // Stop any drawing that might be in progress
+            if (this.isDrawing) {
+                this.isDrawing = false;
+            }
+        } else if (touches.length > 2) {
+            // Three or more fingers - pan only
+            e.preventDefault();
+            this.lastTouchCenter = this.getTouchCenter(touches[0], touches[1]);
+            this.isPanning = true;
+            
+            // Clear active touch ID
+            this.activeTouchId = null;
+            
+            // Stop any drawing that might be in progress
+            if (this.isDrawing) {
+                this.isDrawing = false;
+            }
         }
     }
     
     onTouchMove(e) {
-        e.preventDefault();
-        
         const touches = e.touches;
         
-        if (touches.length === 1) {
-            // Single touch - treat as mouse move
+        if (touches.length === 1 && !this.isPanning) {
+            // Single touch - treat as drawing/tool use
+            // Only process if it's the active touch
             const touch = touches[0];
-            const mouseEvent = this.createMouseEventFromTouch(touch, 'mousemove');
-            this.onMouseMove(mouseEvent);
-        } else if (touches.length === 2 && this.lastTouchDistance) {
-            // Two finger touch - handle pinch zoom
+            
+            if (this.activeTouchId === null || touch.identifier === this.activeTouchId) {
+                e.preventDefault();
+                const mouseEvent = this.createMouseEventFromTouch(touch, 'mousemove');
+                this.onMouseMove(mouseEvent);
+            }
+        } else if (touches.length === 2) {
+            // Two finger touch - handle pinch zoom and pan
+            e.preventDefault();
+            
             const currentDistance = this.getTouchDistance(touches[0], touches[1]);
             const currentCenter = this.getTouchCenter(touches[0], touches[1]);
             
-            // Calculate zoom change
-            const zoomChange = currentDistance / this.lastTouchDistance;
-            const newZoom = this.zoom * zoomChange;
+            // Handle pinch zoom if we have a previous distance
+            if (this.lastTouchDistance) {
+                const zoomChange = currentDistance / this.lastTouchDistance;
+                const newZoom = this.zoom * zoomChange;
+                this.setZoom(newZoom);
+            }
             
-            // Apply zoom
-            this.setZoom(newZoom);
+            // Handle panning
+            if (this.lastTouchCenter) {
+                const canvasContainer = document.querySelector('.canvas-container');
+                const deltaX = currentCenter.x - this.lastTouchCenter.x;
+                const deltaY = currentCenter.y - this.lastTouchCenter.y;
+                
+                canvasContainer.scrollLeft -= deltaX;
+                canvasContainer.scrollTop -= deltaY;
+            }
             
             // Update for next frame
             this.lastTouchDistance = currentDistance;
+            this.lastTouchCenter = currentCenter;
+        } else if (touches.length > 2) {
+            // Three or more fingers - pan only (no zoom)
+            e.preventDefault();
+            
+            const currentCenter = this.getTouchCenter(touches[0], touches[1]);
+            
+            // Handle panning
+            if (this.lastTouchCenter) {
+                const canvasContainer = document.querySelector('.canvas-container');
+                const deltaX = currentCenter.x - this.lastTouchCenter.x;
+                const deltaY = currentCenter.y - this.lastTouchCenter.y;
+                
+                canvasContainer.scrollLeft -= deltaX;
+                canvasContainer.scrollTop -= deltaY;
+            }
+            
             this.lastTouchCenter = currentCenter;
         }
     }
     
     onTouchEnd(e) {
-        e.preventDefault();
-        
         const touches = e.touches;
+        const changedTouches = e.changedTouches;
         
         if (touches.length === 0) {
-            // All touches ended - treat as mouse up
-            const mouseEvent = this.createMouseEventFromTouch(e.changedTouches[0], 'mouseup');
-            this.onMouseUp(mouseEvent);
+            // All touches ended
+            e.preventDefault();
+            
+            // If we were panning, just stop
+            if (this.isPanning) {
+                this.isPanning = false;
+            } else if (changedTouches.length > 0) {
+                // Check if the ended touch was our active touch
+                const endedTouch = changedTouches[0];
+                if (this.activeTouchId === null || endedTouch.identifier === this.activeTouchId) {
+                    // Otherwise treat as mouse up for drawing
+                    const mouseEvent = this.createMouseEventFromTouch(endedTouch, 'mouseup');
+                    this.onMouseUp(mouseEvent);
+                }
+            }
             
             // Reset touch tracking
             this.lastTouchDistance = null;
             this.lastTouchCenter = null;
+            this.activeTouchId = null;
         } else if (touches.length === 1) {
             // Went from multi-touch to single touch
+            e.preventDefault();
             this.lastTouchDistance = null;
             this.lastTouchCenter = null;
+            this.isPanning = false;
+            
+            // If we had no active touch, set it to the remaining touch
+            // This handles the case where user lifts one finger while drawing with another
+            if (this.activeTouchId === null && !this.isDrawing) {
+                this.activeTouchId = touches[0].identifier;
+            }
+        } else {
+            // Still multiple touches, update tracking
+            e.preventDefault();
+            if (touches.length === 2) {
+                this.lastTouchDistance = this.getTouchDistance(touches[0], touches[1]);
+                this.lastTouchCenter = this.getTouchCenter(touches[0], touches[1]);
+            } else {
+                this.lastTouchDistance = null;
+                this.lastTouchCenter = this.getTouchCenter(touches[0], touches[1]);
+            }
         }
     }
     
@@ -7773,6 +7952,9 @@ class DrawingEditor {
         this.setCanvasSize(this.canvasWidth, this.canvasHeight);
         document.getElementById('zoomLevel').textContent = Math.round(this.zoom * 100) + '%';
         
+        // Update mobile zoom display
+        this.updateMobileZoomDisplay();
+        
         // Update grid display when zoom changes
         if (this.gridModeEnabled) {
             this.updateGridDisplay();
@@ -8068,6 +8250,12 @@ class DrawingEditor {
     
     updateMousePosition(pos) {
         document.getElementById('mousePos').textContent = `${pos.x}, ${pos.y}`;
+        
+        // Also update mobile mouse position if it exists
+        const mobileMousePos = document.getElementById('mobileMousePos');
+        if (mobileMousePos) {
+            mobileMousePos.textContent = `${pos.x}, ${pos.y}`;
+        }
     }
     
     updateCanvasInfo() {

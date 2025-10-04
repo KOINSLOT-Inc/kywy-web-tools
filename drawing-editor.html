@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Drawing Editor - Kywy Image Tools</title>
     <link rel="stylesheet" href="drawing-editor-style.css">
 </head>
@@ -55,8 +55,8 @@
                 
                 <!-- Mobile Panel Toggle Buttons -->
                 <div class="mobile-panel-toggles">
-                    <button class="mobile-panel-toggle" id="mobileToolsToggle">🛠️ Tools</button>
-                    <button class="mobile-panel-toggle" id="mobileExportToggle">📤 Export</button>
+                    <button class="mobile-panel-toggle" id="mobileToolsToggle">◀ Left</button>
+                    <button class="mobile-panel-toggle" id="mobileExportToggle">Right ▶</button>
                 </div>
             </div>
         </header>
@@ -898,38 +898,27 @@
         </div>
     </div>
     
-    <!-- Mobile Bottom Toolbar -->
-    <div class="mobile-bottom-toolbar">
-        <!-- Quick Tool Buttons (3x2 grid) -->
-        <div class="mobile-tool-grid">
-            <button class="mobile-tool-btn active" data-tool="pen">🖊️</button>
-            <button class="mobile-tool-btn" data-tool="bucket">🪣</button>
-            <button class="mobile-tool-btn" data-tool="circle">⭕</button>
-            <button class="mobile-tool-btn" data-tool="square">⬜</button>
-            <button class="mobile-tool-btn" data-tool="select">📋</button>
-            <button class="mobile-tool-btn" data-tool="hand">✋</button>
-        </div>
-        
-        <!-- Bottom Controls -->
+    <!-- Mobile Bottom Bar -->
+    <div class="mobile-bottom-bar">
         <div class="mobile-bottom-controls">
-            <!-- View Controls -->
-            <div class="mobile-view-controls">
-                <button class="mobile-control-btn" id="mobileFitBtn">📱 Fit</button>
-                <button class="mobile-control-btn" id="mobileCenterBtn">🎯 Center</button>
-                <button class="mobile-control-btn" id="mobileGridBtn">📐 Grid</button>
-                <!-- Color Toggle -->
-                <div class="mobile-color-toggle">
-                    <button class="mobile-color-toggle-btn" id="mobileColorToggle" data-color="black">⬛</button>
-                </div>
-            </div>
+            <!-- Grid Toggle -->
+            <button class="mobile-control-btn" id="mobileGridBtn" title="Toggle Grid">
+                <span>📐</span>
+            </button>
             
             <!-- Zoom Controls -->
-            <div class="mobile-zoom-controls">
-                <button class="mobile-zoom-btn" id="mobileZoomOut">−</button>
+            <div class="mobile-zoom-group">
+                <button class="mobile-control-btn" id="mobileZoomOut" title="Zoom Out">−</button>
                 <span class="mobile-zoom-display" id="mobileZoomDisplay">100%</span>
-                <button class="mobile-zoom-btn" id="mobileZoomIn">+</button>
+                <button class="mobile-control-btn" id="mobileZoomIn" title="Zoom In">+</button>
             </div>
-            </div>
+            
+            <!-- View Controls -->
+            <button class="mobile-control-btn" id="mobileFitBtn" title="Fit to Screen">⤢</button>
+            <button class="mobile-control-btn" id="mobileCenterBtn" title="Center Canvas">🎯</button>
+            
+            <!-- Mouse Position -->
+            <span class="mobile-mouse-pos" id="mobileMousePos">0, 0</span>
         </div>
     </div>
     
