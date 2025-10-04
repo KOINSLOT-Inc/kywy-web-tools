@@ -321,6 +321,42 @@ class DeleteFrameCommand {
     }
 }
 
+class PasteCommand {
+    constructor(editor, pasteData, frameIndex) {
+        this.editor = editor;
+        this.pasteData = pasteData; // Array of {x, y, oldColor, newColor}
+        this.frameIndex = frameIndex;
+    }
+    
+    execute() {
+        const ctx = this.editor.frames[this.frameIndex].getContext('2d', { willReadFrequently: true });
+        
+        // Apply all the pixel changes
+        for (const pixel of this.pasteData) {
+            ctx.fillStyle = pixel.newColor;
+            ctx.fillRect(pixel.x, pixel.y, 1, 1);
+        }
+        
+        this.editor.redrawCanvas();
+        this.editor.generateThumbnail(this.frameIndex);
+        this.editor.generateCode();
+    }
+    
+    undo() {
+        const ctx = this.editor.frames[this.frameIndex].getContext('2d', { willReadFrequently: true });
+        
+        // Restore all the old colors
+        for (const pixel of this.pasteData) {
+            ctx.fillStyle = pixel.oldColor;
+            ctx.fillRect(pixel.x, pixel.y, 1, 1);
+        }
+        
+        this.editor.redrawCanvas();
+        this.editor.generateThumbnail(this.frameIndex);
+        this.editor.generateCode();
+    }
+}
+
 class DrawingEditor {
     constructor() {
         
@@ -10752,9 +10788,11 @@ Instructions:
         const importBrightnessRange = document.getElementById('importBrightness');
         const importThresholdRange = document.getElementById('importThreshold');
         const importToCanvasBtn = document.getElementById('importToCanvas');
+        const importToPasteBtn = document.getElementById('importToPaste');
 
         importImageInput.addEventListener('change', (e) => this.handleImportImageUpload(e));
         importToCanvasBtn.addEventListener('click', () => this.importToCanvas());
+        importToPasteBtn.addEventListener('click', () => this.importToPasteMode());
         
         // Settings change handlers
         importResizeSelect.addEventListener('change', (e) => {
@@ -10800,6 +10838,7 @@ Instructions:
                 this.displayImportOriginalImage(img);
                 this.updateImportPreview();
                 document.getElementById('importToCanvas').disabled = false;
+                document.getElementById('importToPaste').disabled = false;
             };
             img.src = e.target.result;
         };
@@ -10888,16 +10927,55 @@ Instructions:
         imageData = this.adjustBrightnessContrast(imageData, brightness, contrast);
         imageData = this.convertToGrayscale(imageData);
         
-        if (edgeDetection) {
+        // If BOTH edge detection and dithering are selected, apply them separately and combine
+        let binaryData;
+        if (edgeDetection && dithering !== 'none') {
+            // Apply edge detection to a copy
+            const edgeImageData = this.applyEdgeDetection(imageData);
+            const edgeBinaryData = this.convertToBinary(edgeImageData, threshold, false); // Don't invert yet
+            
+            // Apply dithering to the original grayscale
+            let ditheredImageData;
+            if (dithering === 'floyd-steinberg') {
+                ditheredImageData = this.applyFloydSteinbergDithering(imageData);
+            } else if (dithering === 'atkinson') {
+                ditheredImageData = this.applyAtkinsonDithering(imageData, threshold);
+            } else if (dithering === 'ordered') {
+                ditheredImageData = this.applyOrderedDithering(imageData, threshold);
+            }
+            const ditherBinaryData = this.convertDitheredToBinary(ditheredImageData, false); // Don't invert yet
+            
+            // Combine: a pixel is black if it's black in EITHER edge detection OR dithering
+            binaryData = new Uint8Array(width * height);
+            for (let i = 0; i < binaryData.length; i++) {
+                const isBlackInEither = edgeBinaryData[i] === 1 || ditherBinaryData[i] === 1;
+                binaryData[i] = isBlackInEither ? 1 : 0;
+            }
+            
+            // Apply invert if needed
+            if (invert) {
+                for (let i = 0; i < binaryData.length; i++) {
+                    binaryData[i] = binaryData[i] === 1 ? 0 : 1;
+                }
+            }
+        } else if (edgeDetection) {
+            // Only edge detection
             imageData = this.applyEdgeDetection(imageData);
+            binaryData = this.convertToBinary(imageData, threshold, invert);
+        } else if (dithering === 'floyd-steinberg') {
+            // Only dithering
+            imageData = this.applyFloydSteinbergDithering(imageData);
+            binaryData = this.convertDitheredToBinary(imageData, invert);
+        } else if (dithering === 'atkinson') {
+            imageData = this.applyAtkinsonDithering(imageData, threshold);
+            binaryData = this.convertDitheredToBinary(imageData, invert);
+        } else if (dithering === 'ordered') {
+            imageData = this.applyOrderedDithering(imageData, threshold);
+            binaryData = this.convertDitheredToBinary(imageData, invert);
+        } else {
+            // No edge detection, no dithering - just threshold
+            binaryData = this.convertToBinary(imageData, threshold, invert);
         }
-        
-        if (dithering !== 'none') {
-            imageData = this.applyDithering(imageData, dithering, threshold);
-        }
-        
-        // Convert to binary
-        const binaryData = this.convertToBinary(imageData, threshold, invert);
         
         // Store processed data
         this.importedImageData = {
@@ -10992,6 +11070,9 @@ Instructions:
         // Get current frame context
         const ctx = this.getCurrentFrameContext();
         
+        // Capture state before importing for undo
+        this.captureSnapshot();
+        
         // Draw the imported image data
         for (let y = 0; y < height; y++) {
             for (let x = 0; x < width; x++) {
@@ -11018,6 +11099,68 @@ Instructions:
         
         // Show success message
         alert(`Image imported successfully! (${width}x${height} at ${position})`);
+    }
+
+    importToPasteMode() {
+        if (!this.importedImageData) return;
+        
+        const { width, height, data } = this.importedImageData;
+        
+        // Create a canvas with the imported image data
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = width;
+        tempCanvas.height = height;
+        const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
+        
+        // Convert binary data to image data
+        const imageData = tempCtx.createImageData(width, height);
+        for (let i = 0; i < data.length; i++) {
+            const pixelIndex = i * 4;
+            const value = data[i] === 1 ? 0 : 255; // 1 = black, 0 = white
+            imageData.data[pixelIndex] = value;     // R
+            imageData.data[pixelIndex + 1] = value; // G
+            imageData.data[pixelIndex + 2] = value; // B
+            imageData.data[pixelIndex + 3] = 255;   // A
+        }
+        tempCtx.putImageData(imageData, 0, 0);
+        
+        // Set up clipboard with the imported image
+        this.clipboard = {
+            data: tempCanvas,
+            isSelection: true,
+            width: width,
+            height: height
+        };
+        
+        // Enter paste mode
+        this.setTool('select');
+        this.isPasteModeActive = true;
+        
+        // Position at center of canvas
+        this.pasteX = Math.floor((this.canvasWidth - width) / 2);
+        this.pasteY = Math.floor((this.canvasHeight - height) / 2);
+        
+        // Update UI - set button to "Exit Paste Mode" state
+        this.updateEditButtonStates();
+        const pasteModeBtn = document.getElementById('pasteModeBtn');
+        const pasteModeOptions = document.getElementById('pasteModeOptions');
+        if (pasteModeBtn) {
+            pasteModeBtn.classList.add('active');
+            pasteModeBtn.textContent = 'Exit Paste Mode';
+            pasteModeBtn.disabled = false;
+        }
+        if (pasteModeOptions) {
+            pasteModeOptions.style.display = 'block';
+        }
+        
+        // Close modal
+        document.getElementById('imageImportModal').style.display = 'none';
+        
+        // Redraw to show the paste preview
+        this.redrawCanvas();
+        
+        // Show success message
+        alert(`Image loaded into paste mode! (${width}x${height})\nDrag to reposition, click to place.`);
     }
 
     // Image processing methods (adapted from converter.js)
@@ -11149,7 +11292,7 @@ Instructions:
         return new ImageData(newData, width, height);
     }
 
-    atkinsonDithering(imageData, threshold) {
+    atkinsonDithering(imageData, threshold = 128) {
         const { width, height, data } = imageData;
         const newData = new Uint8ClampedArray(data);
         
@@ -11157,17 +11300,27 @@ Instructions:
             for (let x = 0; x < width; x++) {
                 const idx = (y * width + x) * 4;
                 const oldPixel = newData[idx];
-                const newPixel = oldPixel > threshold ? 255 : 0;
+                const newPixel = oldPixel > 128 ? 255 : 0;  // Use fixed threshold like Floyd-Steinberg
                 const error = oldPixel - newPixel;
                 
                 newData[idx] = newData[idx + 1] = newData[idx + 2] = newPixel;
                 
                 const errorFraction = error / 8;
+                
+                // Apply error to right pixel
                 if (x + 1 < width) {
-                    newData[(y * width + (x + 1)) * 4] += errorFraction;
+                    const rightIdx = (y * width + (x + 1)) * 4;
+                    newData[rightIdx] = Math.max(0, Math.min(255, newData[rightIdx] + errorFraction));
+                    newData[rightIdx + 1] = Math.max(0, Math.min(255, newData[rightIdx + 1] + errorFraction));
+                    newData[rightIdx + 2] = Math.max(0, Math.min(255, newData[rightIdx + 2] + errorFraction));
                 }
+                
+                // Apply error to bottom pixel
                 if (y + 1 < height) {
-                    newData[((y + 1) * width + x) * 4] += errorFraction;
+                    const bottomIdx = ((y + 1) * width + x) * 4;
+                    newData[bottomIdx] = Math.max(0, Math.min(255, newData[bottomIdx] + errorFraction));
+                    newData[bottomIdx + 1] = Math.max(0, Math.min(255, newData[bottomIdx + 1] + errorFraction));
+                    newData[bottomIdx + 2] = Math.max(0, Math.min(255, newData[bottomIdx + 2] + errorFraction));
                 }
             }
         }
@@ -11209,6 +11362,27 @@ Instructions:
             const pixelIndex = i * 4;
             const brightness = data[pixelIndex];
             let isBlack = brightness < threshold;
+            
+            if (invert) {
+                isBlack = !isBlack;
+            }
+            
+            binaryData[i] = isBlack ? 1 : 0;
+        }
+        
+        return binaryData;
+    }
+    
+    convertDitheredToBinary(imageData, invert) {
+        // Convert already-dithered image (which has only 0 or 255 values) to binary
+        const { width, height, data } = imageData;
+        const binaryData = new Uint8Array(width * height);
+        
+        for (let i = 0; i < width * height; i++) {
+            const pixelIndex = i * 4;
+            const brightness = data[pixelIndex];
+            // Dithering already produced 0 or 255, so just check if it's black (0)
+            let isBlack = brightness < 128;
             
             if (invert) {
                 isBlack = !isBlack;
