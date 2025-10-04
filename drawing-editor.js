@@ -508,6 +508,12 @@ class DrawingEditor {
         // Setup unsaved changes warning
         this.setupUnsavedWarning();
         
+        // Save reminder system
+        this.lastSaveTime = Date.now();
+        this.saveReminderInterval = null;
+        this.saveReminderBanner = null;
+        this.saveReminderEnabled = true; // Can be disabled permanently
+        
         // Now safe to initialize tools and events
         this.initializeTools();
         this.initializeEvents();
@@ -561,6 +567,9 @@ class DrawingEditor {
         
         // Auto-detect system fonts on initialization
         setTimeout(() => this.detectSystemFonts(), 500);
+        
+        // Initialize save reminder system
+        this.initializeSaveReminder();
     }
     
     initializeCanvas() {
@@ -9501,6 +9510,9 @@ class DrawingEditor {
         
         // Mark as saved after successful save
         this.markAsSaved();
+        
+        // Reset save reminder timer and hide banner
+        this.resetSaveReminderTimer();
     }
     
     load() {
@@ -11560,6 +11572,106 @@ Instructions:
                 return message; // For other browsers
             }
         });
+    }
+
+    // Initialize save reminder system
+    initializeSaveReminder() {
+        // Create banner element
+        this.saveReminderBanner = document.createElement('div');
+        this.saveReminderBanner.className = 'save-reminder-banner';
+        this.saveReminderBanner.innerHTML = `
+            <span class="save-reminder-text">⚠️ Don't forget to save your work!</span>
+            <div class="save-reminder-actions">
+                <button class="save-reminder-btn save-reminder-snooze" title="Snooze for 15s">💤 Snooze</button>
+                <button class="save-reminder-btn save-reminder-off" title="Turn off reminders">🔕 Turn Off</button>
+                <button class="save-reminder-dismiss" title="Dismiss">✕</button>
+            </div>
+        `;
+        this.saveReminderBanner.style.display = 'none';
+        document.body.appendChild(this.saveReminderBanner);
+        
+        // Add snooze button handler
+        const snoozeBtn = this.saveReminderBanner.querySelector('.save-reminder-snooze');
+        snoozeBtn.addEventListener('click', () => {
+            this.snoozeSaveReminder();
+        });
+        
+        // Add turn off button handler
+        const offBtn = this.saveReminderBanner.querySelector('.save-reminder-off');
+        offBtn.addEventListener('click', () => {
+            this.turnOffSaveReminder();
+        });
+        
+        // Add dismiss button handler
+        const dismissBtn = this.saveReminderBanner.querySelector('.save-reminder-dismiss');
+        dismissBtn.addEventListener('click', () => {
+            this.hideSaveReminder();
+        });
+        
+        // Start checking every minute
+        this.saveReminderInterval = setInterval(() => {
+            this.checkSaveReminder();
+        }, 60000); // Check every 60 seconds
+    }
+    
+    // Check if we should show the save reminder
+    checkSaveReminder() {
+        // Don't check if reminders are disabled
+        if (!this.saveReminderEnabled) {
+            return;
+        }
+        
+        const timeSinceLastSave = Date.now() - this.lastSaveTime;
+        const thirtyMinutes = 30 * 60 * 1000; // 30 minutes in milliseconds
+        
+        // Show banner if it's been 30+ minutes and there are unsaved changes
+        if (timeSinceLastSave >= thirtyMinutes && this.hasUnsavedChanges && !this.isBlankCanvas) {
+            this.showSaveReminder();
+        }
+    }
+    
+    // Show the save reminder banner
+    showSaveReminder() {
+        if (this.saveReminderBanner) {
+            this.saveReminderBanner.style.display = 'flex';
+            // Add animation class
+            this.saveReminderBanner.classList.add('slide-in');
+        }
+    }
+    
+    // Hide the save reminder banner
+    hideSaveReminder() {
+        if (this.saveReminderBanner) {
+            this.saveReminderBanner.classList.add('slide-out');
+            setTimeout(() => {
+                this.saveReminderBanner.style.display = 'none';
+                this.saveReminderBanner.classList.remove('slide-in', 'slide-out');
+            }, 300); // Match animation duration
+        }
+    }
+    
+    // Reset save reminder timer
+    resetSaveReminderTimer() {
+        this.lastSaveTime = Date.now();
+        this.hideSaveReminder();
+    }
+    
+    // Snooze the save reminder (reset timer and hide)
+    snoozeSaveReminder() {
+        this.lastSaveTime = Date.now();
+        this.hideSaveReminder();
+    }
+    
+    // Turn off save reminders permanently
+    turnOffSaveReminder() {
+        this.saveReminderEnabled = false;
+        this.hideSaveReminder();
+        
+        // Clear the interval to stop checking
+        if (this.saveReminderInterval) {
+            clearInterval(this.saveReminderInterval);
+            this.saveReminderInterval = null;
+        }
     }
 
     // Mark canvas as having unsaved changes
