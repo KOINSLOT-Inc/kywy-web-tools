@@ -1597,21 +1597,28 @@ textarea::placeholder {
 }
 
 .help-section ul {
-    list-style: none;
-    padding: 0;
+    list-style: disc;
+    padding-left: 20px;
 }
 
 .help-section li {
-    background: #f8f9fa;
     margin: 8px 0;
-    padding: 10px 15px;
-    border-left: 4px solid #667eea;
-    border-radius: 4px;
+    padding: 4px 0;
+    line-height: 1.6;
 }
 
 .help-section li::before {
-    content: "💡 ";
-    margin-right: 8px;
+    content: none;
+}
+
+.help-section ol {
+    padding-left: 20px;
+}
+
+.help-section ol li {
+    margin: 8px 0;
+    padding: 4px 0;
+    line-height: 1.6;
 }
 
 /* Hide mobile elements on desktop */

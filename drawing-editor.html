@@ -629,7 +629,48 @@
             </div>
             <div class="modal-body">
                 <div class="help-section">
-                    <h3>🔧 Tools</h3>
+                    <h3>� Welcome to the KYWY Graphics Editor</h3>
+                    <p>This is a specialized pixel art editor designed for creating graphics for the <strong>KYWY device</strong> (144×168 monochrome display). 
+                    The editor exports Arduino/C++ code that can be directly used in your KYWY projects.</p>
+                    
+                    <h4>🖥️ Interface Overview:</h4>
+                    <ul>
+                        <li><strong>Left Panel (Tools):</strong> Your main drawing tools including pen, shapes, fill, selection, and text tools. 
+                        Select colors (black/white), adjust brush size, and choose drawing modes here.</li>
+                        
+                        <li><strong>Center (Canvas):</strong> Your drawing area. Use mouse wheel to zoom, middle-click to pan. 
+                        The canvas displays your current frame and shows helpful overlays like grid lines and onion skin.</li>
+                        
+                        <li><strong>Right Panel (Export & Frames):</strong> Export your artwork as Arduino code in various formats (Single Frame, Animation, or Layers). 
+                        Below the export section is the frame list where you can manage animation frames, duplicate frames, and navigate through your animation.</li>
+                        
+                        <li><strong>Bottom Panel (Layers & Animation):</strong> Enable layers to work with multiple composited layers per frame. 
+                        Animation controls let you preview animations, adjust frame rates, and enable onion skinning. Grid controls help with pixel-perfect alignment.</li>
+                    </ul>
+                    
+                    <h4>🎬 Basic Workflow:</h4>
+                    <ol>
+                        <li><strong>Start Drawing:</strong> Select a tool (press P for pen) and draw on the canvas</li>
+                        <li><strong>Create Animation:</strong> Click "+ Add Frame" to create multiple frames for animation</li>
+                        <li><strong>Use Layers (Optional):</strong> Check "Enable Layers" at the bottom to work with multiple layers per frame</li>
+                        <li><strong>Export Code:</strong> Click "Generate Code" on the right panel to create Arduino/C++ code</li>
+                        <li><strong>Copy & Use:</strong> Copy the generated code and paste it into your KYWY Arduino project</li>
+                    </ol>
+                    
+                    <h4>💡 Pro Tips:</h4>
+                    <ul>
+                        <li>Use <strong>Ctrl+Wheel</strong> to quickly adjust brush size or polygon sides</li>
+                        <li>Press <strong>F7</strong> to quickly toggle the layer panel on/off</li>
+                        <li>Hold <strong>Shift</strong> while drawing with pen for straight lines</li>
+                        <li>Use <strong>onion skin</strong> to see previous/next frames while animating</li>
+                        <li>The <strong>grid</strong> helps align pixels - toggle it with the Grid checkbox</li>
+                        <li>Import images and convert them to 1-bit graphics with various dithering options</li>
+                        <li><strong>Layers</strong> support transparency modes (white or black transparent) for advanced compositing</li>
+                    </ul>
+                </div>
+                
+                <div class="help-section">
+                    <h3>�🔧 Tools</h3>
                     <div class="shortcut-grid">
                         <span class="key">P</span><span>Pen Tool (Freehand)</span>
                         <span class="key">L</span><span>Line Tool</span>
@@ -736,7 +777,7 @@
                         <li><strong>Black Transparency:</strong> Black pixels become transparent, white pixels are opaque</li>
                         <li><strong>Toggle Transparency:</strong> Click the transparency button (⚪/⚫) or press Ctrl+I on current layer</li>
                         <li><strong>Layer Visibility:</strong> Toggle eye icon to show/hide layers without deleting them</li>
-                        <li><strong>Solo Mode:</strong> Click 🔒 to view only one layer at a time for editing</li>
+                        <li><strong>Solo Mode:</strong> Click S to view only one layer at a time for editing</li>
                         <li><strong>Merge Down:</strong> Combine current layer with the layer below it</li>
                         <li><strong>Copy to Frames:</strong> Duplicate a layer to multiple frames at once</li>
                         <li><strong>Export Layers:</strong> Use "Layers HPP" format to export each layer as separate bitmaps</li>
