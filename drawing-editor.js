@@ -10837,6 +10837,20 @@ Instructions:
             img.onload = () => {
                 this.originalImportImage = img;
                 this.displayImportOriginalImage(img);
+                
+                // Set default resize option based on image size
+                const resizeSelect = document.getElementById('importResize');
+                const kywyWidth = 144;
+                const kywyHeight = 168;
+                
+                // If image is smaller than KYWY screen size, keep original size
+                // Otherwise, default to KYWY screen size (144x168)
+                if (img.width <= kywyWidth && img.height <= kywyHeight) {
+                    resizeSelect.value = '';  // Keep original size
+                } else {
+                    resizeSelect.value = '144x168';  // Default to KYWY screen size
+                }
+                
                 this.updateImportPreview();
                 document.getElementById('importToCanvas').disabled = false;
                 document.getElementById('importToPaste').disabled = false;
