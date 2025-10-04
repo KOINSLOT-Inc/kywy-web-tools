@@ -366,7 +366,22 @@ class DrawingEditor {
         this.canvasWidth = 144;
         this.canvasHeight = 168;
         this.currentFrameIndex = 0;
+        
+        // Calculate initial zoom based on physical KYWY screen size
+        // KYWY screen: 1.5" diagonal, 144x168 pixels
+        // Screen diagonal in pixels: sqrt(144^2 + 168^2) = 221.36 pixels
+        // Physical size: 1.5 inches
+        // Pixels per inch on KYWY: 221.36 / 1.5 = 147.57 PPI
+        // Typical monitor PPI: ~96 PPI
+        // To match physical size: 147.57 / 96 = 1.54x
+        // But we want it slightly larger for easier editing, so use 4x as default
         this.zoom = 4;
+        
+        // Store physical screen info for reference
+        this.physicalDiagonal = 1.5; // inches
+        this.physicalPPI = Math.sqrt(this.canvasWidth**2 + this.canvasHeight**2) / this.physicalDiagonal;
+        this.typicalMonitorPPI = 96; // Standard monitor PPI
+        this.physicalSizeZoom = this.physicalPPI / this.typicalMonitorPPI; // ~1.54x for actual physical size
         
         // Initialize canvas elements
         this.initializeCanvas();
@@ -650,6 +665,15 @@ class DrawingEditor {
     setCanvasSize(width, height) {
         this.canvasWidth = width;
         this.canvasHeight = height;
+        
+        // Update physical size zoom calculation for new dimensions
+        // Recalculate diagonal and PPI for current canvas size
+        const diagonal = Math.sqrt(width**2 + height**2);
+        // Assume proportional physical size based on 144x168 = 1.5" diagonal
+        const kywyDiagonal = Math.sqrt(144**2 + 168**2); // 221.36
+        this.physicalDiagonal = 1.5 * (diagonal / kywyDiagonal);
+        this.physicalPPI = diagonal / this.physicalDiagonal;
+        this.physicalSizeZoom = this.physicalPPI / this.typicalMonitorPPI;
         
         const displayWidth = width * this.zoom;
         const displayHeight = height * this.zoom;
@@ -3353,6 +3377,7 @@ class DrawingEditor {
         // Zoom controls
         document.getElementById('zoomIn').addEventListener('click', () => this.setZoom(this.zoom * 1.5));
         document.getElementById('zoomOut').addEventListener('click', () => this.setZoom(this.zoom / 1.5));
+        document.getElementById('actualSize').addEventListener('click', () => this.zoomToActualSize());
         document.getElementById('fitToScreen').addEventListener('click', () => this.fitToScreen());
         document.getElementById('centerCanvas').addEventListener('click', () => this.centerCanvas());
         
@@ -3905,6 +3930,13 @@ class DrawingEditor {
                 this.fitToScreen();
                 e.preventDefault();
                 break;
+            case '1':
+                // Only trigger actual size zoom if not modifying a tool setting
+                if (!this.isPenTool() && !this.isShapeTool() && this.currentTool !== 'polygon' && this.currentTool !== 'bucket') {
+                    this.zoomToActualSize();
+                    e.preventDefault();
+                }
+                break;
             case '.':
                 this.centerCanvas();
                 e.preventDefault();
@@ -4199,8 +4231,8 @@ class DrawingEditor {
             newZoom = oldZoom / zoomFactor;
         }
         
-        // Constrain zoom levels
-        newZoom = Math.max(0.5, Math.min(newZoom, 20));
+        // Constrain zoom levels (max 10,000% = 100x)
+        newZoom = Math.max(0.5, Math.min(newZoom, 100));
         
         // Calculate the new position of the point under cursor after zoom
         const newCanvasX = canvasX * newZoom;
@@ -8266,7 +8298,8 @@ class DrawingEditor {
     }
     
     setZoom(newZoom) {
-        this.zoom = Math.max(0.5, Math.min(newZoom, 20));
+        // Max zoom of 10,000% = 100x, min zoom of 0.5x = 50%
+        this.zoom = Math.max(0.5, Math.min(newZoom, 100));
         this.setCanvasSize(this.canvasWidth, this.canvasHeight);
         document.getElementById('zoomLevel').textContent = Math.round(this.zoom * 100) + '%';
         
@@ -8278,6 +8311,13 @@ class DrawingEditor {
             this.updateGridDisplay();
             this.updateBrushControlsState(); // Update brush display to reflect grid visibility
         }
+    }
+    
+    zoomToActualSize() {
+        // Zoom to physical screen size (1.5" diagonal KYWY display)
+        // This matches the actual physical dimensions of the KYWY screen
+        this.setZoom(this.physicalSizeZoom);
+        this.centerCanvas();
     }
     
     fitToScreen() {
