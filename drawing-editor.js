@@ -7794,7 +7794,10 @@ class DrawingEditor {
     
     toggleGrid() {
         this.showGrid = !this.showGrid;
-        this.drawCanvas();
+        
+        // Redraw canvas and restore overlay with grid
+        this.redrawCanvas();
+        this.restoreOverlayState();
         
         // Update grid button if it exists
         const gridBtn = document.getElementById('mobileGridBtn');
@@ -9294,12 +9297,14 @@ class DrawingEditor {
     pasteAtPosition(x, y) {
         if (!this.clipboard) return;
         
+        // Capture state before pasting
+        this.captureSnapshot();
+        
         // Calculate paste position (center the clipboard content at click position)
         const pasteX = Math.floor(x - this.clipboard.width / 2);
         const pasteY = Math.floor(y - this.clipboard.height / 2);
         
         const ctx = this.getCurrentFrameContext();
-        const pasteData = []; // Array to store pixel changes for undo
         
         // Calculate actual paste area bounds (clamp to canvas)
         const startX = Math.max(0, pasteX);
@@ -9320,11 +9325,14 @@ class DrawingEditor {
         const clipboardImageData = tempCtx.getImageData(0, 0, this.clipboard.width, this.clipboard.height);
         const clipboardData = clipboardImageData.data;
         
-        // Get current canvas data for the paste area to record old colors
+        // Get current canvas data for the paste area
         const currentImageData = ctx.getImageData(startX, startY, actualWidth, actualHeight);
         const currentData = currentImageData.data;
         
-        // Process each pixel and record changes
+        // Track if any pixels were actually pasted
+        let pixelsPasted = false;
+        
+        // Process each pixel
         for (let py = 0; py < actualHeight; py++) {
             for (let px = 0; px < actualWidth; px++) {
                 // Source pixel coordinates in clipboard
@@ -9356,34 +9364,28 @@ class DrawingEditor {
                 
                 // Only paste non-transparent pixels that aren't being ignored
                 if (a > 0 && pastePixel) {
-                    const canvasX = startX + px;
-                    const canvasY = startY + py;
-                    
-                    // Get old color for undo
-                    const oldR = currentData[dstIndex];
-                    const oldG = currentData[dstIndex + 1];
-                    const oldB = currentData[dstIndex + 2];
-                    const oldA = currentData[dstIndex + 3];
-                    const oldColor = `rgba(${oldR}, ${oldG}, ${oldB}, ${oldA/255})`;
-                    
-                    // New color
-                    const newColor = `rgba(${r}, ${g}, ${b}, ${a/255})`;
-                    
-                    // Record the change
-                    pasteData.push({
-                        x: canvasX,
-                        y: canvasY,
-                        oldColor: oldColor,
-                        newColor: newColor
-                    });
+                    // Actually paste the pixel
+                    currentData[dstIndex] = r;
+                    currentData[dstIndex + 1] = g;
+                    currentData[dstIndex + 2] = b;
+                    currentData[dstIndex + 3] = a;
+                    pixelsPasted = true;
                 }
             }
         }
         
-        // Only create command if there are actual changes
-        if (pasteData.length > 0) {
-            const command = new PasteCommand(this, pasteData, this.currentFrameIndex);
-            this.executeCommand(command);
+        // Only update canvas and push undo if pixels were actually pasted
+        if (pixelsPasted) {
+            // Put the modified image data back onto the canvas
+            ctx.putImageData(currentImageData, startX, startY);
+            
+            // Push undo state
+            this.pushUndo();
+            
+            // Update display
+            this.redrawCanvas();
+            this.generateThumbnail(this.currentFrameIndex);
+            this.generateCode();
         }
         
         // Keep paste mode active - don't exit automatically
