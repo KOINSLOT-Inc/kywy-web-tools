@@ -5089,13 +5089,10 @@ class DrawingEditor {
         this.overlayCtx.save();
         this.overlayCtx.fillStyle = 'rgba(255, 0, 0, 0.9)'; // Very strong red with 90% opacity for clear visibility
         
-        // Clamp the line to canvas bounds for preview (this allows drawing over edges but shows proper preview)
-        const clampedLine = this.clampLineToCanvas(x0, y0, x1, y1);
+        // Get all pixels along the line using Bresenham algorithm (same as actual drawing)
+        const linePixels = this.getLinePixels(Math.floor(x0), Math.floor(y0), Math.floor(x1), Math.floor(y1));
         
-        // Get the pixels that would be drawn by the clamped line using Bresenham algorithm
-        const linePixels = this.getLinePixels(clampedLine.x1, clampedLine.y1, clampedLine.x2, clampedLine.y2);
-        
-        // Draw each pixel that would be affected by the brush
+        // Draw each pixel that would be affected by the brush, but only if within canvas bounds
         linePixels.forEach(pixel => {
             // Only draw pixels that are within canvas bounds
             if (this.isWithinCanvas(pixel.x, pixel.y)) {
@@ -5112,8 +5109,9 @@ class DrawingEditor {
     
     drawStraightLine(x0, y0, x1, y1) {
         // Draw the actual straight line to the canvas
+        // Floor coordinates to ensure we use pixel coordinates (same as preview)
         // The brush functions will handle clipping to canvas bounds
-        this.drawLine(x0, y0, x1, y1);
+        this.drawLine(Math.floor(x0), Math.floor(y0), Math.floor(x1), Math.floor(y1));
     }
     
     showPenPreview(x, y) {
@@ -9155,14 +9153,10 @@ class DrawingEditor {
                 break;
             }
             
-            // Both points share an outside region - line is completely outside
+            // Both points share an outside region - line is completely outside canvas
             if ((code1 & code2) !== 0) {
-                // Return clamped to nearest edge
-                clampedX1 = Math.max(minX, Math.min(maxX, clampedX1));
-                clampedY1 = Math.max(minY, Math.min(maxY, clampedY1));
-                clampedX2 = Math.max(minX, Math.min(maxX, clampedX2));
-                clampedY2 = Math.max(minY, Math.min(maxY, clampedY2));
-                break;
+                // Return null to indicate no visible line
+                return null;
             }
             
             // At least one point is outside - clip it
@@ -9199,11 +9193,11 @@ class DrawingEditor {
             }
         }
 
-        // Round and ensure within bounds
-        clampedX1 = Math.max(minX, Math.min(maxX, Math.round(clampedX1)));
-        clampedY1 = Math.max(minY, Math.min(maxY, Math.round(clampedY1)));
-        clampedX2 = Math.max(minX, Math.min(maxX, Math.round(clampedX2)));
-        clampedY2 = Math.max(minY, Math.min(maxY, Math.round(clampedY2)));
+        // Floor and ensure within bounds (consistent with pixel coordinate system)
+        clampedX1 = Math.max(minX, Math.min(maxX, Math.floor(clampedX1)));
+        clampedY1 = Math.max(minY, Math.min(maxY, Math.floor(clampedY1)));
+        clampedX2 = Math.max(minX, Math.min(maxX, Math.floor(clampedX2)));
+        clampedY2 = Math.max(minY, Math.min(maxY, Math.floor(clampedY2)));
 
         return { 
             x1: clampedX1, 
