@@ -1738,8 +1738,12 @@ class DrawingEditor {
         tempCanvas.width = textWidth;
         tempCanvas.height = textHeight;
         
+        // Render emoji at 90% size to prevent edge clipping
+        const renderSize = Math.floor(this.fontSize * 0.9);
+        const smallerEmojiFont = `${renderSize}px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Android Emoji", "EmojiSymbols", "EmojiOne Mozilla", "Twemoji Mozilla", "Segoe UI Symbol", sans-serif`;
+        
         // Reconfigure after setting canvas size
-        tempCtx.font = emojiFont;
+        tempCtx.font = smallerEmojiFont;
         tempCtx.textBaseline = 'middle';
         tempCtx.textAlign = 'center';
         
