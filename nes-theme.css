@@ -82,6 +82,12 @@ button:hover {
     box-shadow: 3px 3px 0px #000000 !important;
 }
 
+/* Disable bounce effect on sidebar toggle buttons */
+.sidebar-toggle:hover {
+    transform: translateY(-50%) !important;
+    box-shadow: 2px 0 8px rgba(0,0,0,0.15) !important;
+}
+
 button:active, .back-button:active, .nav-btn:active {
     background-color: #cc5555 !important;
     border-style: inset !important;
