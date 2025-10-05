@@ -3219,9 +3219,14 @@ class DrawingEditor {
             if (!this.isDrawing) {
                 const pos = this.getMousePos(e);
                 
-                // Show pen preview when hovering with pen tool (even when not drawing)
-                if (this.currentTool === 'pen' && !this.gridModeEnabled) {
+                // Show pen preview when hovering with pen tool (but not in spray mode)
+                if (this.currentTool === 'pen' && !this.gridModeEnabled && this.penMode !== 'spray') {
                     this.showPenPreview(pos.x, pos.y);
+                }
+                
+                // Show spray preview when hovering with spray mode
+                if (this.currentTool === 'pen' && this.penMode === 'spray') {
+                    this.showSprayPreview(pos.x, pos.y);
                 }
 
                 // Show fill preview when hovering with bucket tool
