@@ -5177,18 +5177,12 @@ class DrawingEditor {
         this.overlayCtx.mozImageSmoothingEnabled = false;
         this.overlayCtx.msImageSmoothingEnabled = false;
         
-        // Draw a circle outline to show spray area
-        // Use brushSize/2 as radius so the diameter equals the brush size in pixels
+        // Draw a pixel-perfect circle outline to show spray area
         const radius = this.brushSize / 2;
-        this.overlayCtx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
-        this.overlayCtx.lineWidth = 1;
-        this.overlayCtx.setLineDash([2, 2]);
+        this.overlayCtx.fillStyle = 'rgba(255, 0, 0, 0.8)';
         
-        this.overlayCtx.beginPath();
-        this.overlayCtx.arc(x + 0.5, y + 0.5, radius, 0, 2 * Math.PI);
-        this.overlayCtx.stroke();
-        
-        this.overlayCtx.setLineDash([]);
+        // Use Bresenham's circle algorithm for pixel-perfect outline with dashed pattern
+        this.drawPixelPerfectCircleOutline(x, y, radius, true);
         
         // Draw mirrored previews if mirror mode is enabled
         if (this.mirrorHorizontal || this.mirrorVertical) {
@@ -5199,31 +5193,56 @@ class DrawingEditor {
         this.overlayCtx.restore();
     }
     
+    drawPixelPerfectCircleOutline(cx, cy, radius, dashed = false) {
+        // Bresenham's circle algorithm for pixel-perfect rendering
+        let x = 0;
+        let y = Math.floor(radius);
+        let d = 3 - 2 * Math.floor(radius);
+        let dashCounter = 0;
+        
+        while (y >= x) {
+            // For dashed pattern, increment counter once per iteration, not per pixel
+            const shouldDraw = !dashed || (Math.floor(dashCounter / 2) % 2 === 0);
+            
+            if (shouldDraw) {
+                // Draw 8 octants
+                this.overlayCtx.fillRect(cx + x, cy + y, 1, 1);
+                this.overlayCtx.fillRect(cx - x, cy + y, 1, 1);
+                this.overlayCtx.fillRect(cx + x, cy - y, 1, 1);
+                this.overlayCtx.fillRect(cx - x, cy - y, 1, 1);
+                this.overlayCtx.fillRect(cx + y, cy + x, 1, 1);
+                this.overlayCtx.fillRect(cx - y, cy + x, 1, 1);
+                this.overlayCtx.fillRect(cx + y, cy - x, 1, 1);
+                this.overlayCtx.fillRect(cx - y, cy - x, 1, 1);
+            }
+            
+            dashCounter++;
+            x++;
+            if (d > 0) {
+                y--;
+                d = d + 4 * (x - y) + 10;
+            } else {
+                d = d + 4 * x + 6;
+            }
+        }
+    }
+    
     drawMirroredSprayPreview(x, y) {
         const centerX = Math.floor(this.canvasWidth / 2);
         const centerY = Math.floor(this.canvasHeight / 2);
-        // Use brushSize/2 as radius so the diameter equals the brush size in pixels
         const radius = this.brushSize / 2;
-        
-        this.overlayCtx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
-        this.overlayCtx.lineWidth = 1;
-        this.overlayCtx.setLineDash([2, 2]);
         
         if (this.mirrorHorizontal) {
             const mirrorX = centerX - (x - centerX);
             if (mirrorX >= 0 && mirrorX < this.canvasWidth) {
-                this.overlayCtx.beginPath();
-                this.overlayCtx.arc(mirrorX + 0.5, y + 0.5, radius, 0, 2 * Math.PI);
-                this.overlayCtx.stroke();
+                this.drawPixelPerfectCircleOutline(mirrorX, y, radius, true);
             }
         }
         
         if (this.mirrorVertical) {
             const mirrorY = centerY - (y - centerY);
             if (mirrorY >= 0 && mirrorY < this.canvasHeight) {
-                this.overlayCtx.beginPath();
-                this.overlayCtx.arc(x + 0.5, mirrorY + 0.5, radius, 0, 2 * Math.PI);
-                this.overlayCtx.stroke();
+                this.drawPixelPerfectCircleOutline(x, mirrorY, radius, true);
             }
         }
         
@@ -5231,13 +5250,9 @@ class DrawingEditor {
             const mirrorX = centerX - (x - centerX);
             const mirrorY = centerY - (y - centerY);
             if (mirrorX >= 0 && mirrorX < this.canvasWidth && mirrorY >= 0 && mirrorY < this.canvasHeight) {
-                this.overlayCtx.beginPath();
-                this.overlayCtx.arc(mirrorX + 0.5, mirrorY + 0.5, radius, 0, 2 * Math.PI);
-                this.overlayCtx.stroke();
+                this.drawPixelPerfectCircleOutline(mirrorX, mirrorY, radius, true);
             }
         }
-        
-        this.overlayCtx.setLineDash([]);
     }
     
     showGridCursor(x, y) {
