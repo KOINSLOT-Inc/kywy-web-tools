@@ -4790,13 +4790,13 @@ class DrawingEditor {
         // If we're actively drawing with the pen tool, redraw the preview on top
         if (this.isDrawing && this.currentTool === 'pen' && this.lastPos) {
             if (!this.gridModeEnabled && this.penMode !== 'spray') {
+                // Only show pen preview if center is within bounds (pen is point-based)
                 if (this.isWithinCanvas(this.lastPos.x, this.lastPos.y)) {
                     this.showPenPreview(this.lastPos.x, this.lastPos.y);
                 }
             } else if (this.penMode === 'spray') {
-                if (this.isWithinCanvas(this.lastPos.x, this.lastPos.y)) {
-                    this.showSprayPreview(this.lastPos.x, this.lastPos.y);
-                }
+                // Show spray preview even near edges (it handles clipping internally)
+                this.showSprayPreview(this.lastPos.x, this.lastPos.y);
             }
         }
     }
@@ -4947,7 +4947,7 @@ class DrawingEditor {
         // Number of particles per spray - scales with brush size and flow setting
         // Flow is divided by 3 to make the effect more subtle
         // Ensure at least 1 particle is always drawn
-        const particleCount = Math.max(1, Math.floor(size * (this.sprayFlow / 3)));
+        const particleCount = Math.max(1, Math.floor(size * ((this.sprayFlow - 1) / 20)));
         
         // Standard deviation for the Gaussian distribution
         // Smaller values = tighter spray, larger = more spread out
@@ -5200,20 +5200,26 @@ class DrawingEditor {
         let d = 3 - 2 * Math.floor(radius);
         let dashCounter = 0;
         
+        const drawPixelIfInBounds = (px, py) => {
+            if (px >= 0 && px < this.canvasWidth && py >= 0 && py < this.canvasHeight) {
+                this.overlayCtx.fillRect(px, py, 1, 1);
+            }
+        };
+        
         while (y >= x) {
             // For dashed pattern, increment counter once per iteration, not per pixel
             const shouldDraw = !dashed || (Math.floor(dashCounter / 2) % 2 === 0);
             
             if (shouldDraw) {
-                // Draw 8 octants
-                this.overlayCtx.fillRect(cx + x, cy + y, 1, 1);
-                this.overlayCtx.fillRect(cx - x, cy + y, 1, 1);
-                this.overlayCtx.fillRect(cx + x, cy - y, 1, 1);
-                this.overlayCtx.fillRect(cx - x, cy - y, 1, 1);
-                this.overlayCtx.fillRect(cx + y, cy + x, 1, 1);
-                this.overlayCtx.fillRect(cx - y, cy + x, 1, 1);
-                this.overlayCtx.fillRect(cx + y, cy - x, 1, 1);
-                this.overlayCtx.fillRect(cx - y, cy - x, 1, 1);
+                // Draw 8 octants with bounds checking
+                drawPixelIfInBounds(cx + x, cy + y);
+                drawPixelIfInBounds(cx - x, cy + y);
+                drawPixelIfInBounds(cx + x, cy - y);
+                drawPixelIfInBounds(cx - x, cy - y);
+                drawPixelIfInBounds(cx + y, cy + x);
+                drawPixelIfInBounds(cx - y, cy + x);
+                drawPixelIfInBounds(cx + y, cy - x);
+                drawPixelIfInBounds(cx - y, cy - x);
             }
             
             dashCounter++;
