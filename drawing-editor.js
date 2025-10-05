@@ -4456,54 +4456,56 @@ class DrawingEditor {
         if (this.gridModeEnabled && this.currentTool === 'pen') {
             this.showGridCursor(pos.x, pos.y);
         }
-        
-        // Show pen preview when hovering with pen tool (even when not drawing)
-        if (this.currentTool === 'pen' && !this.isDrawing && !this.gridModeEnabled && this.penMode !== 'spray') {
-            // Only show preview if cursor is within canvas bounds
-            if (this.isWithinCanvas(pos.x, pos.y)) {
-                this.showPenPreview(pos.x, pos.y);
-            } else {
-                // Clear preview when outside canvas
-                this.clearOverlayAndRedrawBase();
-            }
-        }
-        
-        // Show spray preview when hovering with spray mode
-        if (this.currentTool === 'pen' && !this.isDrawing && this.penMode === 'spray') {
-            // Only show preview if cursor is within canvas bounds
-            if (this.isWithinCanvas(pos.x, pos.y)) {
-                this.showSprayPreview(pos.x, pos.y);
-            } else {
-                // Clear preview when outside canvas
-                this.clearOverlayAndRedrawBase();
-            }
-        }
 
-        // Show fill preview when hovering with bucket tool
-        if (this.currentTool === 'bucket' && !this.isDrawing) {
-            // Only show preview if cursor is within canvas bounds
-            if (this.isWithinCanvas(pos.x, pos.y)) {
-                this.showFillPreview(pos.x, pos.y);
-            } else {
-                // Clear preview when outside canvas
-                this.clearOverlayAndRedrawBase();
+        if (!this.isDrawing) {
+            // Show pen preview when hovering with pen tool (but not while actively drawing)
+            if (this.currentTool === 'pen' && !this.gridModeEnabled && this.penMode !== 'spray') {
+                // Only show preview if cursor is within canvas bounds
+                if (this.isWithinCanvas(pos.x, pos.y)) {
+                    this.showPenPreview(pos.x, pos.y);
+                } else {
+                    // Clear preview when outside canvas
+                    this.clearOverlayAndRedrawBase();
+                }
             }
-        }
+            
+            // Show spray preview when hovering with spray mode (but not while actively spraying)
+            if (this.currentTool === 'pen' && this.penMode === 'spray') {
+                // Only show preview if cursor is within canvas bounds
+                if (this.isWithinCanvas(pos.x, pos.y)) {
+                    this.showSprayPreview(pos.x, pos.y);
+                } else {
+                    // Clear preview when outside canvas
+                    this.clearOverlayAndRedrawBase();
+                }
+            }
 
+            // Show fill preview when hovering with bucket tool
+            if (this.currentTool === 'bucket') {
+                // Only show preview if cursor is within canvas bounds
+                if (this.isWithinCanvas(pos.x, pos.y)) {
+                    this.showFillPreview(pos.x, pos.y);
+                } else {
+                    // Clear preview when outside canvas
+                    this.clearOverlayAndRedrawBase();
+                }
+            }
+
+            // Show text preview when hovering with text tool (even when not placing)
+            if (this.currentTool === 'text' && this.textInput.trim()) {
+                this.generateTextCanvas();
+                this.clearOverlayAndRedrawBase();
+                this.showTextPreview(pos);
+            }
+            
+            return;
+        }
+        
         // Show paste preview when in paste mode (even while drawing/clicking)
         if (this.currentTool === 'select' && this.isPasteModeActive) {
             // Allow paste preview to show even when partially off-canvas
             this.showPastePreview(pos.x, pos.y);
         }
-
-        // Show text preview when hovering with text tool (even when not placing)
-        if (this.currentTool === 'text' && !this.isDrawing && this.textInput.trim()) {
-            this.generateTextCanvas();
-            this.clearOverlayAndRedrawBase();
-            this.showTextPreview(pos);
-        }
-
-        if (!this.isDrawing) return;
         
         switch (this.currentTool) {
             case 'pen':
@@ -4761,6 +4763,8 @@ class DrawingEditor {
         if (timeSinceLastRedraw >= 20) {
             this.redrawCanvas();
             this.lastRedrawTime = now;
+            // Redraw preview on top if we're drawing with pen tool
+            this.redrawPreviewAfterCanvas();
         } else {
             // Schedule a redraw for the remaining time
             if (this.pendingRedrawTimeout) {
@@ -4771,7 +4775,24 @@ class DrawingEditor {
                 this.redrawCanvas();
                 this.lastRedrawTime = Date.now();
                 this.pendingRedrawTimeout = null;
+                // Redraw preview on top if we're drawing with pen tool
+                this.redrawPreviewAfterCanvas();
             }, 20 - timeSinceLastRedraw);
+        }
+    }
+    
+    redrawPreviewAfterCanvas() {
+        // If we're actively drawing with the pen tool, redraw the preview on top
+        if (this.isDrawing && this.currentTool === 'pen' && this.lastPos) {
+            if (!this.gridModeEnabled && this.penMode !== 'spray') {
+                if (this.isWithinCanvas(this.lastPos.x, this.lastPos.y)) {
+                    this.showPenPreview(this.lastPos.x, this.lastPos.y);
+                }
+            } else if (this.penMode === 'spray') {
+                if (this.isWithinCanvas(this.lastPos.x, this.lastPos.y)) {
+                    this.showSprayPreview(this.lastPos.x, this.lastPos.y);
+                }
+            }
         }
     }
     
