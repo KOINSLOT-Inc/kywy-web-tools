@@ -5085,12 +5085,6 @@ class DrawingEditor {
             this.drawSelectionOverlay();
         }
         
-        // Don't draw preview if start point is outside canvas
-        if (!this.isWithinCanvas(x0, y0)) {
-            this.overlayCtx.restore();
-            return;
-        }
-        
         // Phase 3: Draw actual pixels that will be drawn for the straight line (top layer)
         this.overlayCtx.save();
         this.overlayCtx.fillStyle = 'rgba(255, 0, 0, 0.9)'; // Very strong red with 90% opacity for clear visibility
@@ -5117,12 +5111,8 @@ class DrawingEditor {
     }
     
     drawStraightLine(x0, y0, x1, y1) {
-        // Don't draw if start point is outside canvas
-        if (!this.isWithinCanvas(x0, y0)) {
-            return;
-        }
-        
         // Draw the actual straight line to the canvas
+        // The brush functions will handle clipping to canvas bounds
         this.drawLine(x0, y0, x1, y1);
     }
     
