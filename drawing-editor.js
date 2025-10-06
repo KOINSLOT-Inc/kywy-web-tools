@@ -4236,7 +4236,6 @@ class DrawingEditor {
         // Calculate canvas coordinates (logical pixel position on canvas)
         const canvasX = mouseX / oldZoom;
         const canvasY = mouseY / oldZoom;
-        console.log(`Before zoom: Mouse at (${mouseX}, ${mouseY}), Canvas coords: (${canvasX}, ${canvasY}), zoom: ${oldZoom}`);
         
         // Step 3: Apply zoom change (this changes canvas display size)
         this.zoom = newZoom;
@@ -4275,7 +4274,6 @@ class DrawingEditor {
         const newMouseY = e.clientY - newCanvasRect.top;
         const newCanvasX = newMouseX / newZoom;
         const newCanvasY = newMouseY / newZoom;
-        console.log(`After zoom: Mouse at (${newMouseX}, ${newMouseY}), Canvas coords: (${newCanvasX}, ${newCanvasY}), zoom: ${newZoom}`);
 
         this.setCanvasSize(this.canvasWidth, this.canvasHeight);
     }
