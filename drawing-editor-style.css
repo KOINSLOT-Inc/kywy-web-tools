@@ -1565,7 +1565,6 @@ input[type="range"]::-moz-range-thumb {
 
 .iphone-input:focus {
     border-color: var(--accent-color);
-    box-shadow: 0 0 0 3px rgba(82, 230, 121, 0.1);
 }
 
 .iphone-input::placeholder {
@@ -1592,7 +1591,6 @@ textarea {
 
 textarea:focus {
     border-color: var(--accent-color);
-    box-shadow: 0 0 0 3px rgba(82, 230, 121, 0.1);
 }
 
 textarea::placeholder {
@@ -2663,8 +2661,7 @@ textarea::placeholder {
         touch-action: none; /* Allow pan gestures for hand tool */
     }/* Ensure buttons are accessible with proper focus states */
 button:focus, .toggle-btn:focus, .collapsible-btn:focus, .mode-btn:focus, .mobile-panel-toggle:focus {
-    outline: 2px solid var(--accent-color);
-    outline-offset: 2px;
+    outline: none;
 }
 
 /* Percentage Pattern Controls */
@@ -3409,7 +3406,6 @@ body:not([class*="-theme"]) {
 .layer-item.active {
     border-color: var(--primary-color);
     background: rgba(82, 230, 121, 0.1);
-    box-shadow: 0 0 0 2px rgba(82, 230, 121, 0.2);
 }
 
 .layer-preview {
