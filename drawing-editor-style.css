@@ -951,14 +951,15 @@ input[type="range"]::-moz-range-thumb {
 
 .onion-opacity-controls {
     display: flex;
-    flex-direction: column;
-    gap: 4px;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
 }
 
 .onion-opacity-controls label {
-    margin-bottom: 2px;
     font-size: 12px;
-    font-weight: 500;
+    color: var(--text-color);
+    white-space: nowrap;
 }
 
 .onion-mode-controls {
