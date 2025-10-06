@@ -8,60 +8,89 @@
 class CanvasStateSnapshot {
     constructor(editor, frameIndex = null) {
         this.editor = editor;
-        this.frameIndex = frameIndex !== null ? frameIndex : editor.currentFrameIndex;
         this.timestamp = Date.now();
         this.layersEnabled = editor.layersEnabled;
+        this.currentFrameIndex = editor.currentFrameIndex;
         
-        // Always capture the composited frame state for cross-mode compatibility
-        const frameCanvas = editor.frames[this.frameIndex];
-        this.frameSnapshot = frameCanvas.getContext('2d', { willReadFrequently: true })
-            .getImageData(0, 0, editor.canvasWidth, editor.canvasHeight);
+        // Capture ALL frames instead of just one
+        this.allFrameSnapshots = [];
+        for (let i = 0; i < editor.frames.length; i++) {
+            const frameCanvas = editor.frames[i];
+            const frameSnapshot = frameCanvas.getContext('2d', { willReadFrequently: true })
+                .getImageData(0, 0, editor.canvasWidth, editor.canvasHeight);
+            this.allFrameSnapshots.push(frameSnapshot);
+        }
         
         // Additionally capture layer data if layers are enabled
-        if (this.layersEnabled) {
-            const frameData = editor.frameLayers && editor.frameLayers[this.frameIndex];
-            if (frameData) {
-                this.layerIndex = frameData.currentLayerIndex;
-                // Store snapshot of the active layer
-                const layerCanvas = frameData.layers[this.layerIndex].canvas;
-                this.layerSnapshot = layerCanvas.getContext('2d', { willReadFrequently: true })
-                    .getImageData(0, 0, editor.canvasWidth, editor.canvasHeight);
+        this.allFrameLayerData = null;
+        if (this.layersEnabled && editor.frameLayers) {
+            this.allFrameLayerData = {};
+            for (let frameIdx = 0; frameIdx < editor.frames.length; frameIdx++) {
+                const frameData = editor.frameLayers[frameIdx];
+                if (frameData) {
+                    this.allFrameLayerData[frameIdx] = {
+                        currentLayerIndex: frameData.currentLayerIndex,
+                        layerSnapshots: []
+                    };
+                    
+                    // Store snapshot of each layer
+                    for (let layerIdx = 0; layerIdx < frameData.layers.length; layerIdx++) {
+                        const layerCanvas = frameData.layers[layerIdx].canvas;
+                        const layerSnapshot = layerCanvas.getContext('2d', { willReadFrequently: true })
+                            .getImageData(0, 0, editor.canvasWidth, editor.canvasHeight);
+                        this.allFrameLayerData[frameIdx].layerSnapshots.push(layerSnapshot);
+                    }
+                }
             }
         }
     }
     
     restore() {
-        // If snapshot and current state match layer mode, prefer layer restoration
-        if (this.layersEnabled && this.editor.layersEnabled) {
-            // Restore layer snapshot
-            const frameData = this.editor.frameLayers && this.editor.frameLayers[this.frameIndex];
-            if (frameData && frameData.layers[this.layerIndex]) {
-                const ctx = frameData.layers[this.layerIndex].canvas.getContext('2d', { willReadFrequently: true });
-                ctx.putImageData(this.layerSnapshot, 0, 0);
-                // Composite layers to frame
-                this.editor.compositeLayersToFrame(this.frameIndex);
-                return true;
-            }
-            // If layer doesn't exist, fall through to frame restoration
+        // Restore ALL frames
+        for (let i = 0; i < this.allFrameSnapshots.length && i < this.editor.frames.length; i++) {
+            const frameCanvas = this.editor.frames[i];
+            const ctx = frameCanvas.getContext('2d', { willReadFrequently: true });
+            ctx.putImageData(this.allFrameSnapshots[i], 0, 0);
         }
         
-        // Restore frame snapshot (works for both modes)
-        const frameCanvas = this.editor.frames[this.frameIndex];
-        const ctx = frameCanvas.getContext('2d', { willReadFrequently: true });
-        ctx.putImageData(this.frameSnapshot, 0, 0);
+        // Restore current frame index
+        this.editor.currentFrameIndex = this.currentFrameIndex;
+        
+        // Restore layer data if layers are enabled
+        if (this.layersEnabled && this.editor.layersEnabled && this.allFrameLayerData) {
+            for (let frameIdx = 0; frameIdx < this.editor.frames.length; frameIdx++) {
+                const frameLayerData = this.allFrameLayerData[frameIdx];
+                const currentFrameData = this.editor.frameLayers && this.editor.frameLayers[frameIdx];
+                
+                if (frameLayerData && currentFrameData) {
+                    // Restore current layer index
+                    currentFrameData.currentLayerIndex = frameLayerData.currentLayerIndex;
+                    
+                    // Restore each layer
+                    for (let layerIdx = 0; layerIdx < frameLayerData.layerSnapshots.length && layerIdx < currentFrameData.layers.length; layerIdx++) {
+                        const layerCanvas = currentFrameData.layers[layerIdx].canvas;
+                        const layerCtx = layerCanvas.getContext('2d', { willReadFrequently: true });
+                        layerCtx.putImageData(frameLayerData.layerSnapshots[layerIdx], 0, 0);
+                    }
+                    
+                    // Composite layers to frame
+                    this.editor.compositeLayersToFrame(frameIdx);
+                }
+            }
+        }
         
         // If we're in layer mode but restoring a non-layer snapshot,
-        // copy the frame to the active layer
+        // copy frames to active layers
         if (this.editor.layersEnabled && !this.layersEnabled) {
-            const frameData = this.editor.frameLayers && this.editor.frameLayers[this.frameIndex];
-            if (frameData) {
-                const activeLayer = frameData.layers[frameData.currentLayerIndex];
-                if (activeLayer) {
-                    const layerCtx = activeLayer.canvas.getContext('2d', { willReadFrequently: true });
-                    // Clear the layer first
-                    layerCtx.clearRect(0, 0, this.editor.canvasWidth, this.editor.canvasHeight);
-                    // Copy frame content to active layer
-                    layerCtx.drawImage(frameCanvas, 0, 0);
+            for (let frameIdx = 0; frameIdx < this.editor.frames.length; frameIdx++) {
+                const frameData = this.editor.frameLayers && this.editor.frameLayers[frameIdx];
+                if (frameData) {
+                    const activeLayer = frameData.layers[frameData.currentLayerIndex];
+                    if (activeLayer) {
+                        const layerCtx = activeLayer.canvas.getContext('2d', { willReadFrequently: true });
+                        layerCtx.clearRect(0, 0, this.editor.canvasWidth, this.editor.canvasHeight);
+                        layerCtx.drawImage(this.editor.frames[frameIdx], 0, 0);
+                    }
                 }
             }
         }
@@ -272,6 +301,7 @@ class AddFrameCommand {
     }
     
     execute() {
+        this.editor.stopAnimation();
         this.editor.frames.splice(this.frameIndex, 0, this.frameCanvas);
         
         if (this.frameLayerData) {
@@ -301,6 +331,7 @@ class AddFrameCommand {
     }
     
     undo() {
+        this.editor.stopAnimation();
         this.editor.frames.splice(this.frameIndex, 1);
         
         if (this.frameLayerData && this.editor.frameLayers) {
@@ -339,6 +370,7 @@ class DeleteFrameCommand {
     }
     
     execute() {
+        this.editor.stopAnimation();
         this.editor.frames.splice(this.frameIndex, 1);
         
         if (this.frameLayerData && this.editor.frameLayers) {
@@ -368,6 +400,7 @@ class DeleteFrameCommand {
     }
     
     undo() {
+        this.editor.stopAnimation();
         this.editor.frames.splice(this.frameIndex, 0, this.frameCanvas);
         
         if (this.frameLayerData) {
@@ -419,6 +452,7 @@ class PasteCommand {
     }
     
     undo() {
+        this.editor.stopAnimation();
         const ctx = this.editor.frames[this.frameIndex].getContext('2d', { willReadFrequently: true });
         
         // Restore all the old colors
@@ -448,6 +482,7 @@ class RotateSelectionCommand {
     }
     
     undo() {
+        this.editor.stopAnimation();
         const ctx = this.editor.frames[this.frameIndex].getContext('2d', { willReadFrequently: true });
         
         // Restore the entire canvas to its state before rotation
@@ -486,6 +521,7 @@ class MirrorSelectionCommand {
     }
     
     undo() {
+        this.editor.stopAnimation();
         const ctx = this.editor.frames[this.frameIndex].getContext('2d', { willReadFrequently: true });
         
         // Restore the entire canvas to its state before mirroring
@@ -14010,9 +14046,10 @@ Instructions:
     }
 
     // Undo/Redo System Methods using Snapshots
-    captureSnapshot() {
+    captureSnapshot(frameIndex = null) {
         // Capture current state before a change
-        this.pendingSnapshot = new CanvasStateSnapshot(this);
+        // If frameIndex is specified, capture that frame, otherwise capture current frame
+        this.pendingSnapshot = new CanvasStateSnapshot(this, frameIndex);
     }
     
     pushUndo() {
@@ -14061,6 +14098,9 @@ Instructions:
             
             // Restore previous state
             if (item.restore()) {
+                // Stop animation if it's playing
+                this.stopAnimation();
+                
                 // Update layer UI if layers are enabled
                 if (this.layersEnabled) {
                     this.updateLayersUI();
@@ -14070,7 +14110,7 @@ Instructions:
                 this.redrawCanvas();
                 
                 this.updateUndoRedoUI();
-                this.generateThumbnail(this.currentFrameIndex);
+                this.updateUI(); // Update all UI elements including animation panel
                 this.generateCode();
             } else {
                 // Restore failed, put it back
@@ -14098,6 +14138,9 @@ Instructions:
             
             // Restore redo state
             if (item.restore()) {
+                // Stop animation if it's playing
+                this.stopAnimation();
+                
                 // Update layer UI if layers are enabled
                 if (this.layersEnabled) {
                     this.updateLayersUI();
@@ -14107,7 +14150,7 @@ Instructions:
                 this.redrawCanvas();
                 
                 this.updateUndoRedoUI();
-                this.generateThumbnail(this.currentFrameIndex);
+                this.updateUI(); // Update all UI elements including animation panel
                 this.generateCode();
             } else {
                 // Restore failed, put it back
