@@ -9171,6 +9171,12 @@ class DrawingEditor {
         if (this.currentFrameIndex > 0) {
             this.soloLayerIndex = null; // Exit solo mode when switching frames
             this.currentFrameIndex--;
+            
+            // Initialize layers for this frame if layers are enabled and not already initialized
+            if (this.layersEnabled && (!this.frameLayers[this.currentFrameIndex] || !this.frameLayers[this.currentFrameIndex].layers)) {
+                this.initializeLayersForFrame(this.currentFrameIndex);
+            }
+            
             this.updateUI();
             this.redrawCanvas();
             if (this.layersEnabled) {
@@ -9183,6 +9189,12 @@ class DrawingEditor {
         if (this.currentFrameIndex < this.frames.length - 1) {
             this.soloLayerIndex = null; // Exit solo mode when switching frames
             this.currentFrameIndex++;
+            
+            // Initialize layers for this frame if layers are enabled and not already initialized
+            if (this.layersEnabled && (!this.frameLayers[this.currentFrameIndex] || !this.frameLayers[this.currentFrameIndex].layers)) {
+                this.initializeLayersForFrame(this.currentFrameIndex);
+            }
+            
             this.updateUI();
             this.redrawCanvas();
             if (this.layersEnabled) {
@@ -9301,6 +9313,12 @@ class DrawingEditor {
             thumbDiv.addEventListener('click', () => {
                 this.currentFrameIndex = index;
                 this.soloLayerIndex = null; // Exit solo mode when switching frames
+                
+                // Initialize layers for this frame if layers are enabled and not already initialized
+                if (this.layersEnabled && (!this.frameLayers[index] || !this.frameLayers[index].layers)) {
+                    this.initializeLayersForFrame(index);
+                }
+                
                 this.updateUI();
                 this.redrawCanvas();
                 if (this.layersEnabled) {
