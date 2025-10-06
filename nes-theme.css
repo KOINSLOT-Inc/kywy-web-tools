@@ -553,6 +553,7 @@ a:hover {
 .layer-btn {
     background: #ff6b6b !important;
     border: 3px solid #ffffff !important;
+    border-style: outset !important;
     color: #ffffff !important;
     border-radius: 0 !important;
     font-weight: bold !important;
