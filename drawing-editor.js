@@ -5078,6 +5078,9 @@ class DrawingEditor {
                         // When mouse is ON canvas, show targeted area preview for gradients
                         if (!this.isEditingGradientSettings) {
                             this.showFillPreview(pos.x, pos.y);
+                        } else {
+                            // When editing, show targeted area preview but preserve editing state
+                            this.showFillPreview(pos.x, pos.y, true);
                         }
                     } else {
                         // For non-gradients, use targeted area preview
@@ -5089,8 +5092,7 @@ class DrawingEditor {
                 } else {
                     // When mouse is outside canvas
                     if (this.fillPattern.startsWith('gradient-')) {
-                        // For gradients, keep showing the full canvas preview even when mouse is outside
-                        // Always update preview to show current state (red when editing, normal when not)
+                        // For gradients, always show full canvas preview when mouse is outside
                         this.updateGradientLivePreview();
                     } else {
                         // For non-gradients, clear preview when outside canvas
@@ -6125,9 +6127,10 @@ class DrawingEditor {
         }
     }
     
-    showFillPreview(x, y) {
+    showFillPreview(x, y, preserveEditingState = false) {
         // Clear gradient editing flag when actually showing a fill preview (mouse on artpiece)
-        if (this.isEditingGradientSettings) {
+        // Unless we're explicitly preserving the editing state for temporary preview
+        if (this.isEditingGradientSettings && !preserveEditingState) {
             this.isEditingGradientSettings = false;
             // Clear the recurring preview interval
             if (this.gradientEditingInterval) {
@@ -6440,7 +6443,21 @@ class DrawingEditor {
                     if (this.isEditingGradientSettings && 
                         this.currentTool === 'bucket' && 
                         this.fillPattern.startsWith('gradient-')) {
-                        this.updateGradientLivePreview();
+                        
+                        // Only update full preview if mouse is NOT on canvas
+                        // Get current mouse position to check if it's on canvas
+                        if (this.lastMouseEvent) {
+                            const pos = this.getMousePos(this.lastMouseEvent);
+                            const isOnCanvas = this.isWithinCanvas(pos.x, pos.y);
+                            
+                            // Only show full preview when mouse is off canvas
+                            if (!isOnCanvas) {
+                                this.updateGradientLivePreview();
+                            }
+                        } else {
+                            // If no mouse position, default to full preview
+                            this.updateGradientLivePreview();
+                        }
                     } else {
                         // Clear interval if no longer editing
                         clearInterval(this.gradientEditingInterval);
