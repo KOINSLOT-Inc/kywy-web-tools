@@ -498,6 +498,7 @@ class DrawingEditor {
         this.selection = null;
         this.isPasteModeActive = false;
         this.pasteTransparencyMode = 'white'; // 'white', 'black', or 'none'
+        this.selectionMode = 'rectangle'; // 'rectangle' or 'lasso'
         
         // Paste mode drag state
         this.pasteDragActive = false;
@@ -583,6 +584,9 @@ class DrawingEditor {
         
         // Initialize pen mode display
         this.updatePenModeButton();
+        
+        // Initialize selection mode display
+        this.updateSelectionModeButton();
         
         // Initialize brush controls display
         this.updateBrushControlsState();
@@ -830,6 +834,13 @@ class DrawingEditor {
             });
         });
 
+        // Selection mode selection
+        document.querySelectorAll('.mode-btn[data-mode]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                this.setSelectionMode(btn.dataset.mode);
+            });
+        });
+
         // Pen mode cycling button
         const penModeBtn = document.getElementById('penModeBtn');
         
@@ -881,6 +892,22 @@ class DrawingEditor {
                 if (this.gridModeEnabled && this.currentTool !== 'pen') {
                     this.setTool('pen');
                 }
+            });
+        }
+
+        // Selection mode cycling button
+        const selectionModeBtn = document.getElementById('selectionModeBtn');
+        
+        if (selectionModeBtn) {
+            selectionModeBtn.addEventListener('click', () => {
+                // Cycle between rectangle and lasso mode
+                if (this.selectionMode === 'rectangle') {
+                    this.selectionMode = 'lasso';
+                } else {
+                    this.selectionMode = 'rectangle';
+                }
+                
+                this.updateSelectionModeButton();
             });
         }
 
@@ -4189,6 +4216,12 @@ class DrawingEditor {
         // When mouse leaves, restore the proper overlay state without cursor highlights
         // This will preserve grids, selections, and other overlays
         this.restoreOverlayState();
+        
+        // If we're using the select tool and have an active selection, redraw the selection overlay
+        // to keep the selection preview visible even when mouse is outside canvas
+        if (this.currentTool === 'select' && this.selection && this.selection.active) {
+            this.drawSelectionOverlay();
+        }
     }
     
     onMouseWheel(e) {
@@ -4276,6 +4309,9 @@ class DrawingEditor {
         const newCanvasY = newMouseY / newZoom;
 
         this.setCanvasSize(this.canvasWidth, this.canvasHeight);
+        
+        // After zoom, redraw any active preview based on current tool
+        this.redrawCurrentPreview();
     }
     
     // Touch event handlers
@@ -4631,6 +4667,21 @@ class DrawingEditor {
             if (this.layersEnabled) {
                 this.updateLayersUI();
             }
+        }
+        
+        // Finalize lasso selection when mouse is released
+        if (this.currentTool === 'select' && this.selection && this.selection.active && this.selection.mode === 'lasso' && !this.selection.isDragging) {
+            // Close the lasso path by connecting back to the start
+            const firstPoint = this.selection.lassoPoints[0];
+            const lastPoint = this.selection.lassoPoints[this.selection.lassoPoints.length - 1];
+            
+            // Only close if the lasso has enough points and isn't already closed
+            if (this.selection.lassoPoints.length > 2 && 
+                (Math.abs(lastPoint.x - firstPoint.x) > 2 || Math.abs(lastPoint.y - firstPoint.y) > 2)) {
+                this.selection.lassoPoints.push({x: firstPoint.x, y: firstPoint.y});
+            }
+            
+            this.drawSelectionOverlay();
         }
         
         // If we were drawing a straight line, finalize it
@@ -7977,6 +8028,7 @@ class DrawingEditor {
         if (tool === 'select') {
             // When switching to select tool, draw selection overlay if there's an active selection
             this.drawSelectionOverlay();
+            this.updateSelectionModeButton();
         } else {
             // When switching away from select tool, restore the overlay state without selection
             this.restoreOverlayState();
@@ -7990,6 +8042,7 @@ class DrawingEditor {
         // Show/hide relevant sections based on tool
         const brushSettings = document.getElementById('brushSettings');
         const editSettings = document.getElementById('editSettings');
+        const selectionModeSection = document.getElementById('selectionModeSection');
         const bucketSettings = document.getElementById('bucketSettings');
         const shapeSettings = document.getElementById('shapeSettings');
         const polygonSettings = document.getElementById('polygonSettings');
@@ -8000,6 +8053,7 @@ class DrawingEditor {
         
         brushSettings.style.display = tool === 'pen' ? 'block' : 'none';
         editSettings.style.display = tool === 'select' ? 'block' : 'none';
+        selectionModeSection.style.display = tool === 'select' ? 'block' : 'none';
         bucketSettings.style.display = tool === 'bucket' ? 'block' : 'none';
         shapeSettings.style.display = (tool === 'circle' || tool === 'square') ? 'block' : 'none';
         polygonSettings.style.display = tool === 'polygon' ? 'block' : 'none';
@@ -8048,11 +8102,53 @@ class DrawingEditor {
         // Clear overlay and restore all overlay elements in proper order
         this.overlayCtx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
         
-        // 1. Base overlays (pixel grid, grid lines, selection)
+        // 1. Base overlays (pixel grid, grid lines)
         this.drawBaseOverlays();
         
-        // 2. Selection overlay (if active and using select tool) - draw directly to avoid circular dependency
-        if (this.selection && this.selection.active && this.currentTool === 'select') {
+        // 2. Selection overlay (if active and using select tool) - but NOT in paste mode
+        if (this.selection && this.selection.active && this.currentTool === 'select' && !this.isPasteModeActive) {
+            this.drawSelectionInOverlay();
+        }
+    }
+    
+    drawSelectionInOverlay() {
+        this.overlayCtx.save();
+        
+        // Disable anti-aliasing for crisp, pixel-perfect rendering
+        this.overlayCtx.imageSmoothingEnabled = false;
+        this.overlayCtx.webkitImageSmoothingEnabled = false;
+        this.overlayCtx.mozImageSmoothingEnabled = false;
+        this.overlayCtx.msImageSmoothingEnabled = false;
+        
+        if (this.selection.mode === 'lasso') {
+            const lassoPoints = this.selection.lassoPoints;
+            if (lassoPoints && lassoPoints.length > 2) {
+                // Round all coordinates to nearest pixel for pixel-perfect selection
+                const roundedPoints = lassoPoints.map(point => ({
+                    x: Math.round(point.x),
+                    y: Math.round(point.y)
+                }));
+                
+                // Draw lasso path with pixel-perfect coordinates
+                this.overlayCtx.strokeStyle = 'rgba(255, 100, 100, 0.8)';
+                this.overlayCtx.lineWidth = 1;
+                this.overlayCtx.beginPath();
+                this.overlayCtx.moveTo(roundedPoints[0].x + 0.5, roundedPoints[0].y + 0.5);
+                
+                for (let i = 1; i < roundedPoints.length; i++) {
+                    this.overlayCtx.lineTo(roundedPoints[i].x + 0.5, roundedPoints[i].y + 0.5);
+                }
+                
+                // Close the path
+                this.overlayCtx.closePath();
+                this.overlayCtx.stroke();
+                
+                // Fill the lasso area
+                this.overlayCtx.fillStyle = 'rgba(255, 100, 100, 0.3)';
+                this.overlayCtx.fill();
+            }
+        } else {
+            // Rectangle selection
             const { startX, startY, endX, endY } = this.selection;
             const minX = Math.min(startX, endX);
             const minY = Math.min(startY, endY);
@@ -8061,25 +8157,77 @@ class DrawingEditor {
             
             // Only draw if selection has meaningful size
             if (width > 0 && height > 0) {
-                this.overlayCtx.save();
-                
-                // Disable anti-aliasing for crisp, pixel-perfect rendering
-                this.overlayCtx.imageSmoothingEnabled = false;
-                this.overlayCtx.webkitImageSmoothingEnabled = false;
-                this.overlayCtx.mozImageSmoothingEnabled = false;
-                this.overlayCtx.msImageSmoothingEnabled = false;
-                
                 if (this.selection.cutContent) {
                     // Draw cut content
                     this.overlayCtx.drawImage(this.selection.cutContent, minX, minY);
                 } else {
                     // Draw selection overlay - simplified version for restore
-                    this.overlayCtx.fillStyle = 'rgba(255, 0, 0, 0.3)';
+                    this.overlayCtx.fillStyle = 'rgba(255, 100, 100, 0.3)';
                     this.overlayCtx.fillRect(minX, minY, width, height);
                 }
-                
-                this.overlayCtx.restore();
             }
+        }
+        
+        this.overlayCtx.restore();
+    }
+    
+    redrawCurrentPreview() {
+        // Redraw the current preview based on the active tool
+        // This is called after zoom changes to restore previews
+        
+        if (!this.lastMouseEvent) return;
+        
+        // Don't redraw previews when in paste mode - paste mode handles its own preview
+        if (this.currentTool === 'select' && this.isPasteModeActive) {
+            // In paste mode, show the paste preview instead
+            const pos = this.getMousePos(this.lastMouseEvent);
+            if (this.isWithinCanvas(pos.x, pos.y)) {
+                this.showPastePreview(pos.x, pos.y);
+            }
+            return;
+        }
+        
+        // Get current mouse position
+        const pos = this.getMousePos(this.lastMouseEvent);
+        
+        switch (this.currentTool) {
+            case 'pen':
+                if (this.isWithinCanvas(pos.x, pos.y)) {
+                    if (!this.gridModeEnabled && this.penMode !== 'spray') {
+                        this.showPenPreview(pos.x, pos.y);
+                    } else if (this.penMode === 'spray') {
+                        this.showSprayPreview(pos.x, pos.y);
+                    }
+                }
+                break;
+                
+            case 'bucket':
+                if (this.isWithinCanvas(pos.x, pos.y)) {
+                    this.showFillPreview(pos.x, pos.y);
+                }
+                break;
+                
+            case 'text':
+                if (this.textInput.trim() && this.isWithinCanvas(pos.x, pos.y)) {
+                    this.generateTextCanvas();
+                    this.clearOverlayAndRedrawBase();
+                    this.showTextPreview(pos);
+                }
+                break;
+                
+            case 'circle':
+            case 'square':
+            case 'polygon':
+                // Shape tools need to redraw their preview if they're being drawn
+                if (this.isDrawing && this.startPos && this.isWithinCanvas(pos.x, pos.y)) {
+                    this.updateShapePreview(pos);
+                }
+                break;
+                
+            case 'select':
+                // Selection previews are handled by restoreOverlayState
+                // Paste mode is already handled above
+                break;
         }
     }
     
@@ -8174,6 +8322,24 @@ class DrawingEditor {
                 penModeIcon.textContent = '✏️';
                 penModeText.textContent = 'Freehand';
                 penModeBtn.setAttribute('data-mode', 'freehand');
+            }
+        }
+    }
+    
+    updateSelectionModeButton() {
+        const selectionModeBtn = document.getElementById('selectionModeBtn');
+        const selectionModeIcon = document.getElementById('selectionModeIcon');
+        const selectionModeText = document.getElementById('selectionModeText');
+        
+        if (selectionModeBtn && selectionModeIcon && selectionModeText) {
+            if (this.selectionMode === 'lasso') {
+                selectionModeIcon.textContent = '🪢';
+                selectionModeText.textContent = 'Lasso';
+                selectionModeBtn.setAttribute('data-mode', 'lasso');
+            } else {
+                selectionModeIcon.textContent = '▭';
+                selectionModeText.textContent = 'Rectangle';
+                selectionModeBtn.setAttribute('data-mode', 'rectangle');
             }
         }
     }
@@ -8356,6 +8522,13 @@ class DrawingEditor {
         this.brushShape = shape;
         document.querySelectorAll('.brush-shape-btn').forEach(btn => {
             btn.classList.toggle('active', btn.dataset.shape === shape);
+        });
+    }
+
+    setSelectionMode(mode) {
+        this.selectionMode = mode;
+        document.querySelectorAll('.mode-btn[data-mode]').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.mode === mode);
         });
     }
     
@@ -8565,6 +8738,11 @@ class DrawingEditor {
         
         // Restore overlay state to ensure all overlays are properly displayed
         this.restoreOverlayState();
+        
+        // After restoring overlay state, redraw any active previews if needed
+        if (this.lastMouseEvent) {
+            this.redrawCurrentPreview();
+        }
     }
     
     updateOnionSkin() {
@@ -9605,6 +9783,12 @@ class DrawingEditor {
     copySelection() {
         if (!this.selection || !this.selection.active) return;
         
+        if (this.selection.mode === 'lasso') {
+            this.copyLassoSelection();
+            return;
+        }
+        
+        // Rectangle selection logic
         const { startX, startY, endX, endY } = this.selection;
         const minX = Math.min(startX, endX);
         const minY = Math.min(startY, endY);
@@ -9645,8 +9829,218 @@ class DrawingEditor {
             width: clampedWidth,
             height: clampedHeight
         };
+    }
+    
+    copyLassoSelection() {
+        const lassoPoints = this.selection.lassoPoints;
+        if (!lassoPoints || lassoPoints.length < 3) return;
         
+        // Calculate bounding rectangle of lasso
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        for (const point of lassoPoints) {
+            minX = Math.min(minX, point.x);
+            minY = Math.min(minY, point.y);
+            maxX = Math.max(maxX, point.x);
+            maxY = Math.max(maxY, point.y);
+        }
+        
+        const width = Math.ceil(maxX - minX);
+        const height = Math.ceil(maxY - minY);
+        
+        if (width <= 0 || height <= 0) return;
+        
+        // Clamp to canvas bounds
+        const clampedMinX = Math.max(0, Math.floor(minX));
+        const clampedMinY = Math.max(0, Math.floor(minY));
+        const clampedMaxX = Math.min(this.canvasWidth, Math.ceil(maxX));
+        const clampedMaxY = Math.min(this.canvasHeight, Math.ceil(maxY));
+        const clampedWidth = clampedMaxX - clampedMinX;
+        const clampedHeight = clampedMaxY - clampedMinY;
+        
+        if (clampedWidth <= 0 || clampedHeight <= 0) return;
+        
+        // Create canvas for the selection
+        const selectionCanvas = document.createElement('canvas');
+        selectionCanvas.width = clampedWidth;
+        selectionCanvas.height = clampedHeight;
+        const selectionCtx = selectionCanvas.getContext('2d', { willReadFrequently: true });
+        
+        // Copy the bounding area
+        const currentFrame = this.frames[this.currentFrameIndex];
+        selectionCtx.drawImage(currentFrame, clampedMinX, clampedMinY, clampedWidth, clampedHeight, 0, 0, clampedWidth, clampedHeight);
+        
+        // Create mask for lasso area
+        const maskCanvas = document.createElement('canvas');
+        maskCanvas.width = clampedWidth;
+        maskCanvas.height = clampedHeight;
+        const maskCtx = maskCanvas.getContext('2d', { willReadFrequently: true });
+        
+        // Draw lasso path on mask (translated to local coordinates)
+        maskCtx.beginPath();
+        maskCtx.moveTo(lassoPoints[0].x - clampedMinX, lassoPoints[0].y - clampedMinY);
+        for (let i = 1; i < lassoPoints.length; i++) {
+            maskCtx.lineTo(lassoPoints[i].x - clampedMinX, lassoPoints[i].y - clampedMinY);
+        }
+        maskCtx.closePath();
+        maskCtx.fillStyle = 'white';
+        maskCtx.fill();
+        
+        // Apply mask to selection
+        const selectionImageData = selectionCtx.getImageData(0, 0, clampedWidth, clampedHeight);
+        const maskImageData = maskCtx.getImageData(0, 0, clampedWidth, clampedHeight);
+        
+        const selectionData = selectionImageData.data;
+        const maskData = maskImageData.data;
+        
+        // Make pixels outside lasso transparent
+        for (let i = 0; i < selectionData.length; i += 4) {
+            if (maskData[i] === 0) { // Outside lasso
+                selectionData[i + 3] = 0; // Set alpha to 0
+            }
+        }
+        
+        selectionCtx.putImageData(selectionImageData, 0, 0);
+        
+        this.clipboard = {
+            data: selectionCanvas,
+            isSelection: true,
+            width: clampedWidth,
+            height: clampedHeight
+        };
+    }
+    
+    cutLassoSelection() {
+        const lassoPoints = this.selection.lassoPoints;
+        if (!lassoPoints || lassoPoints.length < 3) return;
+        
+        // Calculate bounding rectangle of lasso
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        for (const point of lassoPoints) {
+            minX = Math.min(minX, point.x);
+            minY = Math.min(minY, point.y);
+            maxX = Math.max(maxX, point.x);
+            maxY = Math.max(maxY, point.y);
+        }
+        
+        const width = Math.ceil(maxX - minX);
+        const height = Math.ceil(maxY - minY);
+        
+        if (width <= 0 || height <= 0) return;
+        
+        // Clamp to canvas bounds
+        const clampedMinX = Math.max(0, Math.floor(minX));
+        const clampedMinY = Math.max(0, Math.floor(minY));
+        const clampedMaxX = Math.min(this.canvasWidth, Math.ceil(maxX));
+        const clampedMaxY = Math.min(this.canvasHeight, Math.ceil(maxY));
+        const clampedWidth = clampedMaxX - clampedMinX;
+        const clampedHeight = clampedMaxY - clampedMinY;
+        
+        if (clampedWidth <= 0 || clampedHeight <= 0) return;
+        
+        // Create canvas for the selection
+        const selectionCanvas = document.createElement('canvas');
+        selectionCanvas.width = clampedWidth;
+        selectionCanvas.height = clampedHeight;
+        const selectionCtx = selectionCanvas.getContext('2d', { willReadFrequently: true });
+        
+        // Copy the bounding area
+        const currentFrame = this.frames[this.currentFrameIndex];
+        selectionCtx.drawImage(currentFrame, clampedMinX, clampedMinY, clampedWidth, clampedHeight, 0, 0, clampedWidth, clampedHeight);
+        
+        // Create mask for lasso area
+        const maskCanvas = document.createElement('canvas');
+        maskCanvas.width = clampedWidth;
+        maskCanvas.height = clampedHeight;
+        const maskCtx = maskCanvas.getContext('2d', { willReadFrequently: true });
+        
+        // Draw lasso path on mask (translated to local coordinates)
+        maskCtx.beginPath();
+        maskCtx.moveTo(lassoPoints[0].x - clampedMinX, lassoPoints[0].y - clampedMinY);
+        for (let i = 1; i < lassoPoints.length; i++) {
+            maskCtx.lineTo(lassoPoints[i].x - clampedMinX, lassoPoints[i].y - clampedMinY);
+        }
+        maskCtx.closePath();
+        maskCtx.fillStyle = 'white';
+        maskCtx.fill();
+        
+        // Apply mask to selection
+        const selectionImageData = selectionCtx.getImageData(0, 0, clampedWidth, clampedHeight);
+        const maskImageData = maskCtx.getImageData(0, 0, clampedWidth, clampedHeight);
+        
+        const selectionData = selectionImageData.data;
+        const maskData = maskImageData.data;
+        
+        // Make pixels outside lasso transparent
+        for (let i = 0; i < selectionData.length; i += 4) {
+            if (maskData[i] === 0) { // Outside lasso
+                selectionData[i + 3] = 0; // Set alpha to 0
+            }
+        }
+        
+        selectionCtx.putImageData(selectionImageData, 0, 0);
+        
+        // Set up clipboard for paste mode
+        this.clipboard = {
+            data: selectionCanvas,
+            isSelection: true,
+            width: clampedWidth,
+            height: clampedHeight
+        };
+        
+        // Clear the lasso area from the original canvas
+        const ctx = this.getCurrentFrameContext();
+        const originalImageData = ctx.getImageData(clampedMinX, clampedMinY, clampedWidth, clampedHeight);
+        const originalData = originalImageData.data;
+        
+        // Clear pixels inside lasso area
+        for (let i = 0; i < originalData.length; i += 4) {
+            if (maskData[i] !== 0) { // Inside lasso
+                originalData[i] = 0;     // R
+                originalData[i + 1] = 0; // G
+                originalData[i + 2] = 0; // B
+                originalData[i + 3] = 0; // A
+            }
+        }
+        
+        ctx.putImageData(originalImageData, clampedMinX, clampedMinY);
+        
+        // Automatically enter paste mode
+        this.setTool('select');
+        this.isPasteModeActive = true;
+        
+        // Update paste mode button and show options
+        const pasteModeBtn = document.getElementById('pasteModeBtn');
+        const pasteModeOptions = document.getElementById('pasteModeOptions');
+        
+        pasteModeBtn.classList.add('active');
+        pasteModeBtn.textContent = 'Exit Paste Mode';
+        pasteModeOptions.style.display = 'block';
+        pasteModeBtn.disabled = false;
+        
+        // Update edit button states
         this.updateEditButtonStates();
+        
+        // Clear selection since content was cut
+        this.selection = null;
+        this.drawSelectionOverlay();
+        
+        // Provide user feedback
+        console.log('Lasso content cut and ready to paste. Click to place the cut content.');
+    }
+    
+    setSelectionMode(mode) {
+        this.selectionMode = mode;
+        
+        // Update button states
+        document.querySelectorAll('.mode-btn[data-mode]').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.mode === mode);
+        });
+        
+        // Clear any existing selection when switching modes
+        this.selection = null;
+        this.drawSelectionOverlay();
+        
+        console.log(`Selection mode changed to: ${mode}`);
     }
     
     paste() {
@@ -9804,7 +10198,12 @@ class DrawingEditor {
         
         if (!this.selection || !this.selection.active) return;
         
-        // Store the cut content for clipboard
+        if (this.selection.mode === 'lasso') {
+            this.cutLassoSelection();
+            return;
+        }
+        
+        // Rectangle selection logic
         const { startX, startY, endX, endY } = this.selection;
         const minX = Math.min(startX, endX);
         const minY = Math.min(startY, endY);
@@ -10978,45 +11377,93 @@ Instructions:
             }
         }
         
-        this.selection = {
-            startX: x,
-            startY: y,
-            endX: x,
-            endY: y,
-            active: true,
-            cutContent: null,
-            isDragging: false,
-            dragHandle: null
-        };
+        if (this.selectionMode === 'lasso') {
+            this.selection = {
+                mode: 'lasso',
+                lassoPoints: [{x: Math.round(x), y: Math.round(y)}],
+                active: true,
+                cutContent: null,
+                isDragging: false,
+                dragHandle: null
+            };
+        } else {
+            this.selection = {
+                mode: 'rectangle',
+                startX: x,
+                startY: y,
+                endX: x,
+                endY: y,
+                active: true,
+                cutContent: null,
+                isDragging: false,
+                dragHandle: null
+            };
+        }
         this.drawSelectionOverlay();
     }
     
     getClickedHandle(x, y) {
         if (!this.selection || !this.selection.active) return null;
         
-        const { startX, startY, endX, endY } = this.selection;
-        const minX = Math.min(startX, endX);
-        const minY = Math.min(startY, endY);
-        const width = Math.abs(endX - startX);
-        const height = Math.abs(endY - startY);
-        const handleSize = 6; // Keep larger clickable area for usability
-        
-        // Check corner handles
-        if (this.isPointInHandle(x, y, minX, minY, handleSize)) return 'move';
-        if (this.isPointInHandle(x, y, minX + width, minY, handleSize)) return 'move';
-        if (this.isPointInHandle(x, y, minX, minY + height, handleSize)) return 'move';
-        if (this.isPointInHandle(x, y, minX + width, minY + height, handleSize)) return 'move';
-        
-        // Check if inside selection area for moving
-        if (x >= minX && x <= minX + width && y >= minY && y <= minY + height) {
-            return 'move';
+        if (this.selection.mode === 'lasso') {
+            // For lasso selections, check if click is near the lasso path or inside the lasso area
+            const lassoPoints = this.selection.lassoPoints;
+            if (!lassoPoints || lassoPoints.length < 3) return null;
+            
+            // Check if point is inside the lasso polygon
+            if (this.isPointInLassoPolygon(x, y, lassoPoints)) {
+                return 'move';
+            }
+            
+            // Check if point is near the lasso path (for dragging)
+            for (let i = 0; i < lassoPoints.length; i++) {
+                const point = lassoPoints[i];
+                if (Math.abs(x - point.x) <= 6 && Math.abs(y - point.y) <= 6) {
+                    return 'move';
+                }
+            }
+            
+            return null;
+        } else {
+            // Rectangle selection logic
+            const { startX, startY, endX, endY } = this.selection;
+            const minX = Math.min(startX, endX);
+            const minY = Math.min(startY, endY);
+            const width = Math.abs(endX - startX);
+            const height = Math.abs(endY - startY);
+            const handleSize = 6; // Keep larger clickable area for usability
+            
+            // Check corner handles
+            if (this.isPointInHandle(x, y, minX, minY, handleSize)) return 'move';
+            if (this.isPointInHandle(x, y, minX + width, minY, handleSize)) return 'move';
+            if (this.isPointInHandle(x, y, minX, minY + height, handleSize)) return 'move';
+            if (this.isPointInHandle(x, y, minX + width, minY + height, handleSize)) return 'move';
+            
+            // Check if inside selection area for moving
+            if (x >= minX && x <= minX + width && y >= minY && y <= minY + height) {
+                return 'move';
+            }
+            
+            return null;
         }
-        
-        return null;
     }
     
     isPointInHandle(x, y, handleX, handleY, size) {
         return Math.abs(x - handleX) <= size/2 && Math.abs(y - handleY) <= size/2;
+    }
+    
+    isPointInLassoPolygon(x, y, points) {
+        // Ray casting algorithm to determine if point is inside polygon
+        let inside = false;
+        for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
+            const xi = points[i].x, yi = points[i].y;
+            const xj = points[j].x, yj = points[j].y;
+            
+            if (((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi)) {
+                inside = !inside;
+            }
+        }
+        return inside;
     }
     
     startDraggingSelection(x, y, handle) {
@@ -11024,10 +11471,17 @@ Instructions:
         this.selection.dragHandle = handle;
         this.selection.dragStartX = x;
         this.selection.dragStartY = y;
-        this.selection.originalStartX = this.selection.startX;
-        this.selection.originalStartY = this.selection.startY;
-        this.selection.originalEndX = this.selection.endX;
-        this.selection.originalEndY = this.selection.endY;
+        
+        if (this.selection.mode === 'lasso') {
+            // Store original lasso points for dragging
+            this.selection.originalLassoPoints = this.selection.lassoPoints.map(point => ({x: point.x, y: point.y}));
+        } else {
+            // Store original rectangle coordinates for dragging
+            this.selection.originalStartX = this.selection.startX;
+            this.selection.originalStartY = this.selection.startY;
+            this.selection.originalEndX = this.selection.endX;
+            this.selection.originalEndY = this.selection.endY;
+        }
     }
     
     updateSelection(x, y) {
@@ -11037,15 +11491,34 @@ Instructions:
             const deltaX = x - this.selection.dragStartX;
             const deltaY = y - this.selection.dragStartY;
             
-            // Move the entire selection
-            this.selection.startX = this.selection.originalStartX + deltaX;
-            this.selection.startY = this.selection.originalStartY + deltaY;
-            this.selection.endX = this.selection.originalEndX + deltaX;
-            this.selection.endY = this.selection.originalEndY + deltaY;
+            if (this.selection.mode === 'lasso') {
+                // Move all lasso points
+                this.selection.lassoPoints = this.selection.lassoPoints.map(point => ({
+                    x: point.x + deltaX,
+                    y: point.y + deltaY
+                }));
+            } else {
+                // Move the entire rectangle selection
+                this.selection.startX = this.selection.originalStartX + deltaX;
+                this.selection.startY = this.selection.originalStartY + deltaY;
+                this.selection.endX = this.selection.originalEndX + deltaX;
+                this.selection.endY = this.selection.originalEndY + deltaY;
+            }
         } else {
-            // Normal selection resizing
-            this.selection.endX = x;
-            this.selection.endY = y;
+            if (this.selection.mode === 'lasso') {
+                // Add point to lasso path
+                const lastPoint = this.selection.lassoPoints[this.selection.lassoPoints.length - 1];
+                const distance = Math.sqrt((x - lastPoint.x) ** 2 + (y - lastPoint.y) ** 2);
+                
+                // Only add point if it's far enough from the last point (prevents too many points)
+                if (distance > 2) {
+                    this.selection.lassoPoints.push({x: Math.round(x), y: Math.round(y)});
+                }
+            } else {
+                // Normal rectangle selection resizing
+                this.selection.endX = x;
+                this.selection.endY = y;
+            }
         }
         
         this.drawSelectionOverlay();
@@ -11055,36 +11528,68 @@ Instructions:
         // Only clear and redraw everything if we have an active selection for the select tool
         if (this.selection && this.selection.active && this.currentTool === 'select') {
             // Clear overlay and redraw ALL base layers first (including grid mode lines)
-            this.restoreOverlayState();
+            this.overlayCtx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
+            this.drawBaseOverlays();
             
-            const { startX, startY, endX, endY } = this.selection;
-            const minX = Math.min(startX, endX);
-            const minY = Math.min(startY, endY);
-            const width = Math.abs(endX - startX);
-            const height = Math.abs(endY - startY);
+            // Draw the selection overlay
+            this.drawSelectionInOverlay();
             
-            // Don't process zero-sized selections
-            if (width <= 0 || height <= 0) {
-                return;
+            if (this.selection.mode === 'lasso') {
+                const lassoPoints = this.selection.lassoPoints;
+                if (lassoPoints && lassoPoints.length > 2) {
+                    // Round all coordinates to nearest pixel for pixel-perfect selection
+                    const roundedPoints = lassoPoints.map(point => ({
+                        x: Math.round(point.x),
+                        y: Math.round(point.y)
+                    }));
+                    
+                    // Draw lasso path with pixel-perfect coordinates
+                    this.overlayCtx.strokeStyle = 'rgba(255, 100, 100, 0.8)';
+                    this.overlayCtx.lineWidth = 1;
+                    this.overlayCtx.beginPath();
+                    this.overlayCtx.moveTo(roundedPoints[0].x + 0.5, roundedPoints[0].y + 0.5);
+                    
+                    for (let i = 1; i < roundedPoints.length; i++) {
+                        this.overlayCtx.lineTo(roundedPoints[i].x + 0.5, roundedPoints[i].y + 0.5);
+                    }
+                    
+                    // Close the path
+                    this.overlayCtx.closePath();
+                    this.overlayCtx.stroke();
+                    
+                    // Fill the lasso area
+                    this.overlayCtx.fillStyle = 'rgba(255, 100, 100, 0.3)';
+                    this.overlayCtx.fill();
+                    
+                    // If we have cut content, draw it (would need to be implemented for lasso)
+                    if (this.selection.cutContent) {
+                        // For lasso selections, we'd need to determine bounds and position
+                        // This is more complex and would require additional implementation
+                    }
+                }
+            } else {
+                // Rectangle selection
+                const { startX, startY, endX, endY } = this.selection;
+                const minX = Math.min(startX, endX);
+                const minY = Math.min(startY, endY);
+                const width = Math.abs(endX - startX);
+                const height = Math.abs(endY - startY);
+                
+                // Don't process zero-sized selections
+                if (width <= 0 || height <= 0) {
+                    this.overlayCtx.restore();
+                    return;
+                }
+                
+                // If we have cut content, draw it at the selection position
+                if (this.selection.cutContent) {
+                    this.overlayCtx.drawImage(this.selection.cutContent, minX, minY);
+                }
+                
+                // Draw simple light red semi-transparent overlay
+                this.overlayCtx.fillStyle = 'rgba(255, 100, 100, 0.3)';
+                this.overlayCtx.fillRect(minX, minY, width, height);
             }
-            
-            // Draw the selection overlay on top of ALL other overlays (including grid lines)
-            this.overlayCtx.save();
-            
-            // Disable anti-aliasing for crisp, pixel-perfect rendering
-            this.overlayCtx.imageSmoothingEnabled = false;
-            this.overlayCtx.webkitImageSmoothingEnabled = false;
-            this.overlayCtx.mozImageSmoothingEnabled = false;
-            this.overlayCtx.msImageSmoothingEnabled = false;
-            
-            // If we have cut content, draw it at the selection position
-            if (this.selection.cutContent) {
-                this.overlayCtx.drawImage(this.selection.cutContent, minX, minY);
-            }
-            
-            // Draw simple light red semi-transparent overlay
-            this.overlayCtx.fillStyle = 'rgba(255, 100, 100, 0.3)';
-            this.overlayCtx.fillRect(minX, minY, width, height);
             
             this.overlayCtx.restore();
         }

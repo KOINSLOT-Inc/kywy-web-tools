@@ -681,6 +681,12 @@ input[type="range"]::-moz-range-thumb {
     margin-bottom: 15px;
 }
 
+.mode-buttons {
+    display: flex;
+    gap: 5px;
+    margin-bottom: 15px;
+}
+
 .brush-shape {
     display: flex;
     gap: 5px;
@@ -952,6 +958,17 @@ input[type="range"]::-moz-range-thumb {
 .shape-mode-toggle {
     display: flex;
     margin-bottom: 15px;
+}
+
+.selection-mode-toggle {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 15px;
+}
+
+.selection-mode-toggle .shape-mode-btn {
+    flex: 1;
+    max-width: 200px; /* Limit width for better appearance */
 }
 
 .shape-mode-btn {
