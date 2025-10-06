@@ -4596,6 +4596,12 @@ class DrawingEditor {
             // If it was a quick click (small movement and short time), paste once
             if (distance <= this.pasteDragThreshold && timePassed <= this.pasteDragTimeThreshold) {
                 this.pasteAtPosition(pos.x, pos.y);
+                // Update code output after paste operation
+                this.generateThumbnail(this.currentFrameIndex);
+                this.generateCode();
+                if (this.layersEnabled) {
+                    this.updateLayersUI();
+                }
             }
             // If it was a drag, the pasting already happened during mousemove
             
@@ -4619,6 +4625,12 @@ class DrawingEditor {
         // Handle selection dragging completion
         if (this.selection && this.selection.isDragging) {
             this.finishDraggingSelection();
+            // Update code output after selection drag completion
+            this.generateThumbnail(this.currentFrameIndex);
+            this.generateCode();
+            if (this.layersEnabled) {
+                this.updateLayersUI();
+            }
         }
         
         // If we were drawing a straight line, finalize it
