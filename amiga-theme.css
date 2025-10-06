@@ -556,31 +556,29 @@ body:not(.menu-page) h6 {
 }
 
 .layer-btn {
-    background: linear-gradient(to bottom, #dddddd 0%, #bbbbbb 100%) !important;
-    border: 2px solid #666666 !important;
-    border-top-color: #ffffff !important;
-    border-left-color: #ffffff !important;
+    background: linear-gradient(to bottom, #bbbbbb 0%, #aaaaaa 50%, #999999 100%) !important;
+    border: 2px outset #bbbbbb !important;
     color: #000000 !important;
-    border-radius: 4px !important;
-    font-weight: bold !important;
-    text-shadow: 1px 1px 0px rgba(255,255,255,0.5) !important;
+    border-radius: 0 !important;
+    font-weight: normal !important;
+    font-family: "MS Sans Serif", "Arial", sans-serif !important;
+    font-size: 11px !important;
+    box-shadow: 1px 1px 2px rgba(0,0,0,0.3) !important;
 }
 
 .layer-btn:hover {
-    background: linear-gradient(to bottom, #eeeeee 0%, #cccccc 100%) !important;
+    background: linear-gradient(to bottom, #cccccc 0%, #bbbbbb 50%, #aaaaaa 100%) !important;
 }
 
 .layer-btn:active {
-    background: linear-gradient(to bottom, #bbbbbb 0%, #999999 100%) !important;
-    border-top-color: #666666 !important;
-    border-left-color: #666666 !important;
-    border-bottom-color: #ffffff !important;
-    border-right-color: #ffffff !important;
+    background: linear-gradient(to bottom, #999999 0%, #aaaaaa 50%, #bbbbbb 100%) !important;
+    border: 2px inset #bbbbbb !important;
 }
 
 .layer-btn:disabled {
-    opacity: 0.5 !important;
     color: #666666 !important;
+    background: linear-gradient(to bottom, #999999 0%, #888888 50%, #777777 100%) !important;
+    opacity: 1 !important;
 }
 
 .layer-item {

@@ -2934,6 +2934,7 @@ button:focus, .toggle-btn:focus, .collapsible-btn:focus, .mode-btn:focus, .mobil
 
 .animation-speed-control input[type="range"] {
     width: 80px;
+    margin-bottom: 0; /* Remove margin to fix vertical alignment */
 }
 
 .onion-skin-control {
