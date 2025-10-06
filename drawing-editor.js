@@ -6795,10 +6795,10 @@ class DrawingEditor {
             const isCenter = this.shapeMode.includes('center') || this.shiftKey;
             
             if (isPerfect && isCenter) {
-                // Perfect center: draw perfect circle bounded by rectangle from center
-                const halfWidth = Math.abs(endX - startX);
-                const halfHeight = Math.abs(endY - startY);
-                const radius = Math.max(halfWidth, halfHeight); // Use larger dimension for perfect circle
+                // Perfect center: draw perfect circle with radius to mouse position
+                const dx = endX - startX;
+                const dy = endY - startY;
+                const radius = Math.round(Math.sqrt(dx * dx + dy * dy)); // Distance from center to mouse
                 this.drawCirclePreview(startX, startY, radius);
                 this.showMirroredShapePreview('circle', startX, startY, radius, 0, 0);
             } else if (isPerfect) {
@@ -7236,10 +7236,10 @@ class DrawingEditor {
             const isCenter = this.shapeMode.includes('center') || this.shiftKey;
             
             if (isPerfect && isCenter) {
-                // Perfect center: draw perfect circle bounded by rectangle from center
-                const halfWidth = Math.abs(endX - startX);
-                const halfHeight = Math.abs(endY - startY);
-                const radius = Math.max(halfWidth, halfHeight); // Use larger dimension for perfect circle
+                // Perfect center: draw perfect circle with radius to mouse position
+                const dx = endX - startX;
+                const dy = endY - startY;
+                const radius = Math.round(Math.sqrt(dx * dx + dy * dy)); // Distance from center to mouse
                 this.drawCircle(startX, startY, radius, ctx);
                 
                 // Draw mirrored circles
