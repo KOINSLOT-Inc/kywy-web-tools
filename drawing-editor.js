@@ -683,7 +683,7 @@ class DrawingEditor {
         }
         
         // Initialize onion skin mode (black on white is default)
-        this.onionSkinMode = 'blackOnWhite';
+        this.onionSkinMode = 'whiteOnBlack';
         const activeOnionBtn = document.getElementById('onionModeBlackOnWhite');
         if (activeOnionBtn) {
             activeOnionBtn.classList.add('active');
