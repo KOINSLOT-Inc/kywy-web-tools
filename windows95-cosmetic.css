@@ -99,6 +99,52 @@ button.active:hover, .nav-btn.active:hover, button[data-active="true"]:hover,
     background-color: #45a049 !important;
 }
 
+/* Windows 95 layer selection styling */
+.layer-item.active {
+    border-color: #000080 !important;
+    background: #c0c0c0 !important;
+    box-shadow: inset 1px 1px 0px #dfdfdf, inset -1px -1px 0px #808080 !important;
+}
+
+.layer-item.layer-solo {
+    border-color: #800080 !important;
+    background: #dfdfdf !important;
+}
+
+.layer-preview {
+    background: #ffffff !important;
+    border: 1px inset #c0c0c0 !important;
+}
+
+.layer-name {
+    color: #000000 !important;
+    font-weight: normal !important;
+}
+
+.layer-solo-btn {
+    background: #c0c0c0 !important;
+    border: 1px outset #c0c0c0 !important;
+    color: #000000 !important;
+}
+
+.layer-solo-btn:hover {
+    background: #dfdfdf !important;
+}
+
+.layer-solo-btn:active {
+    border: 1px inset #c0c0c8 !important;
+}
+
+.layer-solo-btn.active {
+    background: #800080 !important;
+    border: 1px inset #c0c0c0 !important;
+    color: #ffffff !important;
+}
+
+.layer-item.layer-solo .layer-name {
+    color: #800080 !important;
+}
+
 /* Selected tool buttons and toggle states - Kywy green */
 .tool-button.selected, .tool-btn.selected, input[type="checkbox"]:checked + label,
 .toggle-button.on, .mirror-x.active, .mirror-y.active {
