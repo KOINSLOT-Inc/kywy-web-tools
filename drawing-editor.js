@@ -2583,7 +2583,7 @@ class DrawingEditor {
         
         // Create initial layer with current frame content
         const layer1 = {
-            name: 'Layer 0',
+            name: '0',
             canvas: document.createElement('canvas'),
             visible: true,
             transparencyMode: 'white' // 'white' or 'black' - white by default
@@ -2807,7 +2807,7 @@ class DrawingEditor {
         }
         
         const newLayer = {
-            name: `Layer ${frameData.layers.length}`,
+            name: `${frameData.layers.length}`,
             canvas: document.createElement('canvas'),
             visible: true,
             transparencyMode: 'white' // Default to white transparency
@@ -10867,7 +10867,7 @@ class DrawingEditor {
                                 this.frameLayers[frameIndex].layers[layerIndex] = {
                                     canvas: layerCanvas,
                                     visible: layerData.visible !== undefined ? layerData.visible : true,
-                                    name: layerData.name || `Layer ${layerIndex + 1}`
+                                    name: layerData.name || `${layerIndex + 1}`
                                 };
                                 resolve();
                             };
@@ -11048,13 +11048,13 @@ class DrawingEditor {
                                 frameLayersData[currentFrameIndex] = [];
                             }
                             frameLayersData[currentFrameIndex].push({
-                                name: currentLayerName || `Layer ${currentLayerIndex}`,
+                                name: currentLayerName || `${currentLayerIndex}`,
                                 data: [...currentPixelData],
                                 layerIndex: currentLayerIndex
                             });
                         } else if (isLayerFile) {
                             allLayerData.push({
-                                name: currentLayerName || `Layer ${allLayerData.length}`,
+                                name: currentLayerName || `${allLayerData.length}`,
                                 data: [...currentPixelData]
                             });
                         } else {
@@ -11089,13 +11089,13 @@ class DrawingEditor {
                                 frameLayersData[currentFrameIndex] = [];
                             }
                             frameLayersData[currentFrameIndex].push({
-                                name: currentLayerName || `Layer ${currentLayerIndex}`,
+                                name: currentLayerName || `${currentLayerIndex}`,
                                 data: [...currentPixelData],
                                 layerIndex: currentLayerIndex
                             });
                         } else if (detectedFormat === 'LAYERS' || (detectedFormat === null && (dataArrayName.includes('_layer_') || /_layer\d+/.test(dataArrayName)))) {
                             allLayerData.push({
-                                name: currentLayerName || `Layer ${allLayerData.length}`,
+                                name: currentLayerName || `${allLayerData.length}`,
                                 data: [...currentPixelData]
                             });
                         } else {
