@@ -160,9 +160,83 @@ class MergeLayerCommand {
         if (!frameData) return;
         
         const belowLayer = frameData.layers[this.layerIndex - 1];
+        const topLayer = frameData.layers[this.layerIndex];
         const ctx = belowLayer.canvas.getContext('2d', { willReadFrequently: true });
-        ctx.drawImage(this.topLayerData.canvas, 0, 0);
         
+        // Merge the top layer into the bottom layer with proper transparency
+        if (topLayer.transparencyMode === 'white') {
+            // For white transparency, we need to composite properly
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = belowLayer.canvas.width;
+            tempCanvas.height = belowLayer.canvas.height;
+            const tempCtx = tempCanvas.getContext('2d');
+            
+            // First draw the bottom layer
+            tempCtx.drawImage(belowLayer.canvas, 0, 0);
+            
+            // Then composite the top layer with white as transparent
+            const topImageData = topLayer.canvas.getContext('2d').getImageData(0, 0, topLayer.canvas.width, topLayer.canvas.height);
+            const bottomImageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+            
+            for (let i = 0; i < topImageData.data.length; i += 4) {
+                const r = topImageData.data[i];
+                const g = topImageData.data[i + 1];
+                const b = topImageData.data[i + 2];
+                
+                // Check if pixel is white (transparent)
+                if (r === 255 && g === 255 && b === 255) {
+                    // Keep bottom layer pixel
+                    continue;
+                } else {
+                    // Use top layer pixel
+                    bottomImageData.data[i] = r;
+                    bottomImageData.data[i + 1] = g;
+                    bottomImageData.data[i + 2] = b;
+                }
+            }
+            
+            ctx.putImageData(bottomImageData, 0, 0);
+        } else {
+            // For black transparency or normal compositing
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = belowLayer.canvas.width;
+            tempCanvas.height = belowLayer.canvas.height;
+            const tempCtx = tempCanvas.getContext('2d');
+            
+            // First draw the bottom layer
+            tempCtx.drawImage(belowLayer.canvas, 0, 0);
+            
+            if (topLayer.transparencyMode === 'black') {
+                // Composite with black as transparent
+                const topImageData = topLayer.canvas.getContext('2d').getImageData(0, 0, topLayer.canvas.width, topLayer.canvas.height);
+                const bottomImageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+                
+                for (let i = 0; i < topImageData.data.length; i += 4) {
+                    const r = topImageData.data[i];
+                    const g = topImageData.data[i + 1];
+                    const b = topImageData.data[i + 2];
+                    
+                    // Check if pixel is black (transparent)
+                    if (r === 0 && g === 0 && b === 0) {
+                        // Keep bottom layer pixel
+                        continue;
+                    } else {
+                        // Use top layer pixel
+                        bottomImageData.data[i] = r;
+                        bottomImageData.data[i + 1] = g;
+                        bottomImageData.data[i + 2] = b;
+                    }
+                }
+                
+                ctx.putImageData(bottomImageData, 0, 0);
+            } else {
+                // Normal compositing (no transparency)
+                tempCtx.drawImage(topLayer.canvas, 0, 0);
+                ctx.drawImage(tempCanvas, 0, 0);
+            }
+        }
+        
+        // Remove the top layer
         frameData.layers.splice(this.layerIndex, 1);
         frameData.currentLayerIndex = this.layerIndex - 1;
         this.editor.updateLayersUI();
@@ -2633,6 +2707,8 @@ class DrawingEditor {
         
         // Update button states
         document.getElementById('deleteLayer').disabled = frameData.layers.length <= 1;
+        document.getElementById('moveLayerLeft').disabled = frameData.currentLayerIndex === 0;
+        document.getElementById('moveLayerRight').disabled = frameData.currentLayerIndex === frameData.layers.length - 1;
         document.getElementById('mergeDown').disabled = frameData.currentLayerIndex === 0;
     }
     
@@ -2773,6 +2849,66 @@ class DrawingEditor {
             const command = new DeleteLayerCommand(this, this.currentFrameIndex, layerIndex, clonedLayer);
             this.executeCommand(command);
         }
+    }
+    
+    moveLayerLeft() {
+        const frameData = this.frameLayers && this.frameLayers[this.currentFrameIndex];
+        if (!frameData || frameData.layers.length <= 1) return;
+        
+        const currentIndex = frameData.currentLayerIndex;
+        
+        // Can't move left if already at the leftmost position
+        if (currentIndex <= 0) return;
+        
+        this.swapLayers(currentIndex, currentIndex - 1);
+    }
+    
+    moveLayerRight() {
+        const frameData = this.frameLayers && this.frameLayers[this.currentFrameIndex];
+        if (!frameData || frameData.layers.length <= 1) return;
+        
+        const currentIndex = frameData.currentLayerIndex;
+        
+        // Can't move right if already at the rightmost position
+        if (currentIndex >= frameData.layers.length - 1) return;
+        
+        this.swapLayers(currentIndex, currentIndex + 1);
+    }
+    
+    swapLayers(indexA, indexB) {
+        const frameData = this.frameLayers && this.frameLayers[this.currentFrameIndex];
+        if (!frameData || indexA === indexB) return;
+        
+        // Save current state for undo
+        this.captureSnapshot();
+        
+        // Swap the layers
+        const temp = frameData.layers[indexA];
+        frameData.layers[indexA] = frameData.layers[indexB];
+        frameData.layers[indexB] = temp;
+        
+        // Update current layer index to follow the moved layer
+        if (frameData.currentLayerIndex === indexA) {
+            frameData.currentLayerIndex = indexB;
+        } else if (frameData.currentLayerIndex === indexB) {
+            frameData.currentLayerIndex = indexA;
+        }
+        
+        // Update solo layer index if needed
+        if (this.soloLayerIndex === indexA) {
+            this.soloLayerIndex = indexB;
+        } else if (this.soloLayerIndex === indexB) {
+            this.soloLayerIndex = indexA;
+        }
+        
+        // Update UI and redraw
+        this.updateLayersUI();
+        this.compositeLayersToFrame(this.currentFrameIndex);
+        this.redrawCanvas();
+        this.markAsUnsaved();
+        
+        // Push to undo stack
+        this.pushUndo();
     }
     
     mergeLayerDown() {
@@ -3721,6 +3857,8 @@ class DrawingEditor {
         document.getElementById('layersEnabled').addEventListener('change', () => this.toggleLayersMode());
         document.getElementById('addLayer').addEventListener('click', () => this.addLayer());
         document.getElementById('deleteLayer').addEventListener('click', () => this.deleteLayer());
+        document.getElementById('moveLayerLeft').addEventListener('click', () => this.moveLayerLeft());
+        document.getElementById('moveLayerRight').addEventListener('click', () => this.moveLayerRight());
         document.getElementById('mergeDown').addEventListener('click', () => this.mergeLayerDown());
         document.getElementById('copyLayerToFrames').addEventListener('click', () => this.copyLayerToFrames());
         
