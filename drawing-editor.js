@@ -3797,6 +3797,14 @@ class DrawingEditor {
             this.updateRotationWarning(0);
         });
         
+        // Mirror controls
+        document.getElementById('mirrorHorizontalBtn').addEventListener('click', () => {
+            this.mirrorSelection('horizontal');
+        });
+        document.getElementById('mirrorVerticalBtn').addEventListener('click', () => {
+            this.mirrorSelection('vertical');
+        });
+        
         // Export buttons
         document.getElementById('exportBtn').addEventListener('click', () => this.export());
         document.getElementById('copyCodeBtn').addEventListener('click', () => this.copyCode());
@@ -12619,6 +12627,11 @@ Instructions:
     rotateSelectionByAngle(degrees) {
         if (!this.selection || !this.selection.active) return;
         
+        if (this.selection.mode === 'lasso') {
+            this.rotateLassoSelection(degrees);
+            return;
+        }
+        
         const { startX, startY, endX, endY } = this.selection;
         const minX = Math.min(startX, endX);
         const minY = Math.min(startY, endY);
@@ -12813,6 +12826,282 @@ Instructions:
                 ctx.fillRect(Math.round(canvasX), Math.round(canvasY), 1, 1);
             }
         });
+    }
+
+    rotateLassoSelection(degrees) {
+        const lassoPoints = this.selection.lassoPoints;
+        if (!lassoPoints || lassoPoints.length < 3) return;
+        
+        // Calculate bounding rectangle of lasso
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        for (const point of lassoPoints) {
+            minX = Math.min(minX, point.x);
+            minY = Math.min(minY, point.y);
+            maxX = Math.max(maxX, point.x);
+            maxY = Math.max(maxY, point.y);
+        }
+        
+        const width = Math.ceil(maxX - minX);
+        const height = Math.ceil(maxY - minY);
+        
+        if (width <= 0 || height <= 0) return;
+        
+        // Prevent rotation if selection is too large (causes performance issues)
+        const maxDimension = Math.max(width, height);
+        if (maxDimension > 200) {
+            alert('Selection too large for rotation. Please select a smaller area.');
+            return;
+        }
+        
+        // Clamp to canvas bounds
+        const clampedMinX = Math.max(0, Math.floor(minX));
+        const clampedMinY = Math.max(0, Math.floor(minY));
+        const clampedMaxX = Math.min(this.canvasWidth, Math.ceil(maxX));
+        const clampedMaxY = Math.min(this.canvasHeight, Math.ceil(maxY));
+        const clampedWidth = clampedMaxX - clampedMinX;
+        const clampedHeight = clampedMaxY - clampedMinY;
+        
+        if (clampedWidth <= 0 || clampedHeight <= 0) return;
+        
+        // Capture canvas state before rotation for undo
+        const currentCtx = this.frames[this.currentFrameIndex].getContext('2d', { willReadFrequently: true });
+        const canvasSnapshot = currentCtx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
+        
+        // Get the bounding area
+        const imageData = currentCtx.getImageData(clampedMinX, clampedMinY, clampedWidth, clampedHeight);
+        
+        // Create mask for lasso area
+        const maskCanvas = document.createElement('canvas');
+        maskCanvas.width = clampedWidth;
+        maskCanvas.height = clampedHeight;
+        const maskCtx = maskCanvas.getContext('2d', { willReadFrequently: true });
+        
+        // Draw lasso path on mask (translated to local coordinates)
+        maskCtx.beginPath();
+        maskCtx.moveTo(lassoPoints[0].x - clampedMinX, lassoPoints[0].y - clampedMinY);
+        for (let i = 1; i < lassoPoints.length; i++) {
+            maskCtx.lineTo(lassoPoints[i].x - clampedMinX, lassoPoints[i].y - clampedMinY);
+        }
+        maskCtx.closePath();
+        maskCtx.fillStyle = 'white';
+        maskCtx.fill();
+        
+        // Apply mask to imageData
+        const maskImageData = maskCtx.getImageData(0, 0, clampedWidth, clampedHeight);
+        const data = imageData.data;
+        const maskData = maskImageData.data;
+        
+        // Make pixels outside lasso transparent
+        for (let i = 0; i < data.length; i += 4) {
+            if (maskData[i] === 0) { // Outside lasso
+                data[i + 3] = 0; // Set alpha to 0
+            }
+        }
+        
+        // Perform pixel-perfect rotation
+        const rotatedPixels = this.rotatePixelsPerfect(imageData, degrees);
+        
+        if (!rotatedPixels) {
+            alert('Rotation failed. Invalid angle or selection.');
+            return;
+        }
+        
+        // Clear the original lasso area (approximate with bounding box)
+        currentCtx.fillStyle = '#ffffff';
+        currentCtx.fillRect(clampedMinX, clampedMinY, clampedWidth, clampedHeight);
+        
+        // Calculate original center coordinates for proper centering
+        const originalCenterX = (minX + maxX) / 2;
+        const originalCenterY = (minY + maxY) / 2;
+        
+        // Find the best position to place the rotated content
+        const placementResult = this.findBestPlacement(rotatedPixels, originalCenterX, originalCenterY);
+        
+        if (placementResult) {
+            // Place the rotated pixels
+            this.placeRotatedPixels(currentCtx, rotatedPixels, placementResult.x, placementResult.y);
+            
+            // Update selection to rectangle bounds of rotated content
+            this.selection.mode = 'rectangle'; // Convert to rectangle after rotation
+            this.selection.startX = placementResult.bounds.minX;
+            this.selection.startY = placementResult.bounds.minY;
+            this.selection.endX = placementResult.bounds.maxX;
+            this.selection.endY = placementResult.bounds.maxY;
+        } else {
+            alert('Rotated selection does not fit on canvas.');
+            // Restore original content
+            currentCtx.putImageData(canvasSnapshot, 0, 0);
+            return;
+        }
+        
+        this.redrawCanvas();
+        this.drawSelectionOverlay();
+        this.generateThumbnail(this.currentFrameIndex);
+        this.generateCode();
+        
+        // Add undo command
+        const command = new RotateSelectionCommand(this, canvasSnapshot, { startX: clampedMinX, startY: clampedMinY, endX: clampedMaxX, endY: clampedMaxY }, this.currentFrameIndex);
+        this.undoStack.push(command);
+        this.redoStack = []; // Clear redo stack
+    }
+
+    mirrorSelection(direction) {
+        if (!this.selection || !this.selection.active) return;
+        
+        if (this.selection.mode === 'lasso') {
+            this.mirrorLassoSelection(direction);
+            return;
+        }
+        
+        // Rectangle selection mirroring
+        const { startX, startY, endX, endY } = this.selection;
+        const minX = Math.min(startX, endX);
+        const minY = Math.min(startY, endY);
+        const width = Math.abs(endX - startX);
+        const height = Math.abs(endY - startY);
+        
+        if (width === 0 || height === 0) return;
+        
+        // Capture canvas state before mirroring for undo
+        const currentCtx = this.frames[this.currentFrameIndex].getContext('2d', { willReadFrequently: true });
+        const canvasSnapshot = currentCtx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
+        
+        // Get the selected area
+        const imageData = currentCtx.getImageData(minX, minY, width, height);
+        
+        // Mirror the image data
+        const mirroredData = this.mirrorImageData(imageData, direction);
+        
+        // Put the mirrored data back
+        currentCtx.putImageData(mirroredData, minX, minY);
+        
+        this.redrawCanvas();
+        this.drawSelectionOverlay();
+        this.generateThumbnail(this.currentFrameIndex);
+        this.generateCode();
+        
+        // Add undo command
+        const command = new RotateSelectionCommand(this, canvasSnapshot, { startX, startY, endX, endY }, this.currentFrameIndex);
+        this.undoStack.push(command);
+        this.redoStack = []; // Clear redo stack
+    }
+
+    mirrorLassoSelection(direction) {
+        const lassoPoints = this.selection.lassoPoints;
+        if (!lassoPoints || lassoPoints.length < 3) return;
+        
+        // Calculate bounding rectangle of lasso
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        for (const point of lassoPoints) {
+            minX = Math.min(minX, point.x);
+            minY = Math.min(minY, point.y);
+            maxX = Math.max(maxX, point.x);
+            maxY = Math.max(maxY, point.y);
+        }
+        
+        const width = Math.ceil(maxX - minX);
+        const height = Math.ceil(maxY - minY);
+        
+        if (width <= 0 || height <= 0) return;
+        
+        // Clamp to canvas bounds
+        const clampedMinX = Math.max(0, Math.floor(minX));
+        const clampedMinY = Math.max(0, Math.floor(minY));
+        const clampedMaxX = Math.min(this.canvasWidth, Math.ceil(maxX));
+        const clampedMaxY = Math.min(this.canvasHeight, Math.ceil(maxY));
+        const clampedWidth = clampedMaxX - clampedMinX;
+        const clampedHeight = clampedMaxY - clampedMinY;
+        
+        if (clampedWidth <= 0 || clampedHeight <= 0) return;
+        
+        // Capture canvas state before mirroring for undo
+        const currentCtx = this.frames[this.currentFrameIndex].getContext('2d', { willReadFrequently: true });
+        const canvasSnapshot = currentCtx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
+        
+        // Get the bounding area
+        const imageData = currentCtx.getImageData(clampedMinX, clampedMinY, clampedWidth, clampedHeight);
+        
+        // Create mask for lasso area
+        const maskCanvas = document.createElement('canvas');
+        maskCanvas.width = clampedWidth;
+        maskCanvas.height = clampedHeight;
+        const maskCtx = maskCanvas.getContext('2d', { willReadFrequently: true });
+        
+        // Draw lasso path on mask (translated to local coordinates)
+        maskCtx.beginPath();
+        maskCtx.moveTo(lassoPoints[0].x - clampedMinX, lassoPoints[0].y - clampedMinY);
+        for (let i = 1; i < lassoPoints.length; i++) {
+            maskCtx.lineTo(lassoPoints[i].x - clampedMinX, lassoPoints[i].y - clampedMinY);
+        }
+        maskCtx.closePath();
+        maskCtx.fillStyle = 'white';
+        maskCtx.fill();
+        
+        // Apply mask to imageData
+        const maskImageData = maskCtx.getImageData(0, 0, clampedWidth, clampedHeight);
+        const data = imageData.data;
+        const maskData = maskImageData.data;
+        
+        // Make pixels outside lasso transparent
+        for (let i = 0; i < data.length; i += 4) {
+            if (maskData[i] === 0) { // Outside lasso
+                data[i + 3] = 0; // Set alpha to 0
+            }
+        }
+        
+        // Mirror the masked image data
+        const mirroredData = this.mirrorImageData(imageData, direction);
+        
+        // Clear the original lasso area
+        currentCtx.fillStyle = '#ffffff';
+        currentCtx.fillRect(clampedMinX, clampedMinY, clampedWidth, clampedHeight);
+        
+        // Put the mirrored data back
+        currentCtx.putImageData(mirroredData, clampedMinX, clampedMinY);
+        
+        this.redrawCanvas();
+        this.drawSelectionOverlay();
+        this.generateThumbnail(this.currentFrameIndex);
+        this.generateCode();
+        
+        // Add undo command
+        const command = new RotateSelectionCommand(this, canvasSnapshot, { startX: clampedMinX, startY: clampedMinY, endX: clampedMaxX, endY: clampedMaxY }, this.currentFrameIndex);
+        this.undoStack.push(command);
+        this.redoStack = []; // Clear redo stack
+    }
+
+    mirrorImageData(imageData, direction) {
+        const width = imageData.width;
+        const height = imageData.height;
+        const data = imageData.data;
+        const newData = new Uint8ClampedArray(data.length);
+        
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                let sourceX, sourceY;
+                
+                if (direction === 'horizontal') {
+                    sourceX = width - 1 - x;
+                    sourceY = y;
+                } else if (direction === 'vertical') {
+                    sourceX = x;
+                    sourceY = height - 1 - y;
+                } else {
+                    sourceX = x;
+                    sourceY = y;
+                }
+                
+                const sourceIndex = (sourceY * width + sourceX) * 4;
+                const destIndex = (y * width + x) * 4;
+                
+                newData[destIndex] = data[sourceIndex];     // R
+                newData[destIndex + 1] = data[sourceIndex + 1]; // G
+                newData[destIndex + 2] = data[sourceIndex + 2]; // B
+                newData[destIndex + 3] = data[sourceIndex + 3]; // A
+            }
+        }
+        
+        return new ImageData(newData, width, height);
     }
 
     // Helper method to update color button states
@@ -15116,6 +15405,14 @@ class MobileInterface {
                                 <button class="mobile-edit-btn" id="mobileResetRotationBtn">↺ Reset</button>
                             </div>
                         </div>
+                        
+                        <div class="setting-group">
+                            <h5>Mirror</h5>
+                            <div class="mobile-edit-buttons">
+                                <button class="mobile-edit-btn" id="mobileMirrorHorizontalBtn">⬌ Horizontal</button>
+                                <button class="mobile-edit-btn" id="mobileMirrorVerticalBtn">⬍ Vertical</button>
+                            </div>
+                        </div>
                     </div>
                 `;
                 
@@ -15297,6 +15594,15 @@ class MobileInterface {
             const slider = document.getElementById('mobileRotationAngle');
             if (display) display.textContent = '0';
             if (slider) slider.value = '0';
+        });
+
+        // Mirror
+        document.getElementById('mobileMirrorHorizontalBtn')?.addEventListener('click', () => {
+            document.getElementById('mirrorHorizontalBtn')?.click();
+        });
+
+        document.getElementById('mobileMirrorVerticalBtn')?.addEventListener('click', () => {
+            document.getElementById('mirrorVerticalBtn')?.click();
         });
 
         // Fill Pattern Controls (Bucket Tool)
