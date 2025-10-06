@@ -302,7 +302,7 @@ header h1 {
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     flex-shrink: 0;
-    transition: bottom 0.3s ease;
+    transition: bottom 0.3s ease, transform 0.3s ease;
     position: absolute;
     right: 0;
     top: 0;
