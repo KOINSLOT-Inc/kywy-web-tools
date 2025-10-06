@@ -5459,6 +5459,71 @@ class DrawingEditor {
         }
     }
     
+    drawMirroredShapePixels(x, y, ctx) {
+        // Mirror pixels for shapes - only sets individual pixels, doesn't use brush size
+        if (this.mirrorHorizontal && !this.mirrorVertical) {
+            // Horizontal mirror only
+            let mirrorX;
+            if (this.canvasWidth % 2 === 0) {
+                const centerLine = (this.canvasWidth / 2) - 0.5;
+                mirrorX = Math.floor(2 * centerLine - x);
+            } else {
+                const centerPixel = Math.floor(this.canvasWidth / 2);
+                mirrorX = 2 * centerPixel - x;
+            }
+            
+            if (mirrorX >= 0 && mirrorX < this.canvasWidth && mirrorX !== x) {
+                this.setPixelInFrame(mirrorX, y, ctx);
+            }
+        }
+        
+        if (this.mirrorVertical && !this.mirrorHorizontal) {
+            // Vertical mirror only
+            let mirrorY;
+            if (this.canvasHeight % 2 === 0) {
+                const centerLine = (this.canvasHeight / 2) - 0.5;
+                mirrorY = Math.floor(2 * centerLine - y);
+            } else {
+                const centerPixel = Math.floor(this.canvasHeight / 2);
+                mirrorY = 2 * centerPixel - y;
+            }
+            
+            if (mirrorY >= 0 && mirrorY < this.canvasHeight && mirrorY !== y) {
+                this.setPixelInFrame(x, mirrorY, ctx);
+            }
+        }
+        
+        if (this.mirrorHorizontal && this.mirrorVertical) {
+            // Both mirrors - create four-way symmetry
+            const centerX = this.canvasWidth % 2 === 0 ? (this.canvasWidth / 2) - 0.5 : Math.floor(this.canvasWidth / 2);
+            const centerY = this.canvasHeight % 2 === 0 ? (this.canvasHeight / 2) - 0.5 : Math.floor(this.canvasHeight / 2);
+            
+            let mirrorX, mirrorY;
+            if (this.canvasWidth % 2 === 0) {
+                mirrorX = Math.floor(2 * centerX - x);
+            } else {
+                mirrorX = 2 * centerX - x;
+            }
+            
+            if (this.canvasHeight % 2 === 0) {
+                mirrorY = Math.floor(2 * centerY - y);
+            } else {
+                mirrorY = 2 * centerY - y;
+            }
+            
+            // Draw mirrored pixels
+            if (mirrorX >= 0 && mirrorX < this.canvasWidth && mirrorX !== x) {
+                this.setPixelInFrame(mirrorX, y, ctx);
+            }
+            if (mirrorY >= 0 && mirrorY < this.canvasHeight && mirrorY !== y) {
+                this.setPixelInFrame(x, mirrorY, ctx);
+            }
+            if (mirrorX >= 0 && mirrorX < this.canvasWidth && mirrorY >= 0 && mirrorY < this.canvasHeight && (mirrorX !== x || mirrorY !== y)) {
+                this.setPixelInFrame(mirrorX, mirrorY, ctx);
+            }
+        }
+    }
+    
     drawSquareBrush(x, y, size, ctx, color) {
         const halfSize = Math.floor(size / 2);
         for (let dx = 0; dx < size; dx++) {
@@ -7333,7 +7398,7 @@ class DrawingEditor {
                     this.setPixelInFrame(x, y, ctx);
                     // Add mirror support for shapes
                     if (this.mirrorHorizontal || this.mirrorVertical || this.mirrorBoth) {
-                        this.drawMirroredPixels(x, y, ctx, this.currentColor);
+                        this.drawMirroredShapePixels(x, y, ctx);
                     }
                 }
             }
@@ -7357,8 +7422,8 @@ class DrawingEditor {
                     this.setPixelInFrame(x, adjustedMaxY, ctx);
                     // Add mirror support for shapes
                     if (this.mirrorHorizontal || this.mirrorVertical || this.mirrorBoth) {
-                        this.drawMirroredPixels(x, adjustedMinY, ctx, this.currentColor);
-                        this.drawMirroredPixels(x, adjustedMaxY, ctx, this.currentColor);
+                        this.drawMirroredShapePixels(x, adjustedMinY, ctx);
+                        this.drawMirroredShapePixels(x, adjustedMaxY, ctx);
                     }
                 }
                 
@@ -7368,8 +7433,8 @@ class DrawingEditor {
                     this.setPixelInFrame(adjustedMaxX, y, ctx);
                     // Add mirror support for shapes
                     if (this.mirrorHorizontal || this.mirrorVertical || this.mirrorBoth) {
-                        this.drawMirroredPixels(adjustedMinX, y, ctx, this.currentColor);
-                        this.drawMirroredPixels(adjustedMaxX, y, ctx, this.currentColor);
+                        this.drawMirroredShapePixels(adjustedMinX, y, ctx);
+                        this.drawMirroredShapePixels(adjustedMaxX, y, ctx);
                     }
                 }
             }
@@ -7389,8 +7454,8 @@ class DrawingEditor {
                     this.setPixelInFrame(x, adjustedMaxY, ctx);
                     // Add mirror support for shapes
                     if (this.mirrorHorizontal || this.mirrorVertical || this.mirrorBoth) {
-                        this.drawMirroredPixels(x, adjustedMinY, ctx, this.currentColor);
-                        this.drawMirroredPixels(x, adjustedMaxY, ctx, this.currentColor);
+                        this.drawMirroredShapePixels(x, adjustedMinY, ctx);
+                        this.drawMirroredShapePixels(x, adjustedMaxY, ctx);
                     }
                 }
                 
@@ -7400,8 +7465,8 @@ class DrawingEditor {
                     this.setPixelInFrame(adjustedMaxX, y, ctx);
                     // Add mirror support for shapes
                     if (this.mirrorHorizontal || this.mirrorVertical || this.mirrorBoth) {
-                        this.drawMirroredPixels(adjustedMinX, y, ctx, this.currentColor);
-                        this.drawMirroredPixels(adjustedMaxX, y, ctx, this.currentColor);
+                        this.drawMirroredShapePixels(adjustedMinX, y, ctx);
+                        this.drawMirroredShapePixels(adjustedMaxX, y, ctx);
                     }
                 }
             }
@@ -7423,8 +7488,8 @@ class DrawingEditor {
                     this.setPixelInFrame(x, adjustedMaxY, ctx);
                     // Add mirror support for shapes
                     if (this.mirrorHorizontal || this.mirrorVertical || this.mirrorBoth) {
-                        this.drawMirroredPixels(x, adjustedMinY, ctx, this.currentColor);
-                        this.drawMirroredPixels(x, adjustedMaxY, ctx, this.currentColor);
+                        this.drawMirroredShapePixels(x, adjustedMinY, ctx);
+                        this.drawMirroredShapePixels(x, adjustedMaxY, ctx);
                     }
                 }
                 
@@ -7434,8 +7499,8 @@ class DrawingEditor {
                     this.setPixelInFrame(adjustedMaxX, y, ctx);
                     // Add mirror support for shapes
                     if (this.mirrorHorizontal || this.mirrorVertical || this.mirrorBoth) {
-                        this.drawMirroredPixels(adjustedMinX, y, ctx, this.currentColor);
-                        this.drawMirroredPixels(adjustedMaxX, y, ctx, this.currentColor);
+                        this.drawMirroredShapePixels(adjustedMinX, y, ctx);
+                        this.drawMirroredShapePixels(adjustedMaxX, y, ctx);
                     }
                 }
             }
