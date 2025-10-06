@@ -531,9 +531,11 @@ a:hover {
 
 /* Layer Panel Styles */
 .layers-panel {
-    background: #606060 !important;
+    background: #6c6c6c !important;
     border-top: 3px solid #ffffff !important;
     border-radius: 0 !important;
+    border-style: outset !important;
+    box-shadow: 2px 2px 0px #6c6c6c !important;
 }
 
 .layers-header {

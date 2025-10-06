@@ -566,14 +566,19 @@ a:hover {
 
 /* Layer Panel Styles */
 .layers-panel {
-    background: #ffffff !important;
-    border-top: 3px solid #000000 !important;
+    background: #d0d0d0 !important;
+    background-image: radial-gradient(circle at 1px 1px, #888888 1px, transparent 1px) !important;
+    background-size: 4px 4px !important;
+    border-top: 2px solid #000000 !important;
     border-radius: 0 !important;
+    box-shadow: inset 0 2px 0 #ffffff, 0 -2px 8px rgba(0,0,0,0.3) !important;
 }
 
 .layers-header {
-    background: #cccccc !important;
+    background: #ffffff !important;
+    background-image: none !important;
     border-bottom: 2px solid #000000 !important;
+    color: #000000 !important;
 }
 
 .layers-header h3 {

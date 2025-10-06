@@ -535,17 +535,18 @@ body:not(.menu-page) h6 {
 
 /* Layer Panel Styles */
 .layers-panel {
-    background: linear-gradient(to bottom, #aaaaaa 0%, #888888 100%) !important;
-    border-top: 3px solid #ffffff !important;
+    background: #aaaaaa !important;
+    border-top: 2px solid #0066aa !important;
     border-bottom: 2px solid #333333 !important;
     border-radius: 0 !important;
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.5), inset 0 -1px 0 rgba(0,0,0,0.3) !important;
+    box-shadow: inset 0 2px 0 #ffffff, inset 0 -2px 0 #666666, 0 -2px 8px rgba(0,0,0,0.2) !important;
 }
 
 .layers-header {
-    background: linear-gradient(to bottom, #cccccc 0%, #999999 100%) !important;
+    background: #aaaaaa !important;
     border-bottom: 2px solid #666666 !important;
     border-top: 1px solid #ffffff !important;
+    color: #000000 !important;
 }
 
 .layers-header h3 {
@@ -807,27 +808,23 @@ body:not(.menu-page) .animation-header {
 
 body:not(.menu-page) .onion-skin-control .toggle-btn,
 body:not(.menu-page) .onion-skin-control .mode-btn {
-    background: #cccccc !important;
-    border: 2px solid #888888 !important;
-    border-top-color: #ffffff !important;
-    border-left-color: #ffffff !important;
-    border-right-color: #666666 !important;
-    border-bottom-color: #666666 !important;
+    background: linear-gradient(to bottom, #cccccc 0%, #aaaaaa 50%, #999999 100%) !important;
+    border: 2px outset #aaaaaa !important;
     color: #000000 !important;
     box-shadow: inset 1px 1px 0 #ffffff, inset -1px -1px 0 #666666 !important;
 }
 
 body:not(.menu-page) .onion-skin-control .toggle-btn:hover,
 body:not(.menu-page) .onion-skin-control .mode-btn:hover {
-    background: #dddddd !important;
+    background: linear-gradient(to bottom, #dddddd 0%, #bbbbbb 50%, #aaaaaa 100%) !important;
 }
 
 body:not(.menu-page) .onion-skin-control .toggle-btn.active,
 body:not(.menu-page) .onion-skin-control .mode-btn.active {
-    background: #ff8800 !important;
-    border: 2px solid #0066aa !important;
+    background: linear-gradient(to bottom, #ff9933 0%, #ff8800 50%, #ee7700 100%) !important;
+    border: 2px inset #ff8800 !important;
     color: #000000 !important;
-    box-shadow: inset 1px 1px 0 #ffaa44, inset -1px -1px 0 #0066aa !important;
+    box-shadow: inset 1px 1px 0 #ffaa44, inset -1px -1px 0 #cc6600 !important;
 }
 
 body:not(.menu-page) .onion-skin-control label {

@@ -581,6 +581,19 @@ a:visited {
     background: #ffffff !important;
 }
 
+/* Layer Panel Windows 95 Theme */
+.layers-panel {
+    background: #c0c0c0 !important;
+    border-top: 2px outset #c0c0c0 !important;
+    box-shadow: none !important;
+}
+
+.layers-header {
+    background: #c0c0c0 !important;
+    color: #000000 !important;
+    border-bottom: 2px outset #4CAF50 !important;
+}
+
 /* Animation Panel Windows 95 Theme */
 body:not(.menu-page) .animation-panel {
     background: #c0c0c0 !important;
