@@ -829,3 +829,86 @@ body:not(.menu-page) .onion-skin-control label {
     color: #000000 !important;
 }
 
+/* Fill Pattern Controls Amiga Theme - Individual Elements */
+.line-pattern-controls,
+.dots-pattern-controls,
+.percentage-pattern-controls,
+.checkerboard-pattern-controls,
+.grid-pattern-controls {
+    background-color: transparent !important;
+}
+
+.line-pattern-controls h4,
+.dots-pattern-controls h4,
+.percentage-pattern-controls h4,
+.checkerboard-pattern-controls h4,
+.grid-pattern-controls h4 {
+    color: #000000 !important;
+}
+
+.line-controls,
+.dots-controls,
+.percentage-controls,
+.checkerboard-controls,
+.grid-controls {
+    background-color: transparent !important;
+}
+
+.line-controls .control-row,
+.dots-controls .control-row,
+.percentage-controls .control-row,
+.checkerboard-controls .control-row,
+.grid-controls .control-row {
+    background-color: transparent !important;
+}
+
+.line-controls .control-row label,
+.dots-controls .control-row label,
+.percentage-controls .control-row label,
+.checkerboard-controls .control-row label,
+.grid-controls .control-row label,
+.dots-pattern-controls label,
+.percentage-pattern-controls label {
+    color: #000000 !important;
+}
+
+.line-controls .control-row span,
+.dots-controls .control-row span,
+.percentage-controls .control-row span,
+.checkerboard-controls .control-row span,
+.grid-controls .control-row span,
+.dots-pattern-controls span,
+.percentage-pattern-controls span {
+    color: #000000 !important;
+}
+
+/* Gradient Controls Amiga Theme */
+.gradient-tools,
+.gradient-variant-controls,
+.gradient-controls {
+    background-color: transparent !important;
+}
+
+.gradient-tools h4,
+.gradient-variant-controls h4,
+.gradient-controls h4,
+#linearControls h4,
+#radialControls h4 {
+    color: #000000 !important;
+}
+
+.gradient-controls .control-row {
+    background-color: transparent !important;
+}
+
+.gradient-controls .control-row label,
+#linearControls .control-row label,
+#radialControls .control-row label {
+    color: #000000 !important;
+}
+
+.gradient-controls .control-row span,
+#linearControls .control-row span,
+#radialControls .control-row span {
+    color: #000000 !important;
+}
