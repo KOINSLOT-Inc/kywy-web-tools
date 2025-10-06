@@ -4214,21 +4214,6 @@ class DrawingEditor {
         
         // Zoom in/out based on wheel direction
         const zoomFactor = 1.1;
-        const rect = this.drawingCanvas.getBoundingClientRect();
-        const mouseX = e.clientX - rect.left;
-        const mouseY = e.clientY - rect.top;
-        
-        // Get the canvas wrapper to calculate current offset
-        const canvasWrapper = document.querySelector('.canvas-wrapper');
-        const currentTransform = canvasWrapper.style.transform || 'translate3d(0px, 0px, 0px)';
-        const matches = currentTransform.match(/translate3d\(([^,]+),\s*([^,]+),\s*([^)]+)\)/);
-        const currentOffsetX = matches ? parseFloat(matches[1]) : 0;
-        const currentOffsetY = matches ? parseFloat(matches[2]) : 0;
-        
-        // Calculate the point under the cursor in canvas coordinates
-        const canvasX = (mouseX - currentOffsetX) / this.zoom;
-        const canvasY = (mouseY - currentOffsetY) / this.zoom;
-        
         const oldZoom = this.zoom;
         let newZoom;
         
@@ -4243,21 +4228,56 @@ class DrawingEditor {
         // Constrain zoom levels (max 10,000% = 100x)
         newZoom = Math.max(0.5, Math.min(newZoom, 100));
         
-        // Calculate the new position of the point under cursor after zoom
-        const newCanvasX = canvasX * newZoom;
-        const newCanvasY = canvasY * newZoom;
+        // Debug: Track mouse position before zoom
+        const canvasRect = this.drawingCanvas.getBoundingClientRect();
+        const mouseX = e.clientX - canvasRect.left;
+        const mouseY = e.clientY - canvasRect.top;
         
-        // Calculate how much to adjust the offset to keep cursor point stable
-        const offsetAdjustX = mouseX - newCanvasX - currentOffsetX;
-        const offsetAdjustY = mouseY - newCanvasY - currentOffsetY;
+        // Calculate canvas coordinates (logical pixel position on canvas)
+        const canvasX = mouseX / oldZoom;
+        const canvasY = mouseY / oldZoom;
+        console.log(`Before zoom: Mouse at (${mouseX}, ${mouseY}), Canvas coords: (${canvasX}, ${canvasY}), zoom: ${oldZoom}`);
         
-        // Apply the zoom
-        this.setZoom(newZoom);
+        // Step 3: Apply zoom change (this changes canvas display size)
+        this.zoom = newZoom;
+
         
-        // Adjust the canvas position to zoom towards cursor
-        const newOffsetX = currentOffsetX + offsetAdjustX;
-        const newOffsetY = currentOffsetY + offsetAdjustY;
-        canvasWrapper.style.transform = `translate3d(${newOffsetX}px, ${newOffsetY}px, 0)`;
+        // Step 4: Reposition canvas to keep mouse cursor at same logical position
+        const canvasWrapper = document.querySelector('.canvas-wrapper');
+        if (canvasWrapper) {
+            // Temporarily disable transitions for instant repositioning
+            canvasWrapper.style.transition = 'none';
+            
+            // Calculate new position to keep mouse at same logical coordinates
+            // mouse_screen = canvas_offset + (canvas_logical_coords * new_zoom)
+            // So: new_canvas_offset = mouse_screen - (canvas_logical_coords * new_zoom)
+            
+            const containerRect = document.querySelector('.canvas-container').getBoundingClientRect();
+            const mouseScreenX = e.clientX - containerRect.left;
+            const mouseScreenY = e.clientY - containerRect.top;
+            
+            const newLeft = mouseScreenX - (canvasX * newZoom);
+            const newTop = mouseScreenY - (canvasY * newZoom);
+            
+            canvasWrapper.style.left = newLeft + 'px';
+            canvasWrapper.style.top = newTop + 'px';
+            canvasWrapper.style.transform = 'none';
+            
+            // Re-enable transitions after a short delay
+            setTimeout(() => {
+                canvasWrapper.style.transition = '';
+            }, 10);
+        }
+        
+        // Debug: Track mouse position after zoom
+        const newCanvasRect = this.drawingCanvas.getBoundingClientRect();
+        const newMouseX = e.clientX - newCanvasRect.left;
+        const newMouseY = e.clientY - newCanvasRect.top;
+        const newCanvasX = newMouseX / newZoom;
+        const newCanvasY = newMouseY / newZoom;
+        console.log(`After zoom: Mouse at (${newMouseX}, ${newMouseY}), Canvas coords: (${newCanvasX}, ${newCanvasY}), zoom: ${newZoom}`);
+
+        this.setCanvasSize(this.canvasWidth, this.canvasHeight);
     }
     
     // Touch event handlers
