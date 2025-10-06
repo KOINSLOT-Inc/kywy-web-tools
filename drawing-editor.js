@@ -508,7 +508,7 @@ class DrawingEditor {
         // Fill pattern properties
         this.fillPattern = 'solid'; // default to solid fill
         this.gradientType = null; // 'linear' or 'radial'
-        this.gradientVariant = 'smooth'; // 'smooth', 'stipple', or 'dither'
+        this.gradientVariant = 'stipple'; // 'stipple' or 'dither' (removed 'smooth')
         this.gradientAngle = 0; // angle for gradients
         this.gradientSteepness = 1.0; // steepness for gradients
         this.gradientContrast = 1.0; // contrast for dithered gradients (0.1 = low contrast, 2.0 = high contrast)
@@ -5015,7 +5015,30 @@ class DrawingEditor {
             if (this.currentTool === 'bucket') {
                 // Only show preview if cursor is within canvas bounds
                 if (this.isWithinCanvas(pos.x, pos.y)) {
-                    this.showFillPreview(pos.x, pos.y);
+                    // For gradients, use persistent full-canvas preview
+                    if (this.fillPattern.startsWith('gradient-')) {
+                        // Store area info for potential use but don't override the full preview
+                        const ctx = this.getCurrentFrameContext();
+                        const imageData = ctx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
+                        const data = imageData.data;
+                        const targetColor = this.getPixelColor(data, pos.x, pos.y);
+                        const fillColor = this.currentColor === 'black' ? [0, 0, 0, 255] : [255, 255, 255, 255];
+                        
+                        // Only update if this would actually fill something
+                        if (!this.colorsEqual(targetColor, fillColor)) {
+                            const fillPixels = this.getFillPreviewPixels(pos.x, pos.y, targetColor, imageData);
+                            this.lastPreviewArea = {
+                                pixels: fillPixels,
+                                targetColor: targetColor,
+                                clickX: pos.x,
+                                clickY: pos.y
+                            };
+                        }
+                        // Don't call showFillPreview - let updateGradientLivePreview handle it
+                    } else {
+                        // For non-gradients, use targeted area preview
+                        this.showFillPreview(pos.x, pos.y);
+                    }
                 } else {
                     // Clear preview when outside canvas
                     this.clearOverlayAndRedrawBase();
@@ -6081,7 +6104,7 @@ class DrawingEditor {
             let previewColor = 'rgba(255, 0, 0, 0.6)'; // Default red preview
             
             if (this.fillPattern.startsWith('gradient-')) {
-                // For gradients, calculate what the actual fill would be
+                // For gradients, use the exact same logic as performFloodFill
                 if (this.fillPattern.includes('-dither') || this.fillPattern.includes('-stipple')) {
                     // For dithered gradients, check if this pixel would be filled
                     const hexColor = this.getGradientColor(pixel.x, pixel.y, this.fillPattern, this.currentColor);
@@ -6089,10 +6112,8 @@ class DrawingEditor {
                         (this.currentColor === 'white' && hexColor === '#000000')) {
                         shouldShowPixel = false;
                     }
-                } else {
-                    // For regular gradients, show all pixels (they're just black/white decisions)
-                    shouldShowPixel = true;
                 }
+                // For regular gradients, all pixels are filled (shouldShowPixel stays true)
             } else if (this.fillPattern !== 'solid') {
                 // For stippling patterns, check if pixel should be filled
                 shouldShowPixel = this.shouldFillPixel(pixel.x, pixel.y, this.fillPattern);
@@ -6350,53 +6371,57 @@ class DrawingEditor {
         // Clear overlay and redraw base layers
         this.clearOverlayAndRedrawBase();
         
-        // Handle gradient patterns differently - show full gradient preview
+        // For gradients, show full canvas preview
         if (this.fillPattern.startsWith('gradient-')) {
             // For gradients, show a full canvas preview with transparency
-            this.overlayCtx.globalAlpha = 0.3; // More transparent for full canvas
+            this.overlayCtx.globalAlpha = 0.5; // Semi-transparent so you can see the underlying canvas
             
             // Sample the gradient at regular intervals for performance
-            const sampleRate = 2; // Sample every 2 pixels for better performance
+            const sampleRate = 1; // Use 1 for better gradient detail
             
             for (let y = 0; y < this.canvasHeight; y += sampleRate) {
                 for (let x = 0; x < this.canvasWidth; x += sampleRate) {
+                    // Get the actual gradient color for this position
+                    const hexColor = this.getGradientColor(x, y, this.fillPattern, this.currentColor);
                     let shouldShowPixel = true;
                     
                     if (this.fillPattern.includes('-dither') || this.fillPattern.includes('-stipple')) {
                         // For dithered gradients, check if this pixel would be filled
-                        const hexColor = this.getGradientColor(x, y, this.fillPattern, this.currentColor);
-                        if ((this.currentColor === 'black' && hexColor === '#ffffff') ||
-                            (this.currentColor === 'white' && hexColor === '#000000')) {
-                            shouldShowPixel = false;
-                        }
-                    } else {
-                        // For regular gradients, show the transition pattern
-                        const hexColor = this.getGradientColor(x, y, this.fillPattern, this.currentColor);
                         if ((this.currentColor === 'black' && hexColor === '#ffffff') ||
                             (this.currentColor === 'white' && hexColor === '#000000')) {
                             shouldShowPixel = false;
                         }
                     }
+                    // For regular (non-dithered) gradients, all pixels are shown
                     
                     if (shouldShowPixel) {
-                        this.overlayCtx.fillStyle = 'rgba(255, 0, 0, 1)';
+                        // Show the actual gradient color with transparency for preview
+                        const { r, g, b } = this.hexToRgba(hexColor);
+                        this.overlayCtx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.7)`;
                         this.overlayCtx.fillRect(x, y, sampleRate, sampleRate);
                     }
                 }
             }
-        } else {
-            // For non-gradient patterns, use targeted area preview
-            if (!this.lastPreviewArea || !this.lastPreviewArea.pixels) {
-                return;
-            }
-            
+        } else if (this.lastPreviewArea && this.lastPreviewArea.pixels) {
+            // For all other patterns, use targeted area preview if available
             this.overlayCtx.globalAlpha = 0.6; // Semi-transparent for area preview
             
             // Apply the current pattern to the stored preview area
             this.lastPreviewArea.pixels.forEach(pixel => {
                 let shouldShowPixel = true;
                 
-                if (this.fillPattern !== 'solid') {
+                if (this.fillPattern.startsWith('gradient-')) {
+                    // For gradient patterns, use the exact same logic as performFloodFill
+                    if (this.fillPattern.includes('-dither') || this.fillPattern.includes('-stipple')) {
+                        // For dithered gradients, check if this pixel would be filled
+                        const hexColor = this.getGradientColor(pixel.x, pixel.y, this.fillPattern, this.currentColor);
+                        if ((this.currentColor === 'black' && hexColor === '#ffffff') ||
+                            (this.currentColor === 'white' && hexColor === '#000000')) {
+                            shouldShowPixel = false;
+                        }
+                    }
+                    // For regular gradients, all pixels are filled (shouldShowPixel stays true)
+                } else if (this.fillPattern !== 'solid') {
                     // For non-gradient patterns, check if pixel should be filled
                     shouldShowPixel = this.shouldFillPixel(pixel.x, pixel.y, this.fillPattern);
                 }
@@ -8559,8 +8584,8 @@ class DrawingEditor {
             this.restoreOverlayState();
         }
         
-        // Show live preview if switching to bucket tool with gradient pattern
-        if (tool === 'bucket' && this.fillPattern.startsWith('gradient-')) {
+        // Show live preview if switching to bucket tool
+        if (tool === 'bucket') {
             setTimeout(() => this.updateGradientLivePreview(), 50);
         }
         
@@ -8926,6 +8951,20 @@ class DrawingEditor {
         if (pattern === 'gradient-linear' || pattern === 'gradient-radial') {
             this.gradientType = pattern.replace('gradient-', '');
             this.showGradientVariants();
+            
+            // Automatically apply the current variant to create the complete pattern
+            if (this.gradientVariant) {
+                this.fillPattern = `gradient-${this.gradientType}-${this.gradientVariant}`;
+            } else {
+                // If no variant is set, default to stipple
+                this.setGradientVariant('stipple');
+                return; // setGradientVariant will handle the preview update
+            }
+            
+            // Update preview for the complete gradient pattern
+            if (this.currentTool === 'bucket') {
+                setTimeout(() => this.updateGradientLivePreview(), 50);
+            }
         } else {
             this.hideGradientControls();
         }
@@ -8980,9 +9019,9 @@ class DrawingEditor {
         const variantControls = document.getElementById('gradientVariantControls');
         if (variantControls) {
             variantControls.style.display = 'block';
-            // Set default to smooth if none selected
-            if (!this.gradientVariant) {
-                this.setGradientVariant('smooth');
+            // Set default to stipple if none selected
+            if (!this.gradientVariant || this.gradientVariant === 'smooth') {
+                this.setGradientVariant('stipple');
             } else {
                 this.updateVariantButtons();
             }
@@ -9004,7 +9043,7 @@ class DrawingEditor {
         this.showGradientControls();
         
         // Update the actual fillPattern to match the selection
-        this.fillPattern = `gradient-${this.gradientType}${variant === 'smooth' ? '' : '-' + variant}`;
+        this.fillPattern = `gradient-${this.gradientType}-${variant}`;
         
         // Update live preview
         if (this.currentTool === 'bucket') {
@@ -14518,7 +14557,7 @@ Instructions:
             case 'gradient-linear':
             case 'gradient-linear-stipple':
             case 'gradient-linear-dither':
-                // Linear gradient with angle, steepness, and position
+                // Linear gradient with angle and position
                 const linearAngleRad = (this.gradientAngle * Math.PI) / 180;
                 const cosAngle = Math.cos(linearAngleRad);
                 const sinAngle = Math.sin(linearAngleRad);
@@ -14532,18 +14571,16 @@ Instructions:
                 // Project point onto gradient axis
                 const projection = (relativeX * cosAngle + relativeY * sinAngle);
                 
-                // Calculate gradient span based on canvas dimensions
-                const maxSpan = Math.max(this.canvasWidth, this.canvasHeight);
-                
-                // Apply steepness and normalize
-                intensity = 0.5 + (projection * this.gradientSteepness) / maxSpan;
+                // Simple linear mapping without steepness complications
+                const maxSpan = Math.max(this.canvasWidth, this.canvasHeight) * 0.5;
+                intensity = 0.5 + (projection / maxSpan);
                 intensity = Math.max(0, Math.min(1, intensity));
                 break;
                 
             case 'gradient-radial':
             case 'gradient-radial-stipple':
             case 'gradient-radial-dither':
-                // Radial gradient with center position and radius
+                // Simplified radial gradient
                 const radialCenterX = this.radialPositionX * this.canvasWidth;
                 const radialCenterY = this.radialPositionY * this.canvasHeight;
                 
@@ -14551,10 +14588,10 @@ Instructions:
                 const deltaY = y - radialCenterY;
                 const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
                 
-                // Calculate max radius based on canvas size and user radius setting
-                const maxRadius = Math.max(this.canvasWidth, this.canvasHeight) * this.radialRadius * 0.5;
+                // Simple radius calculation
+                const maxRadius = Math.min(this.canvasWidth, this.canvasHeight) * this.radialRadius;
                 
-                intensity = 1 - Math.min(1, distance / maxRadius);
+                intensity = Math.max(0, Math.min(1, 1 - (distance / maxRadius)));
                 break;
                 
             default:
@@ -14569,21 +14606,11 @@ Instructions:
             return this.applyDithering(x, y, intensity, baseColor, 'floyd-steinberg');
         }
         
-        // Apply steepness curve for smooth gradients
-        let adjustedIntensity;
-        if (this.gradientSteepness >= 1.0) {
-            // Sharp transitions - use power function
-            adjustedIntensity = Math.pow(intensity, 1.0 / this.gradientSteepness);
-        } else {
-            // Gentle transitions - use root function
-            adjustedIntensity = Math.pow(intensity, this.gradientSteepness);
-        }
-        
-        // Return black or white based on threshold
+        // Simple binary threshold - no smooth gradients
         if (baseColor === 'black') {
-            return adjustedIntensity > 0.5 ? '#000000' : '#ffffff';
+            return intensity > 0.5 ? '#000000' : '#ffffff';
         } else {
-            return adjustedIntensity > 0.5 ? '#ffffff' : '#000000';
+            return intensity > 0.5 ? '#ffffff' : '#000000';
         }
     }
 }
@@ -14938,8 +14965,7 @@ class MobileInterface {
                         <div class="setting-group">
                             <label>Style:</label>
                             <div class="mobile-pattern-grid">
-                                <button class="mobile-pattern-btn ${(!this.editor.gradientVariant || this.editor.gradientVariant === 'smooth') ? 'active' : ''}" data-variant="smooth">⬜ Smooth</button>
-                                <button class="mobile-pattern-btn ${this.editor.gradientVariant === 'stipple' ? 'active' : ''}" data-variant="stipple">⋅ Stipple</button>
+                                <button class="mobile-pattern-btn ${(!this.editor.gradientVariant || this.editor.gradientVariant === 'stipple') ? 'active' : ''}" data-variant="stipple">⋅ Stipple</button>
                                 <button class="mobile-pattern-btn ${this.editor.gradientVariant === 'dither' ? 'active' : ''}" data-variant="dither">▦ Dither</button>
                             </div>
                         </div>
