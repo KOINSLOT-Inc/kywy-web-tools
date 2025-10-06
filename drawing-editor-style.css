@@ -5,7 +5,7 @@
     --border-color: #e9ecef;
     --text-color: #333;
     --accent-color: #52E679;
-    --canvas-controls-height: 60px;
+    --canvas-controls-height: 50px;
     --layers-panel-height: 245px;
 }
 
@@ -1298,7 +1298,7 @@ input[type="range"]::-moz-range-thumb {
 .zoom-controls {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
 }
 
 .grid-controls {
@@ -1350,7 +1350,7 @@ input[type="range"]::-moz-range-thumb {
     color: white;
     border: none;
     width: 72px;
-    height: 24px;
+    height: 20px;
     border-radius: 4px;
     cursor: pointer;
     font-size: 0.9rem;
@@ -2660,7 +2660,167 @@ button:focus, .toggle-btn:focus, .collapsible-btn:focus, .mode-btn:focus, .mobil
 }
 
 .layers-list::-webkit-scrollbar {
-    display: none; /* WebKit */
+    display: none !important; /* WebKit - override theme scrollbar styles */
+}
+
+/* Scrollbar styling for different themes */
+
+/* Dark theme scrollbar */
+.dark-theme ::-webkit-scrollbar {
+    width: 12px !important;
+    height: 12px !important;
+}
+
+.dark-theme ::-webkit-scrollbar-track {
+    background-color: #2a2a2a !important;
+    border-radius: 6px !important;
+}
+
+.dark-theme ::-webkit-scrollbar-thumb {
+    background-color: #555555 !important;
+    border-radius: 6px !important;
+}
+
+.dark-theme ::-webkit-scrollbar-thumb:hover {
+    background-color: #666666 !important;
+}
+
+.dark-theme ::-webkit-scrollbar-button {
+    background-color: #333333 !important;
+    border-radius: 6px !important;
+}
+
+.dark-theme ::-webkit-scrollbar-button:hover {
+    background-color: #444444 !important;
+}
+
+/* Windows 95 theme scrollbar */
+.windows95-theme ::-webkit-scrollbar {
+    width: 16px !important;
+    height: 16px !important;
+}
+
+.windows95-theme ::-webkit-scrollbar-track {
+    background-color: #e0e0e0 !important;
+    border: 1px inset #c0c0c0 !important;
+}
+
+.windows95-theme ::-webkit-scrollbar-thumb {
+    background-color: #d4d0c8 !important;
+    border: 2px outset #d4d0c8 !important;
+}
+
+.windows95-theme ::-webkit-scrollbar-thumb:hover {
+    background-color: #e6e2da !important;
+}
+
+.windows95-theme ::-webkit-scrollbar-button {
+    background-color: #d4d0c8 !important;
+    border: 2px outset #d4d0c8 !important;
+    height: 16px !important;
+    width: 16px !important;
+}
+
+.windows95-theme ::-webkit-scrollbar-button:hover {
+    background-color: #e6e2da !important;
+}
+
+.windows95-theme ::-webkit-scrollbar-button:active {
+    border: 2px inset #d4d0c8 !important;
+}
+
+/* NES theme scrollbar */
+.nes-theme ::-webkit-scrollbar {
+    width: 20px !important;
+}
+
+.nes-theme ::-webkit-scrollbar-track {
+    background-color: #2b2b2b !important;
+    border: 2px solid #ffffff !important;
+}
+
+.nes-theme ::-webkit-scrollbar-thumb {
+    background-color: #ff6b6b !important;
+    border: 2px solid #ffffff !important;
+    box-shadow: 1px 1px 0px #000000 !important;
+}
+
+.nes-theme ::-webkit-scrollbar-button {
+    background-color: #404040 !important;
+    border: 2px solid #ffffff !important;
+    box-shadow: 1px 1px 0px #000000 !important;
+}
+
+/* Windows XP theme scrollbar */
+.windowsxp-theme ::-webkit-scrollbar {
+    width: 16px !important;
+}
+
+.windowsxp-theme ::-webkit-scrollbar-track {
+    background: linear-gradient(to right, #f0f8ff 0%, #e0eefa 100%) !important;
+    border: 1px inset #c5d9f1 !important;
+    border-radius: 8px !important;
+}
+
+.windowsxp-theme ::-webkit-scrollbar-thumb {
+    background: linear-gradient(to right, #ffffff 0%, #ddeeff 50%, #759dcb 100%) !important;
+    border: 1px solid #3c7fb1 !important;
+    border-radius: 8px !important;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1) !important;
+}
+
+.windowsxp-theme ::-webkit-scrollbar-button {
+    background: linear-gradient(to bottom, #ffffff 0%, #ddeeff 50%, #759dcb 100%) !important;
+    border: 1px solid #3c7fb1 !important;
+    border-radius: 2px !important;
+}
+
+/* Apple II theme scrollbar */
+.apple2-theme ::-webkit-scrollbar {
+    width: 16px !important;
+}
+
+.apple2-theme ::-webkit-scrollbar-track {
+    background-color: #ffffff !important;
+    border: 1px solid #000000 !important;
+}
+
+.apple2-theme ::-webkit-scrollbar-thumb {
+    background-color: #ffffff !important;
+    border: 2px solid #000000 !important;
+    border-radius: 8px !important;
+    background-image: repeating-linear-gradient(
+        90deg,
+        #ffffff,
+        #ffffff 2px,
+        #cccccc 2px,
+        #cccccc 4px
+    ) !important;
+}
+
+.apple2-theme ::-webkit-scrollbar-button {
+    background-color: #ffffff !important;
+    border: 2px solid #000000 !important;
+}
+
+/* Amiga theme scrollbar */
+.amiga-theme ::-webkit-scrollbar {
+    width: 16px !important;
+}
+
+.amiga-theme ::-webkit-scrollbar-track {
+    background: linear-gradient(to right, #dddddd 0%, #cccccc 100%) !important;
+    border: 1px inset #cccccc !important;
+}
+
+.amiga-theme ::-webkit-scrollbar-thumb {
+    background: linear-gradient(to right, #bbbbbb 0%, #aaaaaa 50%, #999999 100%) !important;
+    border: 1px outset #bbbbbb !important;
+}
+
+.amiga-theme ::-webkit-scrollbar-button {
+    background: linear-gradient(to bottom, #bbbbbb 0%, #aaaaaa 50%, #999999 100%) !important;
+    border: 1px outset #bbbbbb !important;
 }
 
 .layer-item {

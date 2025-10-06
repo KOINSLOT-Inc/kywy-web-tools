@@ -465,26 +465,6 @@ a:hover {
     background: transparent !important;
 }
 
-/* AMIGA scrollbar - Workbench style */
-::-webkit-scrollbar {
-    width: 16px !important;
-}
-
-::-webkit-scrollbar-track {
-    background: linear-gradient(to right, #dddddd 0%, #cccccc 100%) !important;
-    border: 1px inset #cccccc !important;
-}
-
-::-webkit-scrollbar-thumb {
-    background: linear-gradient(to right, #bbbbbb 0%, #aaaaaa 50%, #999999 100%) !important;
-    border: 1px outset #bbbbbb !important;
-}
-
-::-webkit-scrollbar-button {
-    background: linear-gradient(to bottom, #bbbbbb 0%, #aaaaaa 50%, #999999 100%) !important;
-    border: 1px outset #bbbbbb !important;
-}
-
 /* AMIGA titlebar styling */
 .window-title {
     background: linear-gradient(to right, #0055aa 0%, #003388 100%) !important;
@@ -560,12 +540,6 @@ body:not(.menu-page) h6 {
     border-bottom: 2px solid #333333 !important;
     border-radius: 0 !important;
     box-shadow: inset 0 1px 0 rgba(255,255,255,0.5), inset 0 -1px 0 rgba(0,0,0,0.3) !important;
-}
-
-/* Ensure sidebars are positioned correctly with layers */
-.tools-panel.with-layers,
-.export-panel.with-layers {
-    bottom: 320px !important;
 }
 
 .layers-header {

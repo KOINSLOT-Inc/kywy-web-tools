@@ -533,34 +533,6 @@ a:hover {
     background: transparent !important;
 }
 
-/* Early Mac scrollbar */
-::-webkit-scrollbar {
-    width: 16px !important;
-}
-
-::-webkit-scrollbar-track {
-    background-color: #ffffff !important;
-    border: 1px solid #000000 !important;
-}
-
-::-webkit-scrollbar-thumb {
-    background-color: #ffffff !important;
-    border: 2px solid #000000 !important;
-    border-radius: 8px !important;
-    background-image: repeating-linear-gradient(
-        90deg,
-        #ffffff,
-        #ffffff 2px,
-        #cccccc 2px,
-        #cccccc 4px
-    ) !important;
-}
-
-::-webkit-scrollbar-button {
-    background-color: #ffffff !important;
-    border: 2px solid #000000 !important;
-}
-
 /* Apple 2 emoji picker styles */
 .emoji-picker {
     background: #ffffff !important;
@@ -601,12 +573,6 @@ a:hover {
     background: #ffffff !important;
     border-top: 3px solid #000000 !important;
     border-radius: 0 !important;
-}
-
-/* Ensure sidebars are positioned correctly with layers */
-.tools-panel.with-layers,
-.export-panel.with-layers {
-    bottom: 325px !important;
 }
 
 .layers-header {

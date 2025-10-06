@@ -458,40 +458,6 @@ a:visited {
     color: #800080 !important;
 }
 
-/* Windows 95 scrollbar styling (webkit browsers only) - match button colors */
-::-webkit-scrollbar {
-    width: 16px !important;
-    height: 16px !important;
-}
-
-::-webkit-scrollbar-track {
-    background-color: #e0e0e0 !important;
-    border: 1px inset #c0c0c0 !important;
-}
-
-::-webkit-scrollbar-thumb {
-    background-color: #d4d0c8 !important;
-    border: 2px outset #d4d0c8 !important;
-}
-
-::-webkit-scrollbar-thumb:hover {
-    background-color: #e6e2da !important;
-}
-
-::-webkit-scrollbar-button {
-    background-color: #d4d0c8 !important;
-    border: 2px outset #d4d0c8 !important;
-    height: 16px !important;
-    width: 16px !important;
-}
-
-::-webkit-scrollbar-button:hover {
-    background-color: #e6e2da !important;
-}
-
-::-webkit-scrollbar-button:active {
-    border: 2px inset #d4d0c8 !important;
-}
 
 /* Windows 95 emoji picker styles */
 .emoji-picker {
@@ -614,10 +580,3 @@ a:visited {
     border: 1px solid #808080 !important;
     background: #ffffff !important;
 }
-
-/* Sidebar spacing for layers panel */
-.tools-panel.with-layers,
-.export-panel.with-layers {
-    bottom: 320px !important;
-}
-

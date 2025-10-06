@@ -486,28 +486,6 @@ a:hover {
     background: transparent !important;
 }
 
-/* NES scrollbar */
-::-webkit-scrollbar {
-    width: 20px !important;
-}
-
-::-webkit-scrollbar-track {
-    background-color: #2b2b2b !important;
-    border: 2px solid #ffffff !important;
-}
-
-::-webkit-scrollbar-thumb {
-    background-color: #ff6b6b !important;
-    border: 2px solid #ffffff !important;
-    box-shadow: 1px 1px 0px #000000 !important;
-}
-
-::-webkit-scrollbar-button {
-    background-color: #404040 !important;
-    border: 2px solid #ffffff !important;
-    box-shadow: 1px 1px 0px #000000 !important;
-}
-
 /* NES emoji picker styles */
 .emoji-picker {
     background: #000000 !important;
