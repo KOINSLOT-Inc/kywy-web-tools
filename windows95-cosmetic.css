@@ -580,3 +580,77 @@ a:visited {
     border: 1px solid #808080 !important;
     background: #ffffff !important;
 }
+
+/* Animation Panel Windows 95 Theme */
+body:not(.menu-page) .animation-panel {
+    background: #c0c0c0 !important;
+    border-top: 2px outset #c0c0c0 !important;
+    box-shadow: none !important;
+}
+
+body:not(.menu-page) .animation-panel .frame-thumb {
+    background: #c0c0c0 !important;
+    border: 2px outset #c0c0c0 !important;
+    border-radius: 0 !important;
+    color: #000000 !important;
+    box-shadow: none !important;
+}
+
+body:not(.menu-page) .animation-panel .frame-thumb:hover {
+    background: #dfdfdf !important;
+    border: 2px outset #c0c0c0 !important;
+}
+
+body:not(.menu-page) .animation-panel .frame-thumb.active {
+    background: #4CAF50 !important; /* Use green accent color */
+    border: 2px inset #c0c0c0 !important;
+    color: #000000 !important;
+}
+
+body:not(.menu-page) .animation-panel .frame-thumb canvas {
+    border: 1px solid #808080 !important;
+    background: #ffffff !important;
+}
+
+body:not(.menu-page) .animation-panel .frame-thumb span {
+    color: inherit !important;
+}
+
+/* Animation panel controls theming */
+body:not(.menu-page) .animation-header {
+    background: #c0c0c0 !important; /* Green accent for header */
+    color: #000000 !important;
+    border-bottom: 2px outset #4CAF50 !important;
+}
+
+body:not(.menu-page) .onion-skin-control .toggle-btn,
+body:not(.menu-page) .onion-skin-control .mode-btn,
+body:not(.menu-page) .animation-mode-controls .mode-btn {
+    background: #c0c0c0 !important;
+    border: 2px outset #c0c0c0 !important;
+    border-radius: 0 !important;
+    color: #000000 !important;
+    box-shadow: none !important;
+}
+
+body:not(.menu-page) .onion-skin-control .toggle-btn:hover,
+body:not(.menu-page) .onion-skin-control .mode-btn:hover,
+body:not(.menu-page) .animation-mode-controls .mode-btn:hover {
+    background: #dfdfdf !important;
+}
+
+body:not(.menu-page) .onion-skin-control .toggle-btn.active,
+body:not(.menu-page) .onion-skin-control .mode-btn.active,
+body:not(.menu-page) .animation-mode-controls .mode-btn.active {
+    background: #4CAF50 !important; /* Use green accent color */
+    border: 2px inset #c0c0c0 !important;
+    color: #000000 !important;
+}
+
+body:not(.menu-page) .onion-skin-control label {
+    color: #000000 !important;
+}
+
+body:not(.menu-page) .onion-skin-control #animOnionOpacityContainer {
+    background: #c0c0c0 !important;
+}

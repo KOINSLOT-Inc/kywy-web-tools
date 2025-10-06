@@ -845,3 +845,77 @@ a:hover {
     background-color: transparent !important;
 }
 
+/* Animation Panel Apple II Theme */
+body:not(.menu-page) .animation-panel {
+    background: #d0d0d0 !important;
+    background-image: radial-gradient(circle at 1px 1px, #888888 1px, transparent 1px) !important;
+    background-size: 4px 4px !important;
+    border-top: 2px solid #000000 !important;
+    box-shadow: inset 0 2px 0 #ffffff, 0 -2px 8px rgba(0,0,0,0.3) !important;
+}
+
+body:not(.menu-page) .animation-panel .frame-thumb {
+    background: #ffffff !important;
+    border: 2px solid #000000 !important;
+    color: #000000 !important;
+    box-shadow: inset 1px 1px 0 #ffffff, inset -1px -1px 0 #000000 !important;
+}
+
+body:not(.menu-page) .animation-panel .frame-thumb:hover {
+    background: #e0e0e0 !important;
+    border: 2px solid #000000 !important;
+    box-shadow: inset 1px 1px 0 #ffffff, inset -1px -1px 0 #000000, 0 0 4px #000000 !important;
+}
+
+body:not(.menu-page) .animation-panel .frame-thumb.active {
+    background: #000000 !important;
+    border: 2px solid #000000 !important;
+    color: #ffffff !important;
+    box-shadow: inset 1px 1px 0 #333333, inset -1px -1px 0 #000000 !important;
+}
+
+body:not(.menu-page) .animation-panel .frame-thumb canvas {
+    border: 1px solid #000000 !important;
+    background: #ffffff !important;
+}
+
+body:not(.menu-page) .animation-panel .frame-thumb span {
+    color: inherit !important;
+    font-weight: bold !important;
+}
+
+/* Animation panel controls theming */
+body:not(.menu-page) .animation-header {
+    background: #ffffff !important;
+    background-image: none !important;
+    color: #000000 !important;
+    border-bottom: 2px solid #000000 !important;
+}
+
+body:not(.menu-page) .onion-skin-control .toggle-btn,
+body:not(.menu-page) .onion-skin-control .mode-btn {
+    background: #ffffff !important;
+    border: 2px solid #000000 !important;
+    color: #000000 !important;
+    box-shadow: inset 1px 1px 0 #ffffff, inset -1px -1px 0 #000000 !important;
+    font-weight: bold !important;
+}
+
+body:not(.menu-page) .onion-skin-control .toggle-btn:hover,
+body:not(.menu-page) .onion-skin-control .mode-btn:hover {
+    background: #e0e0e0 !important;
+}
+
+body:not(.menu-page) .onion-skin-control .toggle-btn.active,
+body:not(.menu-page) .onion-skin-control .mode-btn.active {
+    background: #000000 !important;
+    border: 2px solid #000000 !important;
+    color: #ffffff !important;
+    box-shadow: inset 1px 1px 0 #333333, inset -1px -1px 0 #000000 !important;
+}
+
+body:not(.menu-page) .onion-skin-control label {
+    color: #000000 !important;
+    font-weight: bold !important;
+}
+

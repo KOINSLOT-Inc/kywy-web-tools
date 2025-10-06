@@ -754,3 +754,83 @@ body:not(.menu-page) h6 {
     border: 1px solid #0066aa !important;
 }
 
+/* Animation Panel Amiga Theme */
+body:not(.menu-page) .animation-panel {
+    background: #aaaaaa !important;
+    border-top: 2px solid #0066aa !important;
+    box-shadow: inset 0 2px 0 #ffffff, inset 0 -2px 0 #666666, 0 -2px 8px rgba(0,0,0,0.2) !important;
+}
+
+body:not(.menu-page) .animation-panel .frame-thumb {
+    background: #cccccc !important;
+    border: 2px solid #888888 !important;
+    border-top-color: #ffffff !important;
+    border-left-color: #ffffff !important;
+    border-right-color: #666666 !important;
+    border-bottom-color: #666666 !important;
+    color: #000000 !important;
+    box-shadow: inset 1px 1px 0 #ffffff, inset -1px -1px 0 #666666 !important;
+}
+
+body:not(.menu-page) .animation-panel .frame-thumb:hover {
+    background: #dddddd !important;
+    border-color: #ff8800 !important;
+    box-shadow: inset 1px 1px 0 #ffffff, inset -1px -1px 0 #ff8800, 0 0 4px #ff8800 !important;
+}
+
+body:not(.menu-page) .animation-panel .frame-thumb.active {
+    background: #ff8800 !important;
+    border: 2px solid #0066aa !important;
+    color: #000000 !important;
+    box-shadow: inset 1px 1px 0 #ffaa44, inset -1px -1px 0 #0066aa !important;
+}
+
+body:not(.menu-page) .animation-panel .frame-thumb canvas {
+    border: 1px solid #666666 !important;
+    border-top-color: #333333 !important;
+    border-left-color: #333333 !important;
+    border-right-color: #ffffff !important;
+    border-bottom-color: #ffffff !important;
+    background: #005577 !important;
+}
+
+body:not(.menu-page) .animation-panel .frame-thumb span {
+    color: inherit !important;
+    font-weight: normal !important;
+}
+
+/* Animation panel controls theming */
+body:not(.menu-page) .animation-header {
+    background: #aaaaaa !important;
+    color: #000000 !important;
+}
+
+body:not(.menu-page) .onion-skin-control .toggle-btn,
+body:not(.menu-page) .onion-skin-control .mode-btn {
+    background: #cccccc !important;
+    border: 2px solid #888888 !important;
+    border-top-color: #ffffff !important;
+    border-left-color: #ffffff !important;
+    border-right-color: #666666 !important;
+    border-bottom-color: #666666 !important;
+    color: #000000 !important;
+    box-shadow: inset 1px 1px 0 #ffffff, inset -1px -1px 0 #666666 !important;
+}
+
+body:not(.menu-page) .onion-skin-control .toggle-btn:hover,
+body:not(.menu-page) .onion-skin-control .mode-btn:hover {
+    background: #dddddd !important;
+}
+
+body:not(.menu-page) .onion-skin-control .toggle-btn.active,
+body:not(.menu-page) .onion-skin-control .mode-btn.active {
+    background: #ff8800 !important;
+    border: 2px solid #0066aa !important;
+    color: #000000 !important;
+    box-shadow: inset 1px 1px 0 #ffaa44, inset -1px -1px 0 #0066aa !important;
+}
+
+body:not(.menu-page) .onion-skin-control label {
+    color: #000000 !important;
+}
+

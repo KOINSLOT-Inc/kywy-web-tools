@@ -2683,7 +2683,6 @@ class DrawingEditor {
         const animFrameRate = document.getElementById('animFrameRate');
         const animFrameRateDisplay = document.getElementById('animFrameRateDisplay');
         const animOnionSkinToggle = document.getElementById('animOnionSkinToggle');
-        const animOnionOpacity = document.getElementById('animOnionOpacity');
         const animOnionOpacityDisplay = document.getElementById('animOnionOpacityDisplay');
         
         // Sync with main controls
@@ -2716,14 +2715,34 @@ class DrawingEditor {
         
         if (animOnionSkinToggle && mainOnionSkinToggle) {
             animOnionSkinToggle.classList.toggle('active', mainOnionSkinToggle.classList.contains('active'));
-        }
-        
-        if (animOnionOpacity && mainOnionOpacity) {
-            animOnionOpacity.value = mainOnionOpacity.value;
+            
+            // Sync container visibility
+            const animOpacityContainer = document.getElementById('animOnionOpacityContainer');
+            const opacityContainer = document.getElementById('onionOpacityContainer');
+            if (animOpacityContainer && opacityContainer) {
+                const isActive = mainOnionSkinToggle.classList.contains('active');
+                const display = isActive ? 'flex' : 'none';
+                animOpacityContainer.style.display = display;
+                opacityContainer.style.display = display;
+            }
         }
         
         if (animOnionOpacityDisplay && mainOnionOpacity) {
-            animOnionOpacityDisplay.textContent = mainOnionOpacity.value;
+            animOnionOpacityDisplay.textContent = mainOnionOpacity.value + '%';
+        }
+        
+        // Sync onion mode toggle button
+        const animModeToggle = document.getElementById('animOnionModeToggle');
+        const mainBlackOnWhite = document.getElementById('onionModeBlackOnWhite');
+        const mainWhiteOnBlack = document.getElementById('onionModeWhiteOnBlack');
+        
+        if (animModeToggle && mainBlackOnWhite && mainWhiteOnBlack) {
+            const isBlackOnWhite = mainBlackOnWhite.classList.contains('active');
+            const mode = isBlackOnWhite ? 'blackOnWhite' : 'whiteOnBlack';
+            const text = isBlackOnWhite ? 'B/W' : 'W/B';
+            
+            animModeToggle.setAttribute('data-mode', mode);
+            animModeToggle.textContent = text;
         }
     }
 
@@ -4101,13 +4120,41 @@ class DrawingEditor {
             this.updateAnimationControls();
         });
         
-        document.getElementById('animOnionOpacity').addEventListener('input', (e) => {
+        // Animation panel opacity controls
+        document.getElementById('animOnionOpacityDecrease').addEventListener('click', () => {
             const mainOnionOpacity = document.getElementById('onionOpacity');
-            mainOnionOpacity.value = e.target.value;
-            document.getElementById('onionOpacityDisplay').textContent = e.target.value;
-            document.getElementById('animOnionOpacityDisplay').textContent = e.target.value;
-            this.onionOpacity = parseInt(e.target.value);
+            const currentValue = parseInt(mainOnionOpacity.value);
+            const newValue = Math.max(10, currentValue - 10);
+            mainOnionOpacity.value = newValue;
+            document.getElementById('onionOpacityDisplay').textContent = newValue;
+            document.getElementById('animOnionOpacityDisplay').textContent = newValue + '%';
+            this.onionOpacity = newValue;
             this.redrawCanvas();
+        });
+        
+        document.getElementById('animOnionOpacityIncrease').addEventListener('click', () => {
+            const mainOnionOpacity = document.getElementById('onionOpacity');
+            const currentValue = parseInt(mainOnionOpacity.value);
+            const newValue = Math.min(80, currentValue + 10);
+            mainOnionOpacity.value = newValue;
+            document.getElementById('onionOpacityDisplay').textContent = newValue;
+            document.getElementById('animOnionOpacityDisplay').textContent = newValue + '%';
+            this.onionOpacity = newValue;
+            this.redrawCanvas();
+        });
+        
+        // Animation panel onion mode toggle button
+        document.getElementById('animOnionModeToggle').addEventListener('click', () => {
+            const button = document.getElementById('animOnionModeToggle');
+            const currentMode = button.getAttribute('data-mode');
+            const newMode = currentMode === 'blackOnWhite' ? 'whiteOnBlack' : 'blackOnWhite';
+            const newText = newMode === 'blackOnWhite' ? 'B/W' : 'W/B';
+            
+            button.setAttribute('data-mode', newMode);
+            button.textContent = newText;
+            
+            this.setOnionMode(newMode);
+            this.updateAnimationControls();
         });
         
         // Keyboard shortcuts
@@ -9365,20 +9412,30 @@ class DrawingEditor {
 
     toggleOnionSkin() {
         const opacityContainer = document.getElementById('onionOpacityContainer');
+        const animOpacityContainer = document.getElementById('animOnionOpacityContainer');
         const toggleBtn = document.getElementById('onionSkinToggle');
+        const animToggleBtn = document.getElementById('animOnionSkinToggle');
         
-        if (opacityContainer && toggleBtn) {
-            const isVisible = opacityContainer.style.display !== 'none';
-            opacityContainer.style.display = isVisible ? 'none' : 'block';
-            
-            // Toggle button active state
-            if (isVisible) {
-                toggleBtn.classList.remove('active');
-            } else {
-                toggleBtn.classList.add('active');
+        if (toggleBtn) {
+            // Toggle onion skin functionality
+            toggleBtn.classList.toggle('active');
+            if (animToggleBtn) {
+                animToggleBtn.classList.toggle('active');
             }
+            
+            this.onionSkinEnabled = toggleBtn.classList.contains('active');
+            
+            // Show/hide opacity controls
+            const newDisplay = this.onionSkinEnabled ? 'flex' : 'none';
+            if (opacityContainer) {
+                opacityContainer.style.display = newDisplay;
+            }
+            if (animOpacityContainer) {
+                animOpacityContainer.style.display = newDisplay;
+            }
+            
+            this.redrawCanvas();
         }
-        this.redrawCanvas(); // Redraw everything when onion skin is toggled
     }
 
     setOnionMode(mode) {

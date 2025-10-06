@@ -696,3 +696,87 @@ a:hover {
     border: 1px solid #3c7fb1 !important;
 }
 
+/* Animation Panel Windows XP Theme */
+body:not(.menu-page) .animation-panel {
+    background: linear-gradient(to bottom, #ece9d8 0%, #d6d3ce 100%) !important;
+    border-top: 2px solid #0054e3 !important;
+    box-shadow: inset 0 1px 0 #ffffff, 0 -2px 8px rgba(0,0,0,0.2) !important;
+}
+
+body:not(.menu-page) .animation-panel .frame-thumb {
+    background: linear-gradient(to bottom, #ffffff 0%, #f0f0f0 100%) !important;
+    border: 1px solid #aca899 !important;
+    border-top-color: #ffffff !important;
+    border-left-color: #ffffff !important;
+    border-right-color: #716f64 !important;
+    border-bottom-color: #716f64 !important;
+    color: #000000 !important;
+    border-radius: 0 !important;
+    box-shadow: inset 1px 1px 0 #ffffff, inset -1px -1px 0 #716f64 !important;
+}
+
+body:not(.menu-page) .animation-panel .frame-thumb:hover {
+    background: linear-gradient(to bottom, #f8f8f8 0%, #e8e8e8 100%) !important;
+    border-color: #0054e3 !important;
+    box-shadow: inset 1px 1px 0 #ffffff, inset -1px -1px 0 #0054e3, 0 0 2px #0054e3 !important;
+}
+
+body:not(.menu-page) .animation-panel .frame-thumb.active {
+    background: linear-gradient(to bottom, #316ac5 0%, #1e4e8c 100%) !important;
+    border: 1px solid #0054e3 !important;
+    color: #ffffff !important;
+    box-shadow: inset 1px 1px 0 #4a7bc8, inset -1px -1px 0 #0054e3 !important;
+}
+
+body:not(.menu-page) .animation-panel .frame-thumb canvas {
+    border: 1px solid #aca899 !important;
+    border-top-color: #716f64 !important;
+    border-left-color: #716f64 !important;
+    border-right-color: #ffffff !important;
+    border-bottom-color: #ffffff !important;
+    background: #ffffff !important;
+}
+
+body:not(.menu-page) .animation-panel .frame-thumb span {
+    color: inherit !important;
+}
+
+/* Animation panel controls theming */
+body:not(.menu-page) .animation-header {
+    background: linear-gradient(to bottom, #ece9d8 0%, #d6d3ce 100%) !important;
+    color: #000000 !important;
+}
+
+body:not(.menu-page) .onion-skin-control .toggle-btn,
+body:not(.menu-page) .onion-skin-control .mode-btn,
+body:not(.menu-page) .animation-mode-controls .mode-btn {
+    background: linear-gradient(to bottom, #ffffff 0%, #f0f0f0 100%) !important;
+    border: 1px solid #aca899 !important;
+    border-top-color: #ffffff !important;
+    border-left-color: #ffffff !important;
+    border-right-color: #716f64 !important;
+    border-bottom-color: #716f64 !important;
+    color: #000000 !important;
+    border-radius: 2px !important;
+    box-shadow: inset 1px 1px 0 #ffffff, inset -1px -1px 0 #716f64 !important;
+}
+
+body:not(.menu-page) .onion-skin-control .toggle-btn:hover,
+body:not(.menu-page) .onion-skin-control .mode-btn:hover,
+body:not(.menu-page) .animation-mode-controls .mode-btn:hover {
+    background: linear-gradient(to bottom, #f8f8f8 0%, #e8e8e8 100%) !important;
+}
+
+body:not(.menu-page) .onion-skin-control .toggle-btn.active,
+body:not(.menu-page) .onion-skin-control .mode-btn.active,
+body:not(.menu-page) .animation-mode-controls .mode-btn.active {
+    background: linear-gradient(to bottom, #316ac5 0%, #1e4e8c 100%) !important;
+    border: 1px solid #0054e3 !important;
+    color: #ffffff !important;
+    box-shadow: inset 1px 1px 0 #4a7bc8, inset -1px -1px 0 #0054e3 !important;
+}
+
+body:not(.menu-page) .onion-skin-control label {
+    color: #000000 !important;
+}
+

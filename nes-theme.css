@@ -44,9 +44,9 @@ body, input, button, select, textarea {
     font-size: 12px !important;
 }
 
-/* NES color scheme - light gray background and pink/red accents */
+/* NES color scheme - darker gray background and blue accents */
 body:not(.menu-page) {
-    background-color: #c0c0c0 !important;
+    background-color: #a0a0a0 !important; /* Darker gray */
     color: #000000 !important;
 }
 
@@ -322,8 +322,9 @@ header {
 }
 
 .tools-panel, .import-panel, .export-panel {
-    background-color: #404040 !important;
-    border: 2px solid #ffffff !important;
+    background-color: #ff6b6b !important;
+    border: 3px solid #ffffff !important;
+    border-style: outset !important;
     border-radius: 0 !important;
     box-shadow: 2px 2px 0px #000000 !important;
 }
@@ -725,5 +726,89 @@ a:hover {
     border: 2px solid #6c6c6c !important;
     background: #1a1a1a !important;
     image-rendering: pixelated !important;
+}
+
+/* Animation Panel NES Theme */
+body:not(.menu-page) .animation-panel {
+    background: #1a1a1a !important; /* Match darker gray */
+    border-top: 3px solid #ffffff !important;
+    border-style: outset !important;
+    box-shadow: 2px 2px 0px #000000 !important;
+}
+
+body:not(.menu-page) .animation-panel .frame-thumb {
+    background: #ff6b6b !important;
+    border: 3px solid #ffffff !important;
+    border-style: outset !important;
+    border-radius: 0 !important;
+    color: #ffffff !important;
+    box-shadow: 2px 2px 0px #000000 !important;
+}
+
+body:not(.menu-page) .animation-panel .frame-thumb:hover {
+    background: #ff8c8c !important;
+    border: 3px solid #ffffff !important;
+    border-style: outset !important;
+    box-shadow: 2px 2px 0px #000000 !important;
+}
+
+body:not(.menu-page) .animation-panel .frame-thumb.active {
+    background: #4169e1 !important; /* Blue for selected frames */
+    border: 3px solid #ffffff !important;
+    border-style: inset !important;
+    color: #ffffff !important;
+    box-shadow: 2px 2px 0px #000000 !important;
+}
+
+body:not(.menu-page) .animation-panel .frame-thumb canvas {
+    border: 2px solid #000000 !important;
+    background: #1a1a1a !important;
+    image-rendering: pixelated !important;
+}
+
+body:not(.menu-page) .animation-panel .frame-thumb span {
+    color: inherit !important;
+    font-weight: bold !important;
+}
+
+/* Animation panel controls theming */
+body:not(.menu-page) .animation-header {
+    background: #1a1a1a !important; /* Match darker gray */
+    color: #000000 !important;
+    border-bottom: 3px solid #ffffff !important;
+    border-style: outset !important;
+}
+
+body:not(.menu-page) .onion-skin-control .toggle-btn,
+body:not(.menu-page) .onion-skin-control .mode-btn,
+body:not(.menu-page) .animation-mode-controls .mode-btn {
+    background: #ff6b6b !important;
+    border: 3px solid #ffffff !important;
+    border-style: outset !important;
+    border-radius: 0 !important;
+    color: #ffffff !important;
+    box-shadow: 2px 2px 0px #000000 !important;
+    font-weight: bold !important;
+}
+
+body:not(.menu-page) .onion-skin-control .toggle-btn:hover,
+body:not(.menu-page) .onion-skin-control .mode-btn:hover,
+body:not(.menu-page) .animation-mode-controls .mode-btn:hover {
+    background: #ff8c8c !important;
+}
+
+body:not(.menu-page) .onion-skin-control .toggle-btn.active,
+body:not(.menu-page) .onion-skin-control .mode-btn.active,
+body:not(.menu-page) .animation-mode-controls .mode-btn.active {
+    background: #4169e1 !important; /* Blue for active buttons */
+    border: 3px solid #ffffff !important;
+    border-style: inset !important;
+    color: #ffffff !important;
+    box-shadow: 2px 2px 0px #000000 !important;
+}
+
+body:not(.menu-page) .onion-skin-control label {
+    color: #000000 !important;
+    font-weight: bold !important;
 }
 
