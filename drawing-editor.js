@@ -3736,6 +3736,8 @@ class DrawingEditor {
         document.getElementById('nextFrame').addEventListener('click', () => this.nextFrame());
         document.getElementById('addFrame').addEventListener('click', () => this.addFrame());
         document.getElementById('copyFrame').addEventListener('click', () => this.copyFrame());
+        document.getElementById('moveFrameLeft').addEventListener('click', () => this.moveFrameLeft());
+        document.getElementById('moveFrameRight').addEventListener('click', () => this.moveFrameRight());
         document.getElementById('deleteFrame').addEventListener('click', () => this.deleteFrame());
         
         // Animation controls
@@ -9022,6 +9024,8 @@ class DrawingEditor {
         
         document.getElementById('prevFrame').disabled = this.currentFrameIndex === 0;
         document.getElementById('nextFrame').disabled = this.currentFrameIndex === this.frames.length - 1;
+        document.getElementById('moveFrameLeft').disabled = this.currentFrameIndex === 0;
+        document.getElementById('moveFrameRight').disabled = this.currentFrameIndex === this.frames.length - 1;
         document.getElementById('deleteFrame').disabled = this.frames.length === 1;
         
         // Update frame thumbnails
@@ -9314,6 +9318,64 @@ class DrawingEditor {
         // Use command pattern for undo support
         const command = new DeleteFrameCommand(this, this.currentFrameIndex, clonedFrame, clonedLayerData);
         this.executeCommand(command);
+    }
+    
+    moveFrameLeft() {
+        if (this.frames.length <= 1) return;
+        
+        const currentIndex = this.currentFrameIndex;
+        
+        // Can't move left if already at the leftmost position
+        if (currentIndex <= 0) return;
+        
+        this.swapFrames(currentIndex, currentIndex - 1);
+    }
+    
+    moveFrameRight() {
+        if (this.frames.length <= 1) return;
+        
+        const currentIndex = this.currentFrameIndex;
+        
+        // Can't move right if already at the rightmost position
+        if (currentIndex >= this.frames.length - 1) return;
+        
+        this.swapFrames(currentIndex, currentIndex + 1);
+    }
+    
+    swapFrames(indexA, indexB) {
+        if (indexA === indexB) return;
+        
+        // Save current state for undo
+        this.captureSnapshot();
+        
+        // Swap the frame canvases
+        const temp = this.frames[indexA];
+        this.frames[indexA] = this.frames[indexB];
+        this.frames[indexB] = temp;
+        
+        // Swap layer data if layers are enabled
+        if (this.layersEnabled && this.frameLayers) {
+            const tempLayers = this.frameLayers[indexA];
+            this.frameLayers[indexA] = this.frameLayers[indexB];
+            this.frameLayers[indexB] = tempLayers;
+        }
+        
+        // Update current frame index to follow the moved frame
+        if (this.currentFrameIndex === indexA) {
+            this.currentFrameIndex = indexB;
+        } else if (this.currentFrameIndex === indexB) {
+            this.currentFrameIndex = indexA;
+        }
+        
+        // Update UI and redraw
+        this.updateFrameList();
+        this.updateUI();
+        this.redrawCanvas();
+        this.regenerateAllThumbnails();
+        this.markAsUnsaved();
+        
+        // Push to undo stack
+        this.pushUndo();
     }
     
     previousFrame() {
