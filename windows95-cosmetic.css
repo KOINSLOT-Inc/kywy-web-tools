@@ -89,19 +89,19 @@ button:disabled, .nav-btn:disabled {
 /* Active/pressed button states - Kywy green for mirror buttons and other toggles */
 button.active, .nav-btn.active, button[data-active="true"], 
 .tool-btn.active, .mirror-btn.active, button.pressed {
-    background-color: #4CAF50 !important;
-    border: 2px inset #4CAF50 !important;
+    background-color: var(--accent-color) !important;
+    border: 2px inset var(--accent-color) !important;
     color: #ffffff !important;
 }
 
 button.active:hover, .nav-btn.active:hover, button[data-active="true"]:hover,
 .tool-btn.active:hover, .mirror-btn.active:hover, button.pressed:hover {
-    background-color: #45a049 !important;
+    background-color: var(--accent-color) !important;
 }
 
 /* Windows 95 layer selection styling */
 .layer-item.active {
-    border-color: #000080 !important;
+    border-color: var(--accent-color) !important;
     background: #c0c0c0 !important;
     box-shadow: inset 1px 1px 0px #dfdfdf, inset -1px -1px 0px #808080 !important;
 }
@@ -148,16 +148,16 @@ button.active:hover, .nav-btn.active:hover, button[data-active="true"]:hover,
 /* Selected tool buttons and toggle states - Kywy green */
 .tool-button.selected, .tool-btn.selected, input[type="checkbox"]:checked + label,
 .toggle-button.on, .mirror-x.active, .mirror-y.active {
-    background-color: #4CAF50 !important;
-    border: 2px inset #4CAF50 !important;
+    background-color: var(--accent-color) !important;
+    border: 2px inset var(--accent-color) !important;
     color: #ffffff !important;
 }
 
 /* Tool selection indicators - Kywy green */
 .tool-section .active, .brush-tool.active, .eraser-tool.active, 
 .line-tool.active, .rect-tool.active, .circle-tool.active {
-    background-color: #4CAF50 !important;
-    border: 2px inset #4CAF50 !important;
+    background-color: var(--accent-color) !important;
+    border: 2px inset var(--accent-color) !important;
     color: #ffffff !important;
 }
 
@@ -173,7 +173,7 @@ input[type="text"], input[type="number"], input[type="email"], input[type="passw
 input[type="text"]:focus, input[type="number"]:focus, 
 input[type="email"]:focus, input[type="password"]:focus {
     border: 1px inset #c0c0c0 !important;
-    background-color: #316ac5 !important;
+    background-color: var(--accent-color) !important;
     color: white !important;
 }
 
@@ -188,7 +188,7 @@ select {
 
 select:focus {
     border: 1px inset #c0c0c0 !important;
-    background-color: #316ac5 !important;
+    background-color: var(--accent-color) !important;
     color: white !important;
 }
 
@@ -380,7 +380,7 @@ header {
 }
 
 .canvas-sheet.active, .frame-sheet.active, .layer.active {
-    border: 2px solid #0000ff !important;
+    border: 2px solid var(--accent-color) !important;
     background-color: #ffffff !important;
 }
 
@@ -404,7 +404,7 @@ header {
 }
 
 .import-zone.drag-over {
-    border-color: #0000ff !important;
+    border-color: var(--accent-color) !important;
     background-color: #e0e0ff !important;
 }
 
@@ -416,7 +416,7 @@ header {
 }
 
 .frame.selected {
-    border: 2px solid #0000ff !important;
+    border: 2px solid var(--accent-color) !important;
 }
 
 /* Windows 95 warning styling - subtle border */
@@ -451,7 +451,7 @@ h1, h2, h3, h4, h5, h6, p, span, label {
 
 /* Windows 95 link styling */
 a {
-    color: #0000ff !important;
+    color: var(--accent-color) !important;
 }
 
 a:visited {
@@ -591,7 +591,7 @@ a:visited {
 .layers-header {
     background: #c0c0c0 !important;
     color: #000000 !important;
-    border-bottom: 2px outset #4CAF50 !important;
+    border-bottom: 2px outset var(--accent-color) !important;
 }
 
 /* Animation Panel Windows 95 Theme */
@@ -615,7 +615,7 @@ body:not(.menu-page) .animation-panel .frame-thumb:hover {
 }
 
 body:not(.menu-page) .animation-panel .frame-thumb.active {
-    background: #4CAF50 !important; /* Use green accent color */
+    background: var(--accent-color) !important; /* Use green accent color */
     border: 2px inset #c0c0c0 !important;
     color: #000000 !important;
 }
@@ -633,7 +633,7 @@ body:not(.menu-page) .animation-panel .frame-thumb span {
 body:not(.menu-page) .animation-header {
     background: #c0c0c0 !important; /* Green accent for header */
     color: #000000 !important;
-    border-bottom: 2px outset #4CAF50 !important;
+    border-bottom: 2px outset var(--accent-color) !important;
 }
 
 body:not(.menu-page) .onion-skin-control .toggle-btn,
@@ -655,7 +655,7 @@ body:not(.menu-page) .animation-mode-controls .mode-btn:hover {
 body:not(.menu-page) .onion-skin-control .toggle-btn.active,
 body:not(.menu-page) .onion-skin-control .mode-btn.active,
 body:not(.menu-page) .animation-mode-controls .mode-btn.active {
-    background: #4CAF50 !important; /* Use green accent color */
+    background: var(--accent-color) !important; /* Use green accent color */
     border: 2px inset #c0c0c0 !important;
     color: #000000 !important;
 }
