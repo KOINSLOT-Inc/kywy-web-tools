@@ -215,7 +215,6 @@ header h1 {
     align-items: center;
     justify-content: center;
     z-index: 100;
-    transition: all 0.3s ease;
     box-shadow: 2px 0 4px rgba(0,0,0,0.1);
 }
 
@@ -227,14 +226,12 @@ header h1 {
 .left-toggle {
     left: 280px;
     border-radius: 0 8px 8px 0;
-    transition: left 0.3s ease, transform 0.3s ease;
 }
 
 .right-toggle {
     right: 280px;
     border-radius: 8px 0 0 8px;
     box-shadow: -2px 0 4px rgba(0,0,0,0.1);
-    transition: right 0.3s ease, transform 0.3s ease;
 }
 
 .right-toggle:hover {
@@ -244,7 +241,6 @@ header h1 {
 .sidebar-toggle .arrow {
     font-size: 12px;
     color: #666;
-    transition: transform 0.3s ease;
 }
 
 /* Collapsed states */
@@ -2158,7 +2154,6 @@ textarea::placeholder {
         padding: 20px;
         border-radius: 0;
         box-shadow: none;
-        transition: transform 0.3s ease;
         margin-bottom: var(--canvas-controls-height, 40px);
     }
     
