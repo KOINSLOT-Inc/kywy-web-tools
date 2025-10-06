@@ -4860,10 +4860,11 @@ class DrawingEditor {
             } else {
                 // Change brush size
                 const delta = e.deltaY > 0 ? -1 : 1;
-                this.brushSize = Math.max(1, Math.min(10, this.brushSize + delta));
+                this.brushSize = Math.max(1, Math.min(50, this.brushSize + delta));
                 document.getElementById('brushSize').value = this.brushSize;
                 document.getElementById('brushSizeDisplay').textContent = this.brushSize;
             }
+            this.redrawCanvas();
             return;
         }
         
