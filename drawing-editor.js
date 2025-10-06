@@ -4895,6 +4895,12 @@ class DrawingEditor {
         // Step 3: Apply zoom change (this changes canvas display size)
         this.zoom = newZoom;
 
+        // Update zoom level display
+        document.getElementById('zoomLevel').textContent = Math.round(this.zoom * 100) + '%';
+        
+        // Update mobile zoom display
+        this.updateMobileZoomDisplay();
+
         
         // Step 4: Reposition canvas to keep mouse cursor at same logical position
         const canvasWrapper = document.querySelector('.canvas-wrapper');
@@ -10543,19 +10549,8 @@ class DrawingEditor {
     }
     
     generateLayersHPP() {
-        // Check if we have layer data to export, regardless of whether layers are currently enabled
-        let hasLayerData = false;
-        if (this.frameLayers) {
-            for (let frameIndex in this.frameLayers) {
-                if (this.frameLayers[frameIndex] && this.frameLayers[frameIndex].layers && this.frameLayers[frameIndex].layers.length > 0) {
-                    hasLayerData = true;
-                    break;
-                }
-            }
-        }
-        
-        if (!hasLayerData) {
-            // Fallback to single frame or animation export if no layer data exists
+        if (!this.layersEnabled) {
+            // Fallback to single frame or animation export if layers not enabled
             if (this.frames.length > 1) {
                 return this.generateAnimationHPP();
             }
@@ -11770,9 +11765,6 @@ class DrawingEditor {
                 
                 // Wait for all layers to load, then update UI
                 Promise.all(layerLoadPromises).then(() => {
-                    // Always update layers UI to refresh the preview
-                    this.updateLayersUI();
-                    
                     // Auto-enable layers if layer data exists
                     // Use saved state if available, otherwise default to true since layers exist
                     const shouldEnableLayers = data.layersEnabled !== undefined ? data.layersEnabled : true;
@@ -11794,29 +11786,12 @@ class DrawingEditor {
                         if (toolsPanel) toolsPanel.classList.add('with-layers');
                         if (exportPanel) exportPanel.classList.add('with-layers');
                         
+                        this.updateLayersUI();
                     }
                     
                     this.updateUI();
                     this.redrawCanvas();
                     this.generateCode();
-                    
-                    // Final refresh of layers UI to ensure visual loading
-                    this.updateLayersUI();
-
-                    // Close layers panel after loading
-                    this.layersEnabled = false;
-                    document.getElementById('layersEnabled').checked = false;
-                    const layersPanel = document.getElementById('layersPanel');
-                    layersPanel.style.display = 'none';
-                    const canvasArea = document.querySelector('.canvas-area');
-                    const mobileToolbar = document.querySelector('.mobile-bottom-toolbar');
-                    const toolsPanel = document.querySelector('.tools-panel');
-                    const exportPanel = document.querySelector('.export-panel');
-                    if (canvasArea) canvasArea.classList.remove('with-layers');
-                    if (mobileToolbar) mobileToolbar.classList.remove('with-layers');
-                    if (toolsPanel) toolsPanel.classList.remove('with-layers');
-                    if (exportPanel) exportPanel.classList.remove('with-layers');
-                    this.updateLayersUI();
                 });
             } else {
                 // No layer data, just update normally
