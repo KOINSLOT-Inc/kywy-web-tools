@@ -496,6 +496,14 @@ header h1 {
     margin-bottom: 10px;
 }
 
+.mirror-transform-header {
+    margin-bottom: 10px;
+}
+
+.animation-toggle-header {
+    margin-bottom: 10px;
+}
+
 .pattern-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -759,15 +767,6 @@ input[type="range"]::-moz-range-thumb {
 .export-btn:hover {
     background: var(--accent-color);
     color: #000000;
-}
-
-/* Animation Controls */
-#animationToggle {
-    border: none;
-    background: transparent;
-    padding: 0;
-    border-radius: 0;
-    font-weight: normal;
 }
 
 .animation-header label {

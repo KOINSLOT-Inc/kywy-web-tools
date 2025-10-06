@@ -9711,30 +9711,10 @@ class DrawingEditor {
     }
     
     toggleAnimation() {
-        const playBtn = document.getElementById('playBtn');
-        const animPlayBtn = document.getElementById('animPlayBtn');
-        
         if (this.isPlaying) {
-            clearInterval(this.animationInterval);
-            this.isPlaying = false;
-            playBtn.textContent = '▶️ Play';
-            animPlayBtn.textContent = '▶️ Play';
+            this.stopAnimation();
         } else {
-            // Try to get frame rate from either control panel
-            let frameRateElement = document.getElementById('frameRate');
-            if (!frameRateElement || frameRateElement.style.display === 'none') {
-                frameRateElement = document.getElementById('animFrameRate');
-            }
-            const fps = parseFloat(frameRateElement.value);
-            
-            this.animationInterval = setInterval(() => {
-                this.advanceFrame();
-                this.updateUI();
-                this.redrawCanvas();
-            }, 1000 / fps);
-            this.isPlaying = true;
-            playBtn.textContent = '⏸️ Pause';
-            animPlayBtn.textContent = '⏸️ Pause';
+            this.startAnimation();
         }
     }
     
