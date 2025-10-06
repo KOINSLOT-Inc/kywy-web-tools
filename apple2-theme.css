@@ -125,19 +125,25 @@ button.active, .nav-btn.active, button[data-active="true"],
 
 /* Canvas controls (zoom/fit/center) styling */
 .canvas-controls, .zoom-controls, .grid-controls {
-    background-color: #ffffff !important;
-    border: 2px solid #000000 !important;
-    border-radius: 8px !important;
-    padding: 6px !important;
-    margin: 4px !important;
-    box-shadow: 2px 2px 0px #888888 !important;
+    background-color: transparent !important;
+    border: none !important;
+    border-radius: 0 !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+}
+
+.canvas-controls {
+    padding: 5px 10px !important;
+}
+
+.zoom-controls, .grid-controls {
+    padding: 0 !important;
 }
 
 .zoom-controls button, .grid-controls button {
     background-color: #ffffff !important;
     border: 2px solid #000000 !important;
     color: #000000 !important;
-    padding: 4px 8px !important;
     border-radius: 6px !important;
     margin: 2px !important;
     font-family: "Chicago", "Geneva", monospace !important;

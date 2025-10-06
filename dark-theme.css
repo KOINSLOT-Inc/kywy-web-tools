@@ -432,12 +432,27 @@ button:active, .back-button:active, .nav-btn:active {
 }
 
 /* Dark bottom bar / status bar styling */
-.bottom-bar, .status-bar, .zoom-controls, .canvas-controls {
-    background-color: #222222 !important;
-    border: 1px solid #333333 !important;
+.bottom-bar, .status-bar {
+    background-color: transparent !important;
+    border: none !important;
     color: #e0e0e0 !important;
-    border-radius: 6px !important;
-    padding: 8px !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+}
+
+.zoom-controls, .canvas-controls {
+    background-color: transparent !important;
+    border: none !important;
+    color: #e0e0e0 !important;
+    border-radius: 0 !important;
+}
+
+.canvas-controls {
+    padding: 5px 10px !important;
+}
+
+.zoom-controls {
+    padding: 0 !important;
 }
 
 /* Bottom bar buttons */
@@ -445,9 +460,8 @@ button:active, .back-button:active, .nav-btn:active {
     background-color: #333333 !important;
     border: 1px solid #555555 !important;
     color: #e0e0e0 !important;
-    padding: 4px 8px !important;
     border-radius: 4px !important;
-    margin: 0 2px !important;
+    margin: 2px !important;
 }
 
 .bottom-bar button:hover, .status-bar button:hover, .zoom-controls button:hover, .canvas-controls button:hover {

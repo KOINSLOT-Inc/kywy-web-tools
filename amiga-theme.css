@@ -115,20 +115,26 @@ button.active, .nav-btn.active, button[data-active="true"],
 
 /* Canvas controls (zoom/fit/center) styling */
 .canvas-controls, .zoom-controls, .grid-controls {
-    background: linear-gradient(to bottom, #dddddd 0%, #cccccc 100%) !important;
-    border: 2px outset #cccccc !important;
+    background: transparent !important;
+    border: none !important;
     border-radius: 0 !important;
-    padding: 8px !important;
-    margin: 6px !important;
-    box-shadow: 1px 1px 2px rgba(0,0,0,0.3) !important;
-    border-left: 4px solid #005577 !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+    border-left: none !important;
+}
+
+.canvas-controls {
+    padding: 5px 10px !important;
+}
+
+.zoom-controls, .grid-controls {
+    padding: 0 !important;
 }
 
 .zoom-controls button, .grid-controls button {
     background: linear-gradient(to bottom, #bbbbbb 0%, #aaaaaa 50%, #999999 100%) !important;
     border: 2px outset #bbbbbb !important;
     color: #003366 !important;
-    padding: 4px 8px !important;
     border-radius: 0 !important;
     margin: 2px !important;
     font-family: "MS Sans Serif", "Arial", sans-serif !important;

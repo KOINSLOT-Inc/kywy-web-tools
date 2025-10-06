@@ -5,6 +5,8 @@
     --border-color: #e9ecef;
     --text-color: #333;
     --accent-color: #52E679;
+    --canvas-controls-height: 80px;
+    --layers-panel-height: 240px;
 }
 
 * {
@@ -272,7 +274,7 @@ header h1 {
     position: absolute;
     left: 0;
     top: 0;
-    bottom: var(--canvas-controls-height, 80px);
+    bottom: var(--canvas-controls-height, 60px);
     height: auto;
     z-index: 50;
     box-shadow: 2px 0 8px rgba(0,0,0,0.1);
@@ -291,7 +293,7 @@ header h1 {
     position: absolute;
     right: 0;
     top: 0;
-    bottom: var(--canvas-controls-height, 80px);
+    bottom: var(--canvas-controls-height, 60px);
     height: auto;
     z-index: 50;
     box-shadow: -2px 0 8px rgba(0,0,0,0.1);
@@ -1269,6 +1271,7 @@ input[type="range"]::-moz-range-thumb {
 .canvas-controls {
     background: white;
     padding: 15px 20px;
+    height: var(--canvas-controls-height);
     border-top: 1px solid #ddd;
     display: flex;
     justify-content: space-between;
@@ -1330,7 +1333,7 @@ input[type="range"]::-moz-range-thumb {
     color: white;
     border: none;
     width: 72px;
-    height: 36px;
+    height: 24px;
     border-radius: 4px;
     cursor: pointer;
     font-size: 0.9rem;
@@ -1976,7 +1979,7 @@ textarea::placeholder {
         border-radius: 0;
         box-shadow: none;
         transition: transform 0.3s ease;
-        margin: 0;
+        margin-bottom: var(--canvas-controls-height, 40px);
     }
     
     .tools-panel {
@@ -2524,8 +2527,8 @@ button:focus, .toggle-btn:focus, .collapsible-btn:focus, .mode-btn:focus, .mobil
     bottom: 0;
     left: 0;
     right: 0;
-    height: 240px;
-    max-height: 240px; /* Prevent growing too tall */
+    height: var(--layers-panel-height);
+    max-height: var(--layers-panel-height); /* Prevent growing too tall */
     background: white; /* White solid background */
     border-top: 2px solid var(--border-color);
     box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
@@ -2541,13 +2544,13 @@ button:focus, .toggle-btn:focus, .collapsible-btn:focus, .mode-btn:focus, .mobil
 }
 
 .canvas-area.with-layers {
-    padding-bottom: 240px;
+    padding-bottom: var(--layers-panel-height);
 }
 
 /* Adjust sidebars when layers panel is visible */
 .tools-panel.with-layers,
 .export-panel.with-layers {
-    bottom: 320px; /* Canvas controls (80px) + layers panel (240px) */
+    bottom: calc(var(--layers-panel-height) + var(--canvas-controls-height)); /* Above layers panel + canvas controls */
 }
 
 /* Adjust mobile toolbar when layers panel is visible */
@@ -2557,7 +2560,7 @@ button:focus, .toggle-btn:focus, .collapsible-btn:focus, .mode-btn:focus, .mobil
 }
 
 .mobile-bottom-toolbar.with-layers {
-    bottom: 240px;
+    bottom: calc(var(--layers-panel-height) + var(--canvas-controls-height));
 }
 
 .layers-header {

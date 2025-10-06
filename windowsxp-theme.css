@@ -112,19 +112,25 @@ button.active, .nav-btn.active, button[data-active="true"],
 
 /* Canvas controls (zoom/fit/center) styling */
 .canvas-controls, .zoom-controls, .grid-controls {
-    background: linear-gradient(to bottom, #ffffff 0%, #f8fbff 100%) !important;
-    border: 1px solid #c5d9f1 !important;
-    border-radius: 6px !important;
-    padding: 8px !important;
-    margin: 6px !important;
-    box-shadow: 1px 1px 4px rgba(0,0,0,0.1) !important;
+    background: transparent !important;
+    border: none !important;
+    border-radius: 0 !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+}
+
+.canvas-controls {
+    padding: 5px 10px !important;
+}
+
+.zoom-controls, .grid-controls {
+    padding: 0 !important;
 }
 
 .zoom-controls button, .grid-controls button {
     background: linear-gradient(to bottom, #ffffff 0%, #ddeeff 20%, #c5d9f1 80%, #759dcb 100%) !important;
     border: 1px solid #3c7fb1 !important;
     color: #003c74 !important;
-    padding: 4px 12px !important;
     border-radius: 3px !important;
     margin: 2px !important;
     font-family: "Segoe UI", "Tahoma", sans-serif !important;
