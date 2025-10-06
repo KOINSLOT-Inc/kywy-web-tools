@@ -1208,8 +1208,10 @@ class DrawingEditor {
                 if (gridSizeSlider) {
                     gridSizeSlider.value = this.gridSize;
                 }
-                document.getElementById('gridSizeDisplay').textContent = this.gridSize;
-                document.getElementById('gridSizeDisplay2').textContent = this.gridSize;
+                const gridSizeDisplay = document.getElementById('gridSizeDisplay');
+                if (gridSizeDisplay) gridSizeDisplay.textContent = this.gridSize;
+                const gridSizeDisplay2 = document.getElementById('gridSizeDisplay2');
+                if (gridSizeDisplay2) gridSizeDisplay2.textContent = this.gridSize;
                 this.updateGridDisplay();
                 this.updateBrushControlsState();
             } else {
@@ -1218,8 +1220,10 @@ class DrawingEditor {
                 if (gridSizeSlider) {
                     gridSizeSlider.value = this.gridSize;
                 }
-                document.getElementById('gridSizeDisplay').textContent = this.gridSize;
-                document.getElementById('gridSizeDisplay2').textContent = this.gridSize;
+                const gridSizeDisplay = document.getElementById('gridSizeDisplay');
+                if (gridSizeDisplay) gridSizeDisplay.textContent = this.gridSize;
+                const gridSizeDisplay2 = document.getElementById('gridSizeDisplay2');
+                if (gridSizeDisplay2) gridSizeDisplay2.textContent = this.gridSize;
             }
         });
         
