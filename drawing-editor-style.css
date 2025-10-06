@@ -1276,12 +1276,12 @@ input[type="range"]::-moz-range-thumb {
 }
 
 #onionCanvas {
-    z-index: 10; /* Onion canvas on top - MUST be visible */
+    z-index: 2; /* Onion canvas between drawing and overlay */
     pointer-events: none; /* So we can still draw on the canvas below */
 }
 
 #overlayCanvas {
-    z-index: 4;
+    z-index: 10; /* Overlay canvas on top - for grids, previews, selections */
 }
 
 /* Canvas Controls */
