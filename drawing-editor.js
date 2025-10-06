@@ -6104,11 +6104,6 @@ class DrawingEditor {
             }
         });
         
-        // Draw mirrored fill previews if mirror mode is enabled
-        if (this.mirrorHorizontal || this.mirrorVertical) {
-            this.showMirroredFillPreview(x, y);
-        }
-        
         // Reset overlay context
         this.overlayCtx.globalAlpha = 1;
     }
@@ -8033,18 +8028,8 @@ class DrawingEditor {
         // Capture snapshot before flood fill
         this.captureSnapshot();
         
-        // Perform flood fill
+        // Perform flood fill (mirroring disabled for flood fill tool)
         this.performFloodFill(x, y, ctx);
-        
-        // Perform mirrored flood fills if mirroring is enabled
-        if (this.mirrorHorizontal || this.mirrorVertical) {
-            // Get the filled pixels from the original fill
-            const beforeImageData = ctx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
-            const originalFilledPixels = this.getFilledPixels(beforeImageData, beforeImageData); // This logic may need adjustment
-            
-            // Apply the same fill pattern to mirror positions
-            this.performMirroredFill(originalFilledPixels, ctx);
-        }
         
         // Composite layers if needed and redraw
         if (this.layersEnabled) {
