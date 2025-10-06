@@ -3225,6 +3225,17 @@ class DrawingEditor {
             });
         }
         
+        // Add horizontal scrolling to layers list with mouse wheel
+        const layersList = document.getElementById('layersList');
+        if (layersList) {
+            layersList.addEventListener('wheel', (e) => {
+                // Prevent default vertical scroll behavior
+                e.preventDefault();
+                // Scroll horizontally based on wheel delta
+                layersList.scrollLeft += e.deltaY;
+            }, { passive: false });
+        }
+        
         // Add global mouse events to handle drawing outside canvas
         document.addEventListener('mousemove', (e) => {
             // Store the current mouse event for panning

@@ -2651,16 +2651,11 @@ button:focus, .toggle-btn:focus, .collapsible-btn:focus, .mode-btn:focus, .mobil
     gap: 8px;
     padding: 8px;
     padding-bottom: 12px; /* Extra padding at bottom to ensure shadow visibility */
-    overflow-x: auto;
-    overflow-y: auto; /* Allow vertical scrolling to show all buttons */
+    overflow-x: auto; /* Allow horizontal scrolling */
+    overflow-y: hidden; /* Hide vertical scrolling to prevent clutter */
     align-items: flex-start;
     min-height: 0; /* Important for flex scrolling */
-    scrollbar-width: none; /* Firefox */
-    -ms-overflow-style: none; /* Internet Explorer 10+ */
-}
-
-.layers-list::-webkit-scrollbar {
-    display: none !important; /* WebKit - override theme scrollbar styles */
+    /* Allow horizontal scrollbar to show when needed */
 }
 
 /* Scrollbar styling for different themes */
