@@ -125,6 +125,9 @@ class ThemeSwitcher {
         // Remove existing theme stylesheets
         this.removeThemeStylesheets();
         
+        // Remove existing theme classes from body
+        document.body.classList.remove('dark-theme', 'windows95-theme', 'nes-theme', 'windowsxp-theme', 'apple2-theme', 'amiga-theme');
+        
         // Apply new theme stylesheets
         theme.stylesheets.forEach(stylesheet => {
             const link = document.createElement('link');
@@ -137,6 +140,11 @@ class ThemeSwitcher {
         
         // Store theme info on document for CSS to access
         document.documentElement.setAttribute('data-theme', theme.id);
+        
+        // Add theme class to body for scrollbar styling
+        if (theme.id !== 'original') {
+            document.body.classList.add(theme.id + '-theme');
+        }
     }
     
     removeThemeStylesheets() {

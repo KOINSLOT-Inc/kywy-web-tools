@@ -30,11 +30,7 @@ input, select, textarea {
 }
 
 /* Exclude functional elements from theme styling */
-.resize-handle, .sp/* Ensure sidebars are positioned correctly with layers */
-.tools-panel.with-layers,
-.export-panel.with-layers {
-    bottom: 320px !important;
-}r, .resize-grip, [data-resize], 
+.resize-handle, .splitter, .resize-grip, [data-resize], 
 .panel-resizer, .draggable-handle, .sortable-handle {
     all: revert !important;
 }
