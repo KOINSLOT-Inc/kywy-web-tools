@@ -2664,6 +2664,16 @@ button:focus, .toggle-btn:focus, .collapsible-btn:focus, .mode-btn:focus, .mobil
     outline: none;
 }
 
+/* Disable outlines on active states to prevent unwanted visual effects */
+button:active, .toggle-btn:active, .collapsible-btn:active, .mode-btn:active, .mobile-panel-toggle:active {
+    outline: none;
+}
+
+/* Disable focus-visible outlines for cleaner appearance */
+button:focus-visible, .toggle-btn:focus-visible, .collapsible-btn:focus-visible, .mode-btn:focus-visible, .mobile-panel-toggle:focus-visible {
+    outline: none;
+}
+
 /* Percentage Pattern Controls */
 .percentage-pattern-controls {
     background: var(--panel-bg);
