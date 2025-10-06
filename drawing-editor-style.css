@@ -281,7 +281,6 @@ header h1 {
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     flex-shrink: 0;
-    transition: bottom 0.3s ease, transform 0.3s ease;
     position: absolute;
     left: 0;
     top: 0;
@@ -302,7 +301,6 @@ header h1 {
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     flex-shrink: 0;
-    transition: bottom 0.3s ease, transform 0.3s ease;
     position: absolute;
     right: 0;
     top: 0;
@@ -1455,6 +1453,7 @@ input[type="range"]::-moz-range-thumb {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    transition: transform 0.1s ease;
 }
 
 .zoom-controls {
@@ -2764,9 +2763,6 @@ button:focus, .toggle-btn:focus, .collapsible-btn:focus, .mode-btn:focus, .mobil
 }
 
 /* Adjust main canvas area to not overlap with layers panel */
-.canvas-area {
-    transition: padding-bottom 0.3s;
-}
 
 .canvas-area.with-layers {
     padding-bottom: var(--layers-panel-height);
