@@ -808,7 +808,6 @@ a:hover {
 
 .frame-thumb {
     background-color: #d0d0d0 !important;
-    background-image: radial-gradient(circle at 1px 1px, #888888 1px, transparent 1px) !important;
     background-size: 4px 4px !important;
     border: 2px solid #000000 !important;
     border-radius: 8px !important;
@@ -817,25 +816,40 @@ a:hover {
 
 .frame-thumb:hover {
     background-color: #d0d0d0 !important;
-    background-image: radial-gradient(circle at 1px 1px, #888888 1px, transparent 1px) !important;
     background-size: 4px 4px !important;
     border-color: #000000 !important;
     box-shadow: inset 2px 2px 2px #333333 !important;
 }
 
 .frame-thumb.active {
-    background-color: #d0d0d0 !important;
-    background-image: radial-gradient(circle at 1px 1px, #888888 1px, transparent 1px) !important;
+    color: #ffffff !important;
+    background-color: #000000!important;
     background-size: 4px 4px !important;
     border-color: #000000 !important;
     box-shadow: inset 2px 2px 2px #333333 !important;
+}
+
+.frame-thumb.active .frame-label {
+    color: #ffffff !important;
+}
+
+.frame-thumb.active:hover {
+    color: #ffffff !important;
+    background-color: #000000 !important;
+    background-size: 4px 4px !important;
+    border-color: #FFFFFF !important;
+    box-shadow: inset 2px 2px 2px #333333 !important;
+}
+
+.frame-thumb.active:hover .frame-label {
+    color: #ffffff !important;
 }
 
 .frame-label {
     color: #000000 !important;
 }
 
-.frame-thumb.active .frame-label,
+.frame-label,
 .frame-thumb:hover .frame-label {
     color: #000000 !important;
 }
@@ -845,7 +859,7 @@ a:hover {
     background-color: transparent !important;
 }
 
-.frame-thumb.active .thumb-canvas,
+.thumb-canvas,
 .frame-thumb:hover .thumb-canvas {
     background-color: transparent !important;
 }
@@ -872,7 +886,7 @@ body:not(.menu-page) .animation-panel .frame-thumb:hover {
     box-shadow: inset 1px 1px 0 #ffffff, inset -1px -1px 0 #000000, 0 0 4px #000000 !important;
 }
 
-body:not(.menu-page) .animation-panel .frame-thumb.active {
+body:not(.menu-page) .animation-panel {
     background: #000000 !important;
     border: 2px solid #000000 !important;
     color: #ffffff !important;
