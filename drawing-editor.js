@@ -1145,7 +1145,9 @@ class DrawingEditor {
                 this.patterns = this.generatePatterns();
                 // Update live preview if using bucket tool with lines pattern
                 if (this.currentTool === 'bucket' && this.fillPattern === 'lines') {
-                    setTimeout(() => this.updateGradientLivePreview(), 10);
+                    this.isEditingGradientSettings = true;
+                    this.ensureGradientEditingPreview();
+                    setTimeout(() => this.updateGradientLivePreview(), 50);
                 }
             });
         }
@@ -1159,7 +1161,9 @@ class DrawingEditor {
                 this.patterns = this.generatePatterns();
                 // Update live preview if using bucket tool with lines pattern
                 if (this.currentTool === 'bucket' && this.fillPattern === 'lines') {
-                    setTimeout(() => this.updateGradientLivePreview(), 10);
+                    this.isEditingGradientSettings = true;
+                    this.ensureGradientEditingPreview();
+                    setTimeout(() => this.updateGradientLivePreview(), 50);
                 }
             });
         }
@@ -1393,7 +1397,9 @@ class DrawingEditor {
                 this.patterns = this.generatePatterns();
                 // Update live preview if using bucket tool with percentage pattern
                 if (this.currentTool === 'bucket' && this.fillPattern === 'percentage') {
-                    setTimeout(() => this.updateGradientLivePreview(), 10);
+                    this.isEditingGradientSettings = true;
+                    this.ensureGradientEditingPreview();
+                    setTimeout(() => this.updateGradientLivePreview(), 50);
                 }
             });
         }
@@ -5055,47 +5061,19 @@ class DrawingEditor {
             if (this.currentTool === 'bucket') {
                 // Only show preview if cursor is within canvas bounds
                 if (this.isWithinCanvas(pos.x, pos.y)) {
-                    // For gradients, use persistent full-canvas preview
-                    if (this.fillPattern.startsWith('gradient-')) {
-                        // Store area info for potential use but show targeted area preview when on canvas
-                        const ctx = this.getCurrentFrameContext();
-                        const imageData = ctx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
-                        const data = imageData.data;
-                        const targetColor = this.getPixelColor(data, pos.x, pos.y);
-                        const fillColor = this.currentColor === 'black' ? [0, 0, 0, 255] : [255, 255, 255, 255];
-                        
-                        // Only update if this would actually fill something
-                        if (!this.colorsEqual(targetColor, fillColor)) {
-                            const fillPixels = this.getFillPreviewPixels(pos.x, pos.y, targetColor, imageData);
-                            this.lastPreviewArea = {
-                                pixels: fillPixels,
-                                targetColor: targetColor,
-                                clickX: pos.x,
-                                clickY: pos.y
-                            };
-                        }
-                        
-                        // When mouse is ON canvas, show targeted area preview for gradients
-                        if (!this.isEditingGradientSettings) {
-                            this.showFillPreview(pos.x, pos.y);
-                        } else {
-                            // When editing, show targeted area preview but preserve editing state
-                            this.showFillPreview(pos.x, pos.y, true);
-                        }
-                    } else {
-                        // For non-gradients, use targeted area preview
-                        // But don't interfere if we're editing gradient settings
-                        if (!this.isEditingGradientSettings) {
-                            this.showFillPreview(pos.x, pos.y);
-                        }
-                    }
+                    // Always show targeted area preview when mouse is on canvas
+                    // The showFillPreview function will handle the editing state properly
+                    this.showFillPreview(pos.x, pos.y, this.isEditingGradientSettings);
                 } else {
                     // When mouse is outside canvas
-                    if (this.fillPattern.startsWith('gradient-')) {
-                        // For gradients, always show full canvas preview when mouse is outside
+                    // Clear any targeted preview area so full preview can show
+                    this.lastPreviewArea = null;
+                    
+                    if (this.fillPattern.startsWith('gradient-') || this.fillPattern !== 'solid') {
+                        // For gradients and patterns, show full canvas preview when mouse is outside
                         this.updateGradientLivePreview();
                     } else {
-                        // For non-gradients, clear preview when outside canvas
+                        // For solid fills, clear preview when outside canvas
                         this.clearOverlayAndRedrawBase();
                     }
                 }
@@ -6168,7 +6146,7 @@ class DrawingEditor {
         // Draw preview based on the current fill pattern
         fillPixels.forEach(pixel => {
             let shouldShowPixel = true;
-            let previewColor = 'rgba(255, 0, 0, 0.6)'; // Default red preview
+            let previewColor = 'rgba(255, 0, 0, 0.6)'; // Red preview for consistency
             
             if (this.fillPattern.startsWith('gradient-')) {
                 // For gradients, use the exact same logic as performFloodFill
@@ -6433,7 +6411,7 @@ class DrawingEditor {
     ensureGradientEditingPreview() {
         if (this.isEditingGradientSettings && 
             this.currentTool === 'bucket' && 
-            this.fillPattern.startsWith('gradient-')) {
+            (this.fillPattern.startsWith('gradient-') || this.fillPattern !== 'solid')) {
             // Force update the preview to show red
             this.updateGradientLivePreview();
             
@@ -6442,28 +6420,30 @@ class DrawingEditor {
                 this.gradientEditingInterval = setInterval(() => {
                     if (this.isEditingGradientSettings && 
                         this.currentTool === 'bucket' && 
-                        this.fillPattern.startsWith('gradient-')) {
+                        (this.fillPattern.startsWith('gradient-') || this.fillPattern !== 'solid')) {
                         
-                        // Only update full preview if mouse is NOT on canvas
-                        // Get current mouse position to check if it's on canvas
+                        // Only update full preview if mouse is NOT on canvas AND no targeted preview is showing
                         if (this.lastMouseEvent) {
                             const pos = this.getMousePos(this.lastMouseEvent);
                             const isOnCanvas = this.isWithinCanvas(pos.x, pos.y);
                             
                             // Only show full preview when mouse is off canvas
-                            if (!isOnCanvas) {
+                            // And don't interfere if we have a lastPreviewArea (targeted preview active)
+                            if (!isOnCanvas && !this.lastPreviewArea) {
                                 this.updateGradientLivePreview();
                             }
                         } else {
-                            // If no mouse position, default to full preview
-                            this.updateGradientLivePreview();
+                            // If no mouse position and no targeted preview, default to full preview
+                            if (!this.lastPreviewArea) {
+                                this.updateGradientLivePreview();
+                            }
                         }
                     } else {
                         // Clear interval if no longer editing
                         clearInterval(this.gradientEditingInterval);
                         this.gradientEditingInterval = null;
                     }
-                }, 50); // Check every 50ms for more responsive updates
+                }, 100); // Reduced frequency to 100ms to reduce conflicts
             }
         }
     }
@@ -6477,37 +6457,49 @@ class DrawingEditor {
         // Clear overlay and redraw base layers
         this.overlayCtx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
         
-        // For gradients, show full canvas preview
-        if (this.fillPattern.startsWith('gradient-')) {
+        // For gradients and other patterns, show full canvas preview
+        if (this.fillPattern.startsWith('gradient-') || this.fillPattern !== 'solid') {
             // For gradients, show a full canvas preview with transparency
             this.overlayCtx.globalAlpha = 0.5; // Semi-transparent so you can see the underlying canvas
             
-            // Sample the gradient at regular intervals for performance
-            const sampleRate = 1; // Use 1 for better gradient detail
+            // Sample the pattern at regular intervals for performance
+            const sampleRate = 1; // Use 1 for better detail
             
             for (let y = 0; y < this.canvasHeight; y += sampleRate) {
                 for (let x = 0; x < this.canvasWidth; x += sampleRate) {
-                    // Get the actual gradient color for this position
-                    const hexColor = this.getGradientColor(x, y, this.fillPattern, this.currentColor);
                     let shouldShowPixel = true;
                     
-                    if (this.fillPattern.includes('-dither') || this.fillPattern.includes('-stipple')) {
-                        // For dithered gradients, check if this pixel would be filled
-                        if ((this.currentColor === 'black' && hexColor === '#ffffff') ||
-                            (this.currentColor === 'white' && hexColor === '#000000')) {
-                            shouldShowPixel = false;
+                    if (this.fillPattern.startsWith('gradient-')) {
+                        // Get the actual gradient color for this position
+                        const hexColor = this.getGradientColor(x, y, this.fillPattern, this.currentColor);
+                        
+                        if (this.fillPattern.includes('-dither') || this.fillPattern.includes('-stipple')) {
+                            // For dithered gradients, check if this pixel would be filled
+                            if ((this.currentColor === 'black' && hexColor === '#ffffff') ||
+                                (this.currentColor === 'white' && hexColor === '#000000')) {
+                                shouldShowPixel = false;
+                            }
                         }
+                    } else {
+                        // For non-gradient patterns, use shouldFillPixel
+                        shouldShowPixel = this.shouldFillPixel(x, y, this.fillPattern);
                     }
-                    // For regular (non-dithered) gradients, all pixels are shown
                     
                     if (shouldShowPixel) {
                         // Show red preview when editing settings, actual colors otherwise
                         if (this.isEditingGradientSettings) {
                             this.overlayCtx.fillStyle = 'rgba(255, 0, 0, 1.0)'; // Red when editing
                         } else {
-                            // Show the actual gradient color with transparency for preview
-                            const { r, g, b } = this.hexToRgba(hexColor);
-                            this.overlayCtx.fillStyle = `rgba(${r}, ${g}, ${b}, 1.0)`;
+                            // Show the actual color for preview
+                            if (this.fillPattern.startsWith('gradient-')) {
+                                const hexColor = this.getGradientColor(x, y, this.fillPattern, this.currentColor);
+                                const { r, g, b } = this.hexToRgba(hexColor);
+                                this.overlayCtx.fillStyle = `rgba(${r}, ${g}, ${b}, 1.0)`;
+                            } else {
+                                // For non-gradient patterns, use current color
+                                const color = this.currentColor === 'black' ? '0, 0, 0' : '255, 255, 255';
+                                this.overlayCtx.fillStyle = `rgba(${color}, 1.0)`;
+                            }
                         }
                         this.overlayCtx.fillRect(x, y, sampleRate, sampleRate);
                     }
@@ -9083,6 +9075,14 @@ class DrawingEditor {
             }
         } else {
             this.hideGradientControls();
+            
+            // For non-gradient patterns, also trigger editing state if bucket tool is active
+            if (this.currentTool === 'bucket' && pattern !== 'solid') {
+                this.isEditingGradientSettings = true; // Reuse the same flag for consistency
+                this.ensureGradientEditingPreview();
+                // Use the same updateGradientLivePreview function since it now handles all patterns
+                setTimeout(() => this.updateGradientLivePreview(), 50);
+            }
         }
         
         // Show/hide line pattern controls for lines pattern
