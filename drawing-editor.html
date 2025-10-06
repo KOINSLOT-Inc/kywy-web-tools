@@ -504,15 +504,13 @@
                 </div>
 
                 <div class="tool-section">
-                    <div class="animation-header">
-                        <button id="animationToggle" class="collapsible-btn">🎬 Animation</button>
-                    </div>
+                    <button id="animationToggle" class="collapsible-btn">🎬 Animation</button>
                     <div id="animationSettings" class="frame-controls" style="display: none;">
-                        <div class="frame-info">
+                        <div class="frame-info" style="margin-top: 12px">
                             Frame: <span id="currentFrame">1</span> / <span id="totalFrames">1</span>
                         </div>
                         <!-- Top Row: Frame Navigation & Management -->
-                        <div class="frame-buttons-row1">
+                        <div class="frame-buttons-row1" style="margin-top: 12px;">
                             <button id="prevFrame" disabled>⬅️</button>
                             <button id="nextFrame" disabled>➡️</button>
                             <button id="addFrame">➕</button>
@@ -542,10 +540,11 @@
                         <div class="onion-skin">
                             <button id="onionSkinToggle" class="toggle-btn">👻 Onion Skin</button>
                             <div id="onionOpacityContainer" style="display: none;">
-                                <label>Opacity: <span id="onionOpacityDisplay">30</span>%</label>
-                                <input type="range" id="onionOpacity" min="10" max="80" value="30">
-                                <div class="onion-mode-controls" style="margin-top: 8px;">
-                                    <label style="font-size: 12px; color: #333; margin-bottom: 4px; display: block;">Drawing Style:</label>
+                                <div class="onion-opacity-controls">
+                                    <label>Opacity: <span id="onionOpacityDisplay">30</span>%</label>
+                                    <input type="range" id="onionOpacity" min="10" max="80" value="30">
+                                </div>
+                                <div class="onion-mode-controls">
                                     <button id="onionModeBlackOnWhite" class="mode-btn active" data-mode="blackOnWhite">Black on White</button>
                                     <button id="onionModeWhiteOnBlack" class="mode-btn" data-mode="whiteOnBlack">White on Black</button>
                                 </div>

@@ -286,6 +286,7 @@ header h1 {
     height: auto;
     z-index: 50;
     box-shadow: 2px 0 8px rgba(0,0,0,0.1);
+    overflow-x: hidden;
 }
 
 .export-panel {
@@ -761,8 +762,12 @@ input[type="range"]::-moz-range-thumb {
 }
 
 /* Animation Controls */
-.animation-header {
-    margin-bottom: 10px;
+#animationToggle {
+    border: none;
+    background: transparent;
+    padding: 0;
+    border-radius: 0;
+    font-weight: normal;
 }
 
 .animation-header label {
@@ -914,6 +919,16 @@ input[type="range"]::-moz-range-thumb {
     margin-bottom: 5px;
     font-weight: bold;
     color: #333;
+}
+
+.onion-mode-controls {
+    margin-top: 10px;
+    text-align: center;
+}
+
+.onion-mode-controls .mode-btn {
+    display: inline-block;
+    margin: 0 2px;
 }
 
 .mode-btn {
@@ -2456,13 +2471,13 @@ textarea::placeholder {
     /* Onion mode controls mobile improvements */
     .onion-mode-controls {
         display: flex;
-        flex-direction: column;
-        gap: 8px;
-        margin-top: 12px;
+        gap: 5px;
+        justify-content: center;
+        margin-top: 10px;
     }
     
     .onion-mode-controls .mode-btn {
-        width: 100%;
+        flex: 1;
     }
     
     /* Tool sections mobile spacing */
