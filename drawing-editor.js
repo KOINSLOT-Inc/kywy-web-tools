@@ -6133,60 +6133,6 @@ class DrawingEditor {
         return fillPixels;
     }
 
-    showMirroredFillPreview(x, y) {
-        // Calculate mirror positions using the same logic as pen tool
-        const mirrorPositions = this.calculateMirrorPositions(x, y);
-        
-        // Show fill preview for each mirror position
-        mirrorPositions.forEach(pos => {
-            if (pos.x >= 0 && pos.x < this.canvasWidth && pos.y >= 0 && pos.y < this.canvasHeight) {
-                // Get the target color at this mirror position
-                const ctx = this.getCurrentFrameContext();
-                const imageData = ctx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
-                const data = imageData.data;
-                const targetColor = this.getPixelColor(data, pos.x, pos.y);
-                const fillColor = this.currentColor === 'black' ? [0, 0, 0, 255] : [255, 255, 255, 255];
-                
-                // Don't show preview if colors are the same
-                if (this.colorsEqual(targetColor, fillColor)) {
-                    return;
-                }
-                
-                // Find all pixels that would be filled for this mirror position
-                const fillPixels = this.getFillPreviewPixels(pos.x, pos.y, targetColor, imageData);
-                
-                // Draw preview based on the current fill pattern
-                fillPixels.forEach(pixel => {
-                    let shouldShowPixel = true;
-                    let previewColor = 'rgba(255, 0, 0, 0.6)'; // Red preview
-                    
-                    if (this.fillPattern.startsWith('gradient-')) {
-                        // For gradients, calculate what the actual fill would be
-                        if (this.fillPattern.includes('-dither') || this.fillPattern.includes('-stipple')) {
-                            // For dithered gradients, check if this pixel would be filled
-                            const hexColor = this.getGradientColor(pixel.x, pixel.y, this.fillPattern, this.currentColor);
-                            if ((this.currentColor === 'black' && hexColor === '#ffffff') ||
-                                (this.currentColor === 'white' && hexColor === '#000000')) {
-                                shouldShowPixel = false;
-                            }
-                        } else {
-                            // For regular gradients, show all pixels
-                            shouldShowPixel = true;
-                        }
-                    } else if (this.fillPattern !== 'solid') {
-                        // For stippling patterns, check if pixel should be filled
-                        shouldShowPixel = this.shouldFillPixel(pixel.x, pixel.y, this.fillPattern);
-                    }
-                    
-                    if (shouldShowPixel) {
-                        this.overlayCtx.fillStyle = previewColor;
-                        this.overlayCtx.fillRect(pixel.x, pixel.y, 1, 1);
-                    }
-                });
-            }
-        });
-    }
-
     calculateMirrorPositions(x, y) {
         const positions = [];
         
