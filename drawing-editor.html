@@ -104,22 +104,22 @@
 
                 <div class="tool-section" id="brushSettings">
                     <h3>Brush Settings</h3>
-                    <label>Size: <span id="brushSizeDisplay">1</span>px</label>
+                    <label for="brushSize">Size: <span id="brushSizeDisplay">1</span>px</label>
                     <input type="range" id="brushSize" min="1" max="50" value="1">
                     
                     <div id="sprayFlowControl" style="display: none;">
-                        <label>Flow: <span id="sprayFlowDisplay">3</span></label>
+                        <label for="sprayFlow">Flow: <span id="sprayFlowDisplay">3</span></label>
                         <input type="range" id="sprayFlow" min="1" max="10" value="3">
                     </div>
                     
-                    <label>Shape:</label>
                     <div class="brush-shape">
+                        <span class="label-text">Shape:</span>
                         <button id="squareBrush" class="brush-shape-btn active" data-shape="square">⬜ Square</button>
                         <button id="circleBrush" class="brush-shape-btn" data-shape="circle">⭕ Circle</button>
                     </div>
                     
-                    <label>Color:</label>
                     <div class="color-picker">
+                        <span class="label-text">Color:</span>
                         <button id="blackColor" class="color-btn active" data-color="black">⬛ Black</button>
                         <button id="whiteColor" class="color-btn" data-color="white">⬜ White</button>
                     </div>
@@ -152,13 +152,13 @@
                     <div id="pasteModeOptions" style="display: none; margin-top: 8px;">
                         <h4>Paste Options</h4>
                         <div style="margin-bottom: 8px;">
-                            <label style="display: block; margin-bottom: 4px;">Transparency:</label>
+                            <span class="label-text" style="display: block; margin-bottom: 4px;">Transparency:</span>
                             <button id="transparencyToggle" class="edit-btn" style="font-size: 12px;">🔍 Transparent White</button>
                         </div>
                     </div>
                     
                     <h4>Rotate Selection</h4>
-                    <label>Angle: <span id="rotationAngleDisplay">0</span>°</label>
+                    <label for="rotationAngle">Angle: <span id="rotationAngleDisplay">0</span>°</label>
                     <input type="range" id="rotationAngle" min="-180" max="180" value="0" step="15">
                     <div id="rotationWarning" style="display: none; color: #ff6b35; font-size: 11px; margin: 4px 0; padding: 2px 4px; background: rgba(255, 107, 53, 0.1); border-radius: 3px;">
                         ⚠️ Non-90° rotation is destructive to pixel art
@@ -376,11 +376,11 @@
                     
                     <div id="shapeThickness" class="thickness-section">
                         <h4>Stroke Thickness</h4>
-                        <label>Width: <span id="shapeThicknessDisplay">1</span>px</label>
+                        <label for="shapeThicknessSlider">Width: <span id="shapeThicknessDisplay">1</span>px</label>
                         <input type="range" id="shapeThicknessSlider" min="1" max="50" value="1">
                         
-                        <label>Position:</label>
                         <div class="thickness-style">
+                            <span class="label-text">Position:</span>
                             <button id="outsideStyle" class="style-btn active" data-style="outside">⊡ Out</button>
                             <button id="insideStyle" class="style-btn" data-style="inside">⊞ In</button>
                             <button id="centeredStyle" class="style-btn" data-style="centered">⊟ Center</button>
@@ -396,7 +396,7 @@
                     </div>
                     
                     <h4>Sides</h4>
-                    <label>Count: <span id="polygonSidesDisplay">6</span> sides</label>
+                    <label for="polygonSides">Count: <span id="polygonSidesDisplay">6</span> sides</label>
                     <input type="range" id="polygonSides" min="3" max="20" value="6" step="1">
                     
                     <h4>Fill Style</h4>
@@ -408,7 +408,7 @@
                     
                     <div id="polygonThickness" class="thickness-section">
                         <h4>Stroke Thickness</h4>
-                        <label>Width: <span id="polygonThicknessDisplay">1</span>px</label>
+                        <label for="polygonThicknessSlider">Width: <span id="polygonThicknessDisplay">1</span>px</label>
                         <input type="range" id="polygonThicknessSlider" min="1" max="50" value="1">
                     </div>
                 </div>
@@ -416,7 +416,7 @@
                 <div class="tool-section" id="textSettings" style="display: none;">
                     <h3>Text Settings</h3>
                     <div class="text-controls">
-                        <label>Text:</label>
+                        <label for="textInput">Text:</label>
                         <textarea id="textInput" placeholder="Enter text... (use Enter for new lines)" maxlength="500" rows="3"></textarea>
                         
                         <div class="emoji-section">
@@ -437,40 +437,40 @@
                             </div>
                         </div>
                         
-                        <label>Font:</label>
+                        <label for="fontFamily">Font:</label>
                         <select id="fontFamily">
                             <!-- System fonts will be populated dynamically -->
                         </select>
                         
-                        <label>Size: <span id="fontSizeDisplay">48</span>px</label>
+                        <label for="fontSize">Size: <span id="fontSizeDisplay">48</span>px</label>
                         <input type="range" id="fontSize" min="4" max="100" value="48" step="1">
                         
-                        <label>Style:</label>
                         <div class="text-style">
+                            <span class="label-text">Style:</span>
                             <button id="boldToggle" class="text-style-btn" data-style="bold">B Bold</button>
                             <button id="italicToggle" class="text-style-btn" data-style="italic">I Italic</button>
                         </div>
                         
-                        <label>Color:</label>
                         <div class="color-picker">
+                            <span class="label-text">Color:</span>
                             <button id="textBlackColor" class="color-btn active" data-color="black">⬛ Black</button>
                             <button id="textWhiteColor" class="color-btn" data-color="white">⬜ White</button>
                         </div>
                         
                         <div class="emoji-adjustments">
-                            <label>Emoji mode</label>
+                            <span class="label-text">Emoji mode</span>
                             <button id="emojiDitheringToggle" class="emoji-dither-btn active">🔍 Edge Detection</button>
                             
                             <div id="emojiBrightnessContainer">
-                                <label>Emoji Brightness: <span id="emojiBrightnessDisplay">-20</span></label>
+                                <label for="emojiBrightness">Emoji Brightness: <span id="emojiBrightnessDisplay">-20</span></label>
                                 <input type="range" id="emojiBrightness" min="-100" max="100" value="-20" step="1">
                             </div>
                             
                             <div id="ditheringOptionsContainer" style="display: none;">
-                                <label>Emoji Contrast: <span id="emojiContrastDisplay">100</span>%</label>
+                                <label for="emojiContrast">Emoji Contrast: <span id="emojiContrastDisplay">100</span>%</label>
                                 <input type="range" id="emojiContrast" min="50" max="200" value="100" step="1">
                                 
-                                <label>Dithering Type:</label>
+                                <label for="ditheringTypeSelect">Dithering Type:</label>
                                 <select id="ditheringTypeSelect">
                                     <option value="floyd-steinberg">Floyd-Steinberg</option>
                                     <option value="atkinson">Atkinson</option>
@@ -539,14 +539,14 @@
                         </div>
                         
                         <div class="animation-speed-controls">
-                            <label>Speed: <span id="frameRateDisplay">5</span> FPS</label>
+                            <label for="frameRate">Speed: <span id="frameRateDisplay">5</span> FPS</label>
                             <input type="range" id="frameRate" min="0.1" max="30" value="5" step="0.1">
                         </div>
                         <div class="onion-skin">
                             <button id="onionSkinToggle" class="toggle-btn">👻 Onion Skin</button>
                             <div id="onionOpacityContainer" style="display: none;">
                                 <div class="onion-opacity-controls">
-                                    <label>Opacity: <span id="onionOpacityDisplay">30</span>%</label>
+                                    <label for="onionOpacity">Opacity: <span id="onionOpacityDisplay">30</span>%</label>
                                     <input type="range" id="onionOpacity" min="10" max="80" value="30">
                                 </div>
                                 <div class="onion-mode-controls">
@@ -607,7 +607,7 @@
                 <div class="tool-section">
                     <h3>Export</h3>
                     <div class="export-options">
-                        <label>Format:</label>
+                        <label for="exportFormat">Format:</label>
                         <select id="exportFormat">
                             <option value="hpp">HPP (C++)</option>
                             <option value="animation">Animation HPP</option>
@@ -616,7 +616,7 @@
                         </select>
                     </div>
                     <div class="export-options">
-                        <label>Name:</label>
+                        <label for="assetName">Name:</label>
                         <input type="text" id="assetName" class="iphone-input" placeholder="my_image" value="my_image" maxlength="50">
                         <div id="nameWarning" class="name-warning" style="display: none;">
                             ⚠️ Invalid characters will be replaced with underscores
@@ -1080,7 +1080,7 @@
                     <button id="animBoomerangMode" class="mode-btn" data-mode="boomerang">↔️ Boomerang</button>
                 </div>
                 <div class="animation-speed-control">
-                    <label>Speed: <span id="animFrameRateDisplay">5</span> FPS</label>
+                    <label for="animFrameRate">Speed: <span id="animFrameRateDisplay">5</span> FPS</label>
                     <input type="range" id="animFrameRate" min="0.1" max="30" value="5" step="0.1">
                 </div>
                 <div class="onion-skin-control">

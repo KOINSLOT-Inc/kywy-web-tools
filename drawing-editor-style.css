@@ -654,7 +654,8 @@ header h1 {
 }
 
 /* Brush Settings */
-.tool-section label {
+.tool-section label,
+.tool-section .label-text {
     display: block;
     margin-bottom: 8px;
     font-weight: 500;
