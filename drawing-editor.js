@@ -559,6 +559,7 @@ class DrawingEditor {
         
         // Layer system
         this.layersEnabled = false;
+        this.animationEnabled = false;
         this.layers = []; // Array of layers for current frame: [{name, canvas, visible}, ...]
         this.currentLayerIndex = 0;
         this.frameLayers = {}; // Store layers per frame: {frameIndex: {layers: [...], currentLayerIndex: 0}}
@@ -2535,6 +2536,12 @@ class DrawingEditor {
         const exportPanel = document.querySelector('.export-panel');
         
         if (this.layersEnabled) {
+            // If animation panel is open, close it first
+            if (this.animationEnabled) {
+                document.getElementById('animationEnabled').checked = false;
+                this.toggleAnimationMode();
+            }
+            
             // Show layers panel
             layersPanel.style.display = 'flex';
             
@@ -2578,6 +2585,184 @@ class DrawingEditor {
         this.redrawCanvas();
     }
     
+    toggleAnimationMode() {
+        this.animationEnabled = document.getElementById('animationEnabled').checked;
+        const animationPanel = document.getElementById('animationPanel');
+        const canvasArea = document.querySelector('.canvas-area');
+        const mobileToolbar = document.querySelector('.mobile-bottom-toolbar');
+        const toolsPanel = document.querySelector('.tools-panel');
+        const exportPanel = document.querySelector('.export-panel');
+        
+        if (this.animationEnabled) {
+            // If layers panel is open, close it first
+            if (this.layersEnabled) {
+                document.getElementById('layersEnabled').checked = false;
+                this.toggleLayersMode();
+            }
+            
+            // Show animation panel
+            animationPanel.style.display = 'flex';
+            
+            // Add classes to adjust layout
+            if (canvasArea) canvasArea.classList.add('with-animation');
+            if (mobileToolbar) mobileToolbar.classList.add('with-animation');
+            if (toolsPanel) toolsPanel.classList.add('with-animation');
+            if (exportPanel) exportPanel.classList.add('with-animation');
+            
+            // Update animation UI
+            this.updateAnimationUI();
+        } else {
+            // Hide animation panel
+            animationPanel.style.display = 'none';
+            
+            // Remove layout adjustment classes
+            if (canvasArea) canvasArea.classList.remove('with-animation');
+            if (mobileToolbar) mobileToolbar.classList.remove('with-animation');
+            if (toolsPanel) toolsPanel.classList.remove('with-animation');
+            if (exportPanel) exportPanel.classList.remove('with-animation');
+        }
+        
+        this.redrawCanvas();
+    }
+    
+    updateAnimationUI() {
+        const framesList = document.getElementById('framesList');
+        if (!framesList) {
+            console.error('framesList element not found');
+            return;
+        }
+        
+        if (!this.frames || this.frames.length === 0) {
+            console.warn('No frames available for animation UI');
+            framesList.innerHTML = '<div style="padding: 20px; text-align: center;">No frames available</div>';
+            return;
+        }
+        
+        framesList.innerHTML = '';
+        
+        this.frames.forEach((frame, index) => {
+            const thumbDiv = document.createElement('div');
+            thumbDiv.className = `frame-thumb ${index === this.currentFrameIndex ? 'active' : ''}`;
+            thumbDiv.dataset.frame = index;
+            
+            const canvas = document.createElement('canvas');
+            canvas.className = 'thumb-canvas';
+            canvas.width = 80; // Smaller for animation panel
+            canvas.height = 80;
+            
+            const label = document.createElement('span');
+            label.className = 'frame-label';
+            label.textContent = `${index}`;
+            
+            thumbDiv.appendChild(canvas);
+            thumbDiv.appendChild(label);
+            
+            // Add click handler to switch frames
+            thumbDiv.addEventListener('click', () => {
+                this.setCurrentFrame(index);
+            });
+            
+            framesList.appendChild(thumbDiv);
+            
+            // Draw thumbnail
+            const ctx = canvas.getContext('2d', { willReadFrequently: true });
+            ctx.imageSmoothingEnabled = false;
+            ctx.clearRect(0, 0, 80, 80);
+            ctx.drawImage(frame, 0, 0, 80, 80);
+        });
+        
+        // Update animation controls
+        this.updateAnimationControls();
+    }
+    
+    updateAnimationControls() {
+        // Sync with existing animation controls
+        const animPlayBtn = document.getElementById('animPlayBtn');
+        const animCycleMode = document.getElementById('animCycleMode');
+        const animBoomerangMode = document.getElementById('animBoomerangMode');
+        const animFrameRate = document.getElementById('animFrameRate');
+        const animFrameRateDisplay = document.getElementById('animFrameRateDisplay');
+        const animOnionSkinToggle = document.getElementById('animOnionSkinToggle');
+        const animOnionOpacity = document.getElementById('animOnionOpacity');
+        const animOnionOpacityDisplay = document.getElementById('animOnionOpacityDisplay');
+        
+        // Sync with main controls
+        const mainPlayBtn = document.getElementById('playBtn');
+        const mainCycleMode = document.getElementById('cycleMode');
+        const mainBoomerangMode = document.getElementById('boomerangMode');
+        const mainFrameRate = document.getElementById('frameRate');
+        const mainOnionSkinToggle = document.getElementById('onionSkinToggle');
+        const mainOnionOpacity = document.getElementById('onionOpacity');
+        
+        if (animPlayBtn && mainPlayBtn) {
+            animPlayBtn.textContent = mainPlayBtn.textContent;
+        }
+        
+        if (animCycleMode && mainCycleMode) {
+            animCycleMode.classList.toggle('active', mainCycleMode.classList.contains('active'));
+        }
+        
+        if (animBoomerangMode && mainBoomerangMode) {
+            animBoomerangMode.classList.toggle('active', mainBoomerangMode.classList.contains('active'));
+        }
+        
+        if (animFrameRate && mainFrameRate) {
+            animFrameRate.value = mainFrameRate.value;
+        }
+        
+        if (animFrameRateDisplay && mainFrameRate) {
+            animFrameRateDisplay.textContent = mainFrameRate.value;
+        }
+        
+        if (animOnionSkinToggle && mainOnionSkinToggle) {
+            animOnionSkinToggle.classList.toggle('active', mainOnionSkinToggle.classList.contains('active'));
+        }
+        
+        if (animOnionOpacity && mainOnionOpacity) {
+            animOnionOpacity.value = mainOnionOpacity.value;
+        }
+        
+        if (animOnionOpacityDisplay && mainOnionOpacity) {
+            animOnionOpacityDisplay.textContent = mainOnionOpacity.value;
+        }
+    }
+
+    setCurrentFrame(frameIndex) {
+        if (frameIndex < 0 || frameIndex >= this.frames.length) {
+            return; // Invalid frame index
+        }
+        
+        this.currentFrameIndex = frameIndex;
+        
+        // Redraw canvas with new frame
+        this.redrawCanvas();
+        
+        // Update code output
+        this.generateCode();
+        
+        // Update frame thumbnails to show active state
+        this.updateFrameUI();
+        
+        // Update animation panel if it's open
+        if (this.animationEnabled) {
+            this.updateAnimationUI();
+        }
+        
+        // Update layers UI if layers are enabled
+        if (this.layersEnabled) {
+            this.updateLayersUI();
+        }
+    }
+
+    updateFrameUI() {
+        // Update main frame thumbnails list
+        this.updateFrameList();
+        
+        // Update frame counter display
+        document.getElementById('currentFrame').textContent = this.currentFrameIndex + 1;
+        document.getElementById('totalFrames').textContent = this.frames.length;
+    }
+
     initializeLayersForFrame(frameIndex) {
         const frameCanvas = this.frames[frameIndex];
         
@@ -3372,6 +3557,17 @@ class DrawingEditor {
             }, { passive: false });
         }
         
+        // Add horizontal scrolling to animation frames list with mouse wheel
+        const framesList = document.getElementById('framesList');
+        if (framesList) {
+            framesList.addEventListener('wheel', (e) => {
+                // Prevent default vertical scroll behavior
+                e.preventDefault();
+                // Scroll horizontally based on wheel delta
+                framesList.scrollLeft += e.deltaY;
+            }, { passive: false });
+        }
+        
         // Add global mouse events to handle drawing outside canvas
         document.addEventListener('mousemove', (e) => {
             // Store the current mouse event for panning
@@ -3863,6 +4059,56 @@ class DrawingEditor {
         document.getElementById('moveLayerRight').addEventListener('click', () => this.moveLayerRight());
         document.getElementById('mergeDown').addEventListener('click', () => this.mergeLayerDown());
         document.getElementById('copyLayerToFrames').addEventListener('click', () => this.copyLayerToFrames());
+        
+        // Animation panel system
+        document.getElementById('animationEnabled').addEventListener('change', () => this.toggleAnimationMode());
+        
+        // Animation panel buttons - connect to existing functions
+        document.getElementById('animAddFrame').addEventListener('click', () => this.addFrame());
+        document.getElementById('animDeleteFrame').addEventListener('click', () => this.deleteFrame());
+        document.getElementById('animMoveLeft').addEventListener('click', () => this.moveFrameLeft());
+        document.getElementById('animMoveRight').addEventListener('click', () => this.moveFrameRight());
+        document.getElementById('animCopyFrame').addEventListener('click', () => this.copyFrame());
+        document.getElementById('animPlayBtn').addEventListener('click', () => this.toggleAnimation());
+        
+        // Animation panel mode buttons
+        document.getElementById('animCycleMode').addEventListener('click', () => {
+            this.setAnimationMode('cycle');
+            this.updateAnimationControls();
+        });
+        document.getElementById('animBoomerangMode').addEventListener('click', () => {
+            this.setAnimationMode('boomerang');
+            this.updateAnimationControls();
+        });
+        
+        // Animation panel frame rate
+        document.getElementById('animFrameRate').addEventListener('input', (e) => {
+            const mainFrameRate = document.getElementById('frameRate');
+            mainFrameRate.value = e.target.value;
+            this.frameRate = parseFloat(e.target.value);
+            document.getElementById('frameRateDisplay').textContent = e.target.value;
+            document.getElementById('animFrameRateDisplay').textContent = e.target.value;
+            if (this.isPlaying) {
+                this.stopAnimation();
+                this.startAnimation();
+            }
+        });
+        
+        // Animation panel onion skin
+        document.getElementById('animOnionSkinToggle').addEventListener('click', () => {
+            const mainOnionToggle = document.getElementById('onionSkinToggle');
+            mainOnionToggle.click(); // Trigger the main toggle
+            this.updateAnimationControls();
+        });
+        
+        document.getElementById('animOnionOpacity').addEventListener('input', (e) => {
+            const mainOnionOpacity = document.getElementById('onionOpacity');
+            mainOnionOpacity.value = e.target.value;
+            document.getElementById('onionOpacityDisplay').textContent = e.target.value;
+            document.getElementById('animOnionOpacityDisplay').textContent = e.target.value;
+            this.onionOpacity = parseInt(e.target.value);
+            this.redrawCanvas();
+        });
         
         // Keyboard shortcuts
         document.addEventListener('keydown', (e) => this.handleKeyboardShortcuts(e));
@@ -9031,6 +9277,11 @@ class DrawingEditor {
         // Update frame thumbnails
         this.updateFrameList();
         
+        // Update animation panel if it's open
+        if (this.animationEnabled) {
+            this.updateAnimationUI();
+        }
+        
         // Update edit button states
         this.updateEditButtonStates();
     }
@@ -9381,17 +9632,11 @@ class DrawingEditor {
     previousFrame() {
         if (this.currentFrameIndex > 0) {
             this.soloLayerIndex = null; // Exit solo mode when switching frames
-            this.currentFrameIndex--;
+            this.setCurrentFrame(this.currentFrameIndex - 1);
             
             // Initialize layers for this frame if layers are enabled and not already initialized
             if (this.layersEnabled && (!this.frameLayers[this.currentFrameIndex] || !this.frameLayers[this.currentFrameIndex].layers)) {
                 this.initializeLayersForFrame(this.currentFrameIndex);
-            }
-            
-            this.updateUI();
-            this.redrawCanvas();
-            if (this.layersEnabled) {
-                this.updateLayersUI();
             }
         }
     }
@@ -9399,17 +9644,11 @@ class DrawingEditor {
     nextFrame() {
         if (this.currentFrameIndex < this.frames.length - 1) {
             this.soloLayerIndex = null; // Exit solo mode when switching frames
-            this.currentFrameIndex++;
+            this.setCurrentFrame(this.currentFrameIndex + 1);
             
             // Initialize layers for this frame if layers are enabled and not already initialized
             if (this.layersEnabled && (!this.frameLayers[this.currentFrameIndex] || !this.frameLayers[this.currentFrameIndex].layers)) {
                 this.initializeLayersForFrame(this.currentFrameIndex);
-            }
-            
-            this.updateUI();
-            this.redrawCanvas();
-            if (this.layersEnabled) {
-                this.updateLayersUI();
             }
         }
     }
@@ -9467,13 +9706,31 @@ class DrawingEditor {
     }
     
     generateThumbnail(frameIndex) {
-        const thumbCanvas = document.querySelectorAll('.thumb-canvas')[frameIndex];
-        if (!thumbCanvas) return;
+        // Update main frame thumbnails (64x64)
+        const frameList = document.getElementById('frameList');
+        if (frameList) {
+            const thumbCanvas = frameList.querySelectorAll('.thumb-canvas')[frameIndex];
+            if (thumbCanvas) {
+                const ctx = thumbCanvas.getContext('2d', { willReadFrequently: true });
+                ctx.imageSmoothingEnabled = false;
+                ctx.clearRect(0, 0, 64, 64);
+                ctx.drawImage(this.frames[frameIndex], 0, 0, 64, 64);
+            }
+        }
         
-        const ctx = thumbCanvas.getContext('2d', { willReadFrequently: true });
-        ctx.imageSmoothingEnabled = false;
-        ctx.clearRect(0, 0, 64, 64);
-        ctx.drawImage(this.frames[frameIndex], 0, 0, 64, 64);
+        // Update animation panel thumbnails (80x80) if animation panel is open
+        if (this.animationEnabled) {
+            const framesList = document.getElementById('framesList');
+            if (framesList) {
+                const animThumbCanvas = framesList.querySelectorAll('.thumb-canvas')[frameIndex];
+                if (animThumbCanvas) {
+                    const ctx = animThumbCanvas.getContext('2d', { willReadFrequently: true });
+                    ctx.imageSmoothingEnabled = false;
+                    ctx.clearRect(0, 0, 80, 80);
+                    ctx.drawImage(this.frames[frameIndex], 0, 0, 80, 80);
+                }
+            }
+        }
     }
     
     regenerateAllThumbnails() {
@@ -9482,18 +9739,21 @@ class DrawingEditor {
         if (!this.frames || this.frames.length === 0) {
             return; // Frames haven't been initialized yet
         }
-        
+
         const thumbCanvases = document.querySelectorAll('.thumb-canvas');
         if (thumbCanvases.length === 0) {
             return; // Thumbnails haven't been created yet
         }
-        
+
         for (let i = 0; i < this.frames.length; i++) {
             this.generateThumbnail(i);
         }
-    }
-    
-    updateFrameList() {
+        
+        // Also update animation panel if it's open
+        if (this.animationEnabled) {
+            this.updateAnimationUI();
+        }
+    }    updateFrameList() {
         const frameList = document.getElementById('frameList');
         frameList.innerHTML = '';
         
@@ -9522,7 +9782,7 @@ class DrawingEditor {
             
             // Click handler
             thumbDiv.addEventListener('click', () => {
-                this.currentFrameIndex = index;
+                this.setCurrentFrame(index);
                 this.soloLayerIndex = null; // Exit solo mode when switching frames
                 
                 // Initialize layers for this frame if layers are enabled and not already initialized
@@ -9530,8 +9790,6 @@ class DrawingEditor {
                     this.initializeLayersForFrame(index);
                 }
                 
-                this.updateUI();
-                this.redrawCanvas();
                 if (this.layersEnabled) {
                     this.updateLayersUI();
                 }
@@ -9689,17 +9947,13 @@ class DrawingEditor {
         const hasMultipleFrames = this.frames && this.frames.length > 1;
         
         let format;
-        if (animationEnabled && hasMultipleFrames) {
-            format = 'animation';
-            // Update the dropdown to reflect auto-selection
-            document.getElementById('exportFormat').value = 'animation';
-        } else {
-            format = document.getElementById('exportFormat').value;
-            // If single frame but animation format selected, use single frame
-            if (format === 'animation' && !hasMultipleFrames) {
-                format = 'hpp';
-                document.getElementById('exportFormat').value = 'hpp';
-            }
+        // Get the selected format
+        format = document.getElementById('exportFormat').value;
+        
+        // If animation format is selected but only single frame exists, use single frame
+        if (format === 'animation' && !hasMultipleFrames) {
+            format = 'hpp';
+            document.getElementById('exportFormat').value = 'hpp';
         }
         
         let code = '';

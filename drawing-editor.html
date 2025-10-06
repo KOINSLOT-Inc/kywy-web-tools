@@ -580,7 +580,10 @@
                             <input type="checkbox" id="pixelGrid"> Show Grid
                         </label>
                         <label>
-                            <input type="checkbox" id="layersEnabled"> Layers
+                            <input type="checkbox" id="layersEnabled"> Show Layers
+                        </label>
+                        <label>
+                            <input type="checkbox" id="animationEnabled"> Show Animations
                         </label>
                     </div>
                     <div class="canvas-info">
@@ -1010,6 +1013,39 @@
         </div>
         <div class="layers-list" id="layersList">
             <!-- Layers will be added here dynamically -->
+        </div>
+    </div>
+
+    <!-- Animation Panel (bottom of screen) -->
+    <div class="animation-panel" id="animationPanel" style="display: none;">
+        <div class="animation-header">
+            <h3>🎬 Animation</h3>
+            <div class="animation-actions">
+                <button id="animAddFrame" class="animation-btn" title="Add Frame">➕ Add</button>
+                <button id="animDeleteFrame" class="animation-btn" title="Delete Frame">🗑️</button>
+                <button id="animMoveLeft" class="animation-btn" title="Move Frame Left">⬅️</button>
+                <button id="animMoveRight" class="animation-btn" title="Move Frame Right">➡️</button>
+                <button id="animCopyFrame" class="animation-btn" title="Copy Frame">📋 Copy</button>
+                <button id="animPlayBtn" class="animation-btn" title="Play Animation">▶️ Play</button>
+                <div class="animation-mode-controls">
+                    <button id="animCycleMode" class="mode-btn active" data-mode="cycle">🔄 Cycle</button>
+                    <button id="animBoomerangMode" class="mode-btn" data-mode="boomerang">↔️ Boomerang</button>
+                </div>
+                <div class="animation-speed-control">
+                    <label>Speed: <span id="animFrameRateDisplay">5</span> FPS</label>
+                    <input type="range" id="animFrameRate" min="0.1" max="30" value="5" step="0.1">
+                </div>
+                <div class="onion-skin-control">
+                    <button id="animOnionSkinToggle" class="toggle-btn">👻 Onion Skin</button>
+                    <div id="animOnionOpacityContainer" style="display: none;">
+                        <label>Opacity: <span id="animOnionOpacityDisplay">30</span>%</label>
+                        <input type="range" id="animOnionOpacity" min="10" max="80" value="30">
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="frames-list" id="framesList">
+            <!-- Frames will be added here dynamically -->
         </div>
     </div>
     

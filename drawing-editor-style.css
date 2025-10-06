@@ -754,7 +754,7 @@ input[type="range"]::-moz-range-thumb {
 
 /* Animation Controls */
 .animation-header {
-    margin-bottom: 15px;
+    margin-bottom: 10px;
 }
 
 .animation-header label {
@@ -2758,6 +2758,220 @@ button:focus, .toggle-btn:focus, .collapsible-btn:focus, .mode-btn:focus, .mobil
     align-items: flex-start;
     min-height: 0; /* Important for flex scrolling */
     /* Allow horizontal scrollbar to show when needed */
+}
+
+/* Animation Panel (bottom of screen) */
+.animation-panel {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: var(--layers-panel-height);
+    max-height: var(--layers-panel-height); /* Prevent growing too tall */
+    background: white; /* White solid background */
+    border-top: 2px solid var(--border-color);
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden; /* Contain all children */
+}
+
+/* Adjust main canvas area for animation panel */
+.canvas-area.with-animation {
+    padding-bottom: var(--layers-panel-height);
+}
+
+/* Adjust sidebars when animation panel is visible */
+.tools-panel.with-animation,
+.export-panel.with-animation {
+    bottom: calc(var(--layers-panel-height) + var(--canvas-controls-height)); /* Above animation panel + canvas controls */
+}
+
+/* Adjust mobile toolbar when animation panel is visible */
+.mobile-bottom-toolbar.with-animation {
+    bottom: calc(var(--layers-panel-height) + var(--canvas-controls-height));
+}
+
+.animation-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 8px; /* Reduced from 8px 12px */
+    background: #f5f5f5; /* Light gray header */
+    border-bottom: 1px solid var(--border-color);
+    flex-wrap: wrap;
+    gap: 6px; /* Reduced from 8px */
+}
+
+.animation-header h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-color);
+    flex-shrink: 0;
+}
+
+.animation-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    flex: 1;
+    justify-content: flex-end;
+}
+
+.animation-btn {
+    padding: 6px 10px;
+    font-size: 12px;
+    border: 1px solid var(--border-color);
+    background: var(--button-bg);
+    color: var(--text-color);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.animation-btn:hover {
+    background: var(--button-hover);
+    transform: translateY(-1px);
+}
+
+.animation-btn:active {
+    transform: translateY(0);
+}
+
+.animation-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.animation-mode-controls {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+}
+
+.animation-mode-controls .mode-btn {
+    padding: 4px 8px;
+    font-size: 11px;
+    border: 1px solid var(--border-color);
+    background: var(--button-bg);
+    color: var(--text-color);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.animation-mode-controls .mode-btn.active {
+    background: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+}
+
+.animation-speed-control {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.animation-speed-control label {
+    font-size: 11px;
+    color: var(--text-color);
+    white-space: nowrap;
+}
+
+.animation-speed-control input[type="range"] {
+    width: 80px;
+}
+
+.onion-skin-control {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.onion-skin-control .toggle-btn {
+    padding: 4px 8px;
+    font-size: 11px;
+    border: 1px solid var(--border-color);
+    background: var(--button-bg);
+    color: var(--text-color);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.onion-skin-control .toggle-btn.active {
+    background: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+}
+
+.onion-skin-control label {
+    font-size: 10px;
+    color: var(--text-color);
+    white-space: nowrap;
+}
+
+.onion-skin-control input[type="range"] {
+    width: 60px;
+}
+
+.frames-list {
+    flex: 1;
+    display: flex;
+    gap: 8px;
+    padding: 8px;
+    padding-bottom: 12px; /* Extra padding at bottom to ensure shadow visibility */
+    overflow-x: auto; /* Allow horizontal scrolling */
+    overflow-y: hidden; /* Hide vertical scrolling to prevent clutter */
+    align-items: flex-start;
+    min-height: 0; /* Important for flex scrolling */
+    /* Allow horizontal scrollbar to show when needed */
+}
+
+/* Animation panel frame thumbnails - larger and fills vertical space */
+.animation-panel .frame-thumb {
+    flex-shrink: 0; /* Prevent shrinking to ensure horizontal scroll */
+    width: 96px; /* Fixed width like layer-item */
+    background: white;
+    border: 2px solid var(--border-color);
+    border-radius: 6px;
+    padding: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.animation-panel .frame-thumb:hover {
+    border-color: var(--primary-color);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.animation-panel .frame-thumb.active {
+    border-color: var(--primary-color);
+    background: #f0f4ff;
+}
+
+.animation-panel .frame-thumb canvas {
+    width: 80px !important; /* Smaller than before (was 120px) */
+    height: 80px !important;
+    border: 1px solid #eee;
+    margin-bottom: 4px;
+    image-rendering: pixelated; /* Keep crisp pixel art scaling */
+}
+
+.animation-panel .frame-thumb span {
+    font-size: 11px;
+    color: #666;
+    margin-top: 2px;
 }
 
 /* Scrollbar styling for different themes */
