@@ -9712,13 +9712,21 @@ class DrawingEditor {
     
     toggleAnimation() {
         const playBtn = document.getElementById('playBtn');
+        const animPlayBtn = document.getElementById('animPlayBtn');
         
         if (this.isPlaying) {
             clearInterval(this.animationInterval);
             this.isPlaying = false;
             playBtn.textContent = '▶️ Play';
+            animPlayBtn.textContent = '▶️ Play';
         } else {
-            const fps = parseFloat(document.getElementById('frameRate').value);
+            // Try to get frame rate from either control panel
+            let frameRateElement = document.getElementById('frameRate');
+            if (!frameRateElement || frameRateElement.style.display === 'none') {
+                frameRateElement = document.getElementById('animFrameRate');
+            }
+            const fps = parseFloat(frameRateElement.value);
+            
             this.animationInterval = setInterval(() => {
                 this.advanceFrame();
                 this.updateUI();
@@ -9726,6 +9734,7 @@ class DrawingEditor {
             }, 1000 / fps);
             this.isPlaying = true;
             playBtn.textContent = '⏸️ Pause';
+            animPlayBtn.textContent = '⏸️ Pause';
         }
     }
     
@@ -9748,6 +9757,46 @@ class DrawingEditor {
         }
     }
     
+    updatePlayButtonStates(isPlaying) {
+        const playBtn = document.getElementById('playBtn');
+        const animPlayBtn = document.getElementById('animPlayBtn');
+        
+        if (isPlaying) {
+            playBtn.textContent = '⏸️ Pause';
+            animPlayBtn.textContent = '⏸️ Pause';
+        } else {
+            playBtn.textContent = '▶️ Play';
+            animPlayBtn.textContent = '▶️ Play';
+        }
+    }
+    
+    stopAnimation() {
+        if (this.isPlaying) {
+            clearInterval(this.animationInterval);
+            this.isPlaying = false;
+            this.updatePlayButtonStates(false);
+        }
+    }
+    
+    startAnimation() {
+        if (!this.isPlaying) {
+            // Try to get frame rate from either control panel
+            let frameRateElement = document.getElementById('frameRate');
+            if (!frameRateElement || frameRateElement.style.display === 'none') {
+                frameRateElement = document.getElementById('animFrameRate');
+            }
+            const fps = parseFloat(frameRateElement.value);
+            
+            this.animationInterval = setInterval(() => {
+                this.advanceFrame();
+                this.updateUI();
+                this.redrawCanvas();
+            }, 1000 / fps);
+            this.isPlaying = true;
+            this.updatePlayButtonStates(true);
+        }
+    }
+
     setAnimationMode(mode) {
         this.animationMode = mode;
         this.animationDirection = 1; // Reset direction
