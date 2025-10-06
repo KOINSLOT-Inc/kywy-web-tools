@@ -277,6 +277,7 @@ header h1 {
     border-right: 1px solid #ddd;
     padding: 20px;
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
     flex-shrink: 0;
     transition: bottom 0.3s ease, transform 0.3s ease;
     position: absolute;
@@ -297,6 +298,7 @@ header h1 {
     border-left: 1px solid #ddd;
     padding: 20px;
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
     flex-shrink: 0;
     transition: bottom 0.3s ease;
     position: absolute;
@@ -1844,6 +1846,7 @@ textarea::placeholder {
         color: var(--text-color, #333333);
         max-height: 60vh;
         overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
     }
     
     /* Mobile Panel Toggle Buttons */
@@ -2075,12 +2078,12 @@ textarea::placeholder {
         background: var(--panel-bg);
         z-index: 1900; /* Below header, above canvas */
         overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
         padding: 20px;
         border-radius: 0;
         box-shadow: none;
         transition: transform 0.3s ease;
         margin-bottom: var(--canvas-controls-height, 40px);
-        overflow: hidden;
     }
     
     .tools-panel {
@@ -2428,7 +2431,7 @@ textarea::placeholder {
 /* Mobile Touch Enhancements */
 @media (max-width: 768px) {
     /* Larger touch targets for mobile */
-    .toggle-btn, .collapsible-btn, .mode-btn {
+    .toggle-btn, .collapsible-btn, .mode-btn, .tool-btn {
         min-height: 48px;
         font-size: 1rem;
         padding: 14px 18px;
@@ -2473,6 +2476,7 @@ textarea::placeholder {
         gap: 5px;
         justify-content: center;
         margin-top: 10px;
+        padding-left: 0;
     }
     
     .onion-mode-controls .mode-btn {
@@ -2573,13 +2577,16 @@ textarea::placeholder {
     }
 }
 
-/* Touch-friendly improvements for all screen sizes */
-button, .toggle-btn, .collapsible-btn, .mode-btn, .mobile-panel-toggle {
-    touch-action: manipulation; /* Prevents zoom on touch */
-    -webkit-tap-highlight-color: transparent; /* Removes tap highlight on mobile */
-}
-
-/* Ensure buttons are accessible with proper focus states */
+    /* Touch-friendly improvements for all screen sizes */
+    button, .toggle-btn, .collapsible-btn, .mode-btn, .mobile-panel-toggle {
+        touch-action: manipulation; /* Prevents zoom on touch */
+        -webkit-tap-highlight-color: transparent; /* Removes tap highlight on mobile */
+    }
+    
+    /* Ensure hand tool works with touch */
+    .tool-btn[data-tool="hand"] {
+        touch-action: none; /* Allow pan gestures for hand tool */
+    }/* Ensure buttons are accessible with proper focus states */
 button:focus, .toggle-btn:focus, .collapsible-btn:focus, .mode-btn:focus, .mobile-panel-toggle:focus {
     outline: 2px solid var(--accent-color);
     outline-offset: 2px;

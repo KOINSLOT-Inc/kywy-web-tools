@@ -4598,11 +4598,18 @@ class DrawingEditor {
         
         if (e.button !== 0) return; // Only handle left mouse button for drawing tools
         
-        this.isDrawing = true;
         const pos = this.getMousePos(e);
         this.lastPos = pos;
         this.startPos = pos; // Store start position for straight lines
         this.shiftKey = e.shiftKey;
+        
+        // Handle hand tool separately - don't set isDrawing
+        if (this.currentTool === 'hand') {
+            this.startPanning(pos);
+            return;
+        }
+        
+        this.isDrawing = true;
         
         switch (this.currentTool) {
             case 'pen':
@@ -4632,9 +4639,6 @@ class DrawingEditor {
                 break;
             case 'text':
                 this.startTextPlacement(pos);
-                break;
-            case 'hand':
-                this.startPanning(pos);
                 break;
             case 'select':
                 if (this.isPasteModeActive) {
@@ -4763,7 +4767,7 @@ class DrawingEditor {
         const touches = e.touches;
         
         if (touches.length === 1) {
-            // Single touch - treat as drawing/tool use
+            // Single touch - treat as drawing/tool use or hand tool panning
             e.preventDefault();
             const touch = touches[0];
             
@@ -4771,8 +4775,13 @@ class DrawingEditor {
             this.activeTouchId = touch.identifier;
             this.touchStartTime = Date.now();
             
-            const mouseEvent = this.createMouseEventFromTouch(touch, 'mousedown');
-            this.onMouseDown(mouseEvent);
+            // For hand tool, start panning with single touch
+            if (this.currentTool === 'hand') {
+                this.startPanning(this.createMouseEventFromTouch(touch, 'mousedown'));
+            } else {
+                const mouseEvent = this.createMouseEventFromTouch(touch, 'mousedown');
+                this.onMouseDown(mouseEvent);
+            }
         } else if (touches.length === 2) {
             // Two finger touch - prepare for pinch zoom and pan
             e.preventDefault();
@@ -4808,15 +4817,22 @@ class DrawingEditor {
     onTouchMove(e) {
         const touches = e.touches;
         
-        if (touches.length === 1 && !this.isPanning) {
-            // Single touch - treat as drawing/tool use
+        if (touches.length === 1) {
+            // Single touch - treat as drawing/tool use or hand tool panning
             // Only process if it's the active touch
             const touch = touches[0];
             
             if (this.activeTouchId === null || touch.identifier === this.activeTouchId) {
                 e.preventDefault();
-                const mouseEvent = this.createMouseEventFromTouch(touch, 'mousemove');
-                this.onMouseMove(mouseEvent);
+                
+                // For hand tool, handle panning (even if isPanning is true)
+                if (this.currentTool === 'hand') {
+                    this.updatePanning(this.createMouseEventFromTouch(touch, 'mousemove'));
+                } else if (!this.isPanning) {
+                    // For other tools, only handle if not in multi-touch panning mode
+                    const mouseEvent = this.createMouseEventFromTouch(touch, 'mousemove');
+                    this.onMouseMove(mouseEvent);
+                }
             }
         } else if (touches.length === 2) {
             // Two finger touch - handle pinch zoom and pan
@@ -4880,9 +4896,14 @@ class DrawingEditor {
                 // Check if the ended touch was our active touch
                 const endedTouch = changedTouches[0];
                 if (this.activeTouchId === null || endedTouch.identifier === this.activeTouchId) {
-                    // Otherwise treat as mouse up for drawing
-                    const mouseEvent = this.createMouseEventFromTouch(endedTouch, 'mouseup');
-                    this.onMouseUp(mouseEvent);
+                    // For hand tool, end panning
+                    if (this.currentTool === 'hand') {
+                        this.endPanning();
+                    } else {
+                        // Otherwise treat as mouse up for drawing
+                        const mouseEvent = this.createMouseEventFromTouch(endedTouch, 'mouseup');
+                        this.onMouseUp(mouseEvent);
+                    }
                 }
             }
             
@@ -5001,6 +5022,18 @@ class DrawingEditor {
                 this.showTextPreview(pos);
             }
             
+            return;
+        }
+        
+        // Handle panning for hand tool
+        if (this.currentTool === 'hand' && this.isPanning) {
+            this.updatePanning(e);
+            return;
+        }
+        
+        // Handle middle mouse panning (any tool)
+        if (this.isPanning) {
+            this.updatePanning();
             return;
         }
         
@@ -5148,9 +5181,10 @@ class DrawingEditor {
             this.finalizeText(pos);
         }
         
-        // End panning
-        if (this.currentTool === 'hand') {
+        // End panning (for hand tool or middle mouse)
+        if (this.isPanning) {
             this.endPanning();
+            return;
         }
         
         if (this.currentTool === 'pen' || this.currentTool === 'circle' || this.currentTool === 'square' || this.currentTool === 'text') {
