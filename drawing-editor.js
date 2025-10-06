@@ -433,6 +433,79 @@ class PasteCommand {
     }
 }
 
+class RotateSelectionCommand {
+    constructor(editor, canvasSnapshot, selectionBounds, frameIndex, originalSelection = null) {
+        this.editor = editor;
+        this.canvasSnapshot = canvasSnapshot; // ImageData of the entire canvas before rotation
+        this.selectionBounds = selectionBounds; // {startX, startY, endX, endY}
+        this.frameIndex = frameIndex;
+        this.originalSelection = originalSelection; // Store original selection state for lasso->rectangle conversion
+    }
+    
+    execute() {
+        // This command is only created after the rotation is already done,
+        // so execute() doesn't need to do anything for the initial execution
+    }
+    
+    undo() {
+        const ctx = this.editor.frames[this.frameIndex].getContext('2d', { willReadFrequently: true });
+        
+        // Restore the entire canvas to its state before rotation
+        ctx.putImageData(this.canvasSnapshot, 0, 0);
+        
+        // Restore selection state
+        if (this.originalSelection) {
+            // Restore original selection (e.g., lasso that was converted to rectangle)
+            this.editor.selection = { ...this.originalSelection };
+        } else {
+            // Restore rectangle selection bounds
+            this.editor.selection.startX = this.selectionBounds.startX;
+            this.editor.selection.startY = this.selectionBounds.startY;
+            this.editor.selection.endX = this.selectionBounds.endX;
+            this.editor.selection.endY = this.selectionBounds.endY;
+        }
+        
+        this.editor.redrawCanvas();
+        this.editor.drawSelectionOverlay();
+        this.editor.generateThumbnail(this.frameIndex);
+        this.editor.generateCode();
+    }
+}
+
+class MirrorSelectionCommand {
+    constructor(editor, canvasSnapshot, selectionBounds, frameIndex) {
+        this.editor = editor;
+        this.canvasSnapshot = canvasSnapshot; // ImageData of the entire canvas before mirroring
+        this.selectionBounds = selectionBounds; // {startX, startY, endX, endY} or lasso bounds
+        this.frameIndex = frameIndex;
+    }
+    
+    execute() {
+        // This command is only created after the mirroring is already done,
+        // so execute() doesn't need to do anything for the initial execution
+    }
+    
+    undo() {
+        const ctx = this.editor.frames[this.frameIndex].getContext('2d', { willReadFrequently: true });
+        
+        // Restore the entire canvas to its state before mirroring
+        ctx.putImageData(this.canvasSnapshot, 0, 0);
+        
+        // Restore selection bounds if they were changed
+        if (this.selectionBounds.startX !== undefined) {
+            this.editor.selection.startX = this.selectionBounds.startX;
+            this.editor.selection.startY = this.selectionBounds.startY;
+            this.editor.selection.endX = this.selectionBounds.endX;
+            this.editor.selection.endY = this.selectionBounds.endY;
+        }
+        
+        this.editor.redrawCanvas();
+        this.editor.drawSelectionOverlay();
+        this.editor.generateThumbnail(this.frameIndex);
+        this.editor.generateCode();
+    }
+}
+
 class DrawingEditor {
     constructor() {
         
@@ -12867,6 +12940,9 @@ Instructions:
         const currentCtx = this.frames[this.currentFrameIndex].getContext('2d', { willReadFrequently: true });
         const canvasSnapshot = currentCtx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
         
+        // Store original selection state for undo
+        const originalSelection = { ...this.selection };
+        
         // Get the bounding area
         const imageData = currentCtx.getImageData(clampedMinX, clampedMinY, clampedWidth, clampedHeight);
         
@@ -12940,7 +13016,7 @@ Instructions:
         this.generateCode();
         
         // Add undo command
-        const command = new RotateSelectionCommand(this, canvasSnapshot, { startX: clampedMinX, startY: clampedMinY, endX: clampedMaxX, endY: clampedMaxY }, this.currentFrameIndex);
+        const command = new RotateSelectionCommand(this, canvasSnapshot, { startX: clampedMinX, startY: clampedMinY, endX: clampedMaxX, endY: clampedMaxY }, this.currentFrameIndex, originalSelection);
         this.undoStack.push(command);
         this.redoStack = []; // Clear redo stack
     }
@@ -12981,7 +13057,7 @@ Instructions:
         this.generateCode();
         
         // Add undo command
-        const command = new RotateSelectionCommand(this, canvasSnapshot, { startX, startY, endX, endY }, this.currentFrameIndex);
+        const command = new MirrorSelectionCommand(this, canvasSnapshot, { startX, startY, endX, endY }, this.currentFrameIndex);
         this.undoStack.push(command);
         this.redoStack = []; // Clear redo stack
     }
@@ -13065,7 +13141,7 @@ Instructions:
         this.generateCode();
         
         // Add undo command
-        const command = new RotateSelectionCommand(this, canvasSnapshot, { startX: clampedMinX, startY: clampedMinY, endX: clampedMaxX, endY: clampedMaxY }, this.currentFrameIndex);
+        const command = new MirrorSelectionCommand(this, canvasSnapshot, { startX: clampedMinX, startY: clampedMinY, endX: clampedMaxX, endY: clampedMaxY }, this.currentFrameIndex);
         this.undoStack.push(command);
         this.redoStack = []; // Clear redo stack
     }
