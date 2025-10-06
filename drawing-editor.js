@@ -9924,9 +9924,9 @@ class DrawingEditor {
         
         const insertIndex = this.currentFrameIndex + 1;
         
-        // Copy layer data if layers are enabled
+        // Copy layer data if it exists for this frame
         let layerData = null;
-        if (this.layersEnabled && this.frameLayers && this.frameLayers[this.currentFrameIndex]) {
+        if (this.frameLayers && this.frameLayers[this.currentFrameIndex]) {
             const originalLayerData = this.frameLayers[this.currentFrameIndex];
             layerData = {
                 layers: [],
@@ -9937,7 +9937,8 @@ class DrawingEditor {
                 const copiedLayer = {
                     name: layer.name,
                     canvas: document.createElement('canvas'),
-                    visible: layer.visible
+                    visible: layer.visible,
+                    transparencyMode: layer.transparencyMode || 'white'
                 };
                 copiedLayer.canvas.width = layer.canvas.width;
                 copiedLayer.canvas.height = layer.canvas.height;
