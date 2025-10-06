@@ -975,6 +975,13 @@ class DrawingEditor {
         
         if (selectionModeBtn) {
             selectionModeBtn.addEventListener('click', () => {
+                // Exit paste mode when changing selection mode
+                if (this.isPasteModeActive) {
+                    this.isPasteModeActive = false;
+                    this.selection = null;
+                    this.drawSelectionOverlay();
+                }
+                
                 // Cycle between rectangle and lasso mode
                 if (this.selectionMode === 'rectangle') {
                     this.selectionMode = 'lasso';
@@ -9069,6 +9076,13 @@ class DrawingEditor {
     }
 
     setSelectionMode(mode) {
+        // Exit paste mode when changing selection mode
+        if (this.isPasteModeActive) {
+            this.isPasteModeActive = false;
+            this.selection = null;
+            this.drawSelectionOverlay();
+        }
+        
         this.selectionMode = mode;
         document.querySelectorAll('.mode-btn[data-mode]').forEach(btn => {
             btn.classList.toggle('active', btn.dataset.mode === mode);
@@ -10698,6 +10712,13 @@ class DrawingEditor {
     
     setSelectionMode(mode) {
         this.selectionMode = mode;
+        
+        // Exit paste mode when changing selection mode
+        if (this.isPasteModeActive) {
+            this.isPasteModeActive = false;
+            this.selection = null;
+            this.drawSelectionOverlay();
+        }
         
         // Update button states
         document.querySelectorAll('.mode-btn[data-mode]').forEach(btn => {
