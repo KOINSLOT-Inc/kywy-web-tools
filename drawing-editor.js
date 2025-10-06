@@ -11718,6 +11718,11 @@ class DrawingEditor {
         Promise.all(loadPromises).then(frames => {
             this.frames = frames;
             
+            // Auto-select Animation HPP format if multiple frames
+            if (data.frames && data.frames.length > 1) {
+                document.getElementById('exportFormat').value = 'animation';
+            }
+            
             // Restore layer data if it exists
             if (data.layers) {
                 this.frameLayers = {};
@@ -11768,7 +11773,7 @@ class DrawingEditor {
                     
                     if (shouldEnableLayers) {
                         const layersPanel = document.getElementById('layersPanel');
-                        layersPanel.style.display = 'flex';
+                        layersPanel.classList.add('visible');
                         
                         const canvasArea = document.querySelector('.canvas-area');
                         const mobileToolbar = document.querySelector('.mobile-bottom-toolbar');
@@ -11779,9 +11784,10 @@ class DrawingEditor {
                         if (mobileToolbar) mobileToolbar.classList.add('with-layers');
                         if (toolsPanel) toolsPanel.classList.add('with-layers');
                         if (exportPanel) exportPanel.classList.add('with-layers');
-                        
-                        this.updateLayersUI();
                     }
+                    
+                    // Always update layers UI to refresh the preview
+                    this.updateLayersUI();
                     
                     this.updateUI();
                     this.redrawCanvas();
@@ -11789,6 +11795,7 @@ class DrawingEditor {
                 });
             } else {
                 // No layer data, just update normally
+                this.updateLayersUI(); // Clear layers UI if it was previously populated
                 this.updateUI();
                 this.redrawCanvas();
                 this.generateCode();
