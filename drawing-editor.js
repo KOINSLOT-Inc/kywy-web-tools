@@ -6303,6 +6303,9 @@ class DrawingEditor {
         const imageData = tempCtx.getImageData(0, 0, this.clipboard.width, this.clipboard.height);
         const data = imageData.data;
         
+        // Collect all preview positions first (including mirrors)
+        const previewPositions = new Map(); // Map of "x,y" -> {redIntensity, alpha, count}
+        
         // Draw preview with varying red intensity based on pixel brightness
         for (let py = 0; py < this.clipboard.height; py++) {
             for (let px = 0; px < this.clipboard.width; px++) {
@@ -6334,22 +6337,63 @@ class DrawingEditor {
                     const drawX = pasteX + px;
                     const drawY = pasteY + py;
                     
-                    // Only draw if within canvas bounds
+                    // Only process if within canvas bounds
                     if (drawX >= 0 && drawX < this.canvasWidth && drawY >= 0 && drawY < this.canvasHeight) {
                         // Calculate brightness (0-255) using luminance formula
                         const brightness = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
                         
                         // Map brightness to red intensity
-                        // Dark pixels (low brightness) = dark red
-                        // Light pixels (high brightness) = light red
-                        const redIntensity = Math.max(100, 255 - brightness); // Ensure minimum visibility
-                        const alpha = 0.7; // Good visibility with transparency
+                        const redIntensity = Math.max(100, 255 - brightness);
+                        const baseAlpha = 0.7;
                         
-                        this.overlayCtx.fillStyle = `rgba(${redIntensity}, 0, 0, ${alpha})`;
-                        this.overlayCtx.fillRect(drawX, drawY, 1, 1);
+                        // Collect all positions for this pixel (original + mirrors)
+                        const allPositions = [{ x: drawX, y: drawY }];
+                        
+                        // Handle mirroring for paste preview
+                        if (this.mirrorHorizontal || this.mirrorVertical) {
+                            const mirrorCoords = this.calculateMirrorCoordinates(drawX, drawY);
+                            
+                            for (const mirrorCoord of mirrorCoords) {
+                                // Make sure mirror coordinates are within canvas bounds
+                                if (mirrorCoord.x >= 0 && mirrorCoord.x < this.canvasWidth && 
+                                    mirrorCoord.y >= 0 && mirrorCoord.y < this.canvasHeight) {
+                                    allPositions.push(mirrorCoord);
+                                }
+                            }
+                        }
+                        
+                        // Add all positions to the map
+                        for (const pos of allPositions) {
+                            const key = `${pos.x},${pos.y}`;
+                            const existing = previewPositions.get(key);
+                            
+                            if (existing) {
+                                // Accumulate effects for overlapping positions
+                                previewPositions.set(key, {
+                                    redIntensity: Math.max(existing.redIntensity, redIntensity),
+                                    alpha: Math.min(1.0, existing.alpha + baseAlpha * 0.4),
+                                    count: existing.count + 1
+                                });
+                            } else {
+                                previewPositions.set(key, {
+                                    redIntensity: redIntensity,
+                                    alpha: baseAlpha,
+                                    count: 1
+                                });
+                            }
+                        }
                     }
                 }
             }
+        }
+        
+        // Now draw all collected positions
+        for (const [posKey, data] of previewPositions) {
+            const [x, y] = posKey.split(',').map(Number);
+            // Use a more intense color for overlapping positions
+            const finalAlpha = data.count > 1 ? Math.min(1.0, data.alpha * 1.2) : data.alpha;
+            this.overlayCtx.fillStyle = `rgba(${data.redIntensity}, 0, 0, ${finalAlpha})`;
+            this.overlayCtx.fillRect(x, y, 1, 1);
         }
         
         // Restore overlay context
@@ -10732,6 +10776,85 @@ class DrawingEditor {
         console.log(`Selection mode changed to: ${mode}`);
     }
     
+    // Helper function to calculate mirror coordinates for pasting
+    calculateMirrorCoordinates(x, y) {
+        const mirrorCoords = [];
+        console.log(`calculateMirrorCoordinates called for (${x}, ${y}) - H:${this.mirrorHorizontal}, V:${this.mirrorVertical}`);
+        
+        if (this.mirrorHorizontal && !this.mirrorVertical) {
+            // Horizontal mirror only
+            let mirrorX;
+            if (this.canvasWidth % 2 === 0) {
+                const centerLine = (this.canvasWidth / 2) - 0.5;
+                mirrorX = Math.floor(2 * centerLine - x);
+            } else {
+                const centerPixel = Math.floor(this.canvasWidth / 2);
+                mirrorX = 2 * centerPixel - x;
+            }
+            
+            console.log(`Horizontal mirror: ${x} -> ${mirrorX} (canvas width: ${this.canvasWidth})`);
+            
+            if (mirrorX >= 0 && mirrorX < this.canvasWidth && mirrorX !== x) {
+                mirrorCoords.push({ x: mirrorX, y: y });
+            }
+        }
+        
+        if (this.mirrorVertical && !this.mirrorHorizontal) {
+            // Vertical mirror only
+            let mirrorY;
+            if (this.canvasHeight % 2 === 0) {
+                const centerLine = (this.canvasHeight / 2) - 0.5;
+                mirrorY = Math.floor(2 * centerLine - y);
+            } else {
+                const centerPixel = Math.floor(this.canvasHeight / 2);
+                mirrorY = 2 * centerPixel - y;
+            }
+            
+            if (mirrorY >= 0 && mirrorY < this.canvasHeight && mirrorY !== y) {
+                mirrorCoords.push({ x: x, y: mirrorY });
+            }
+        }
+        
+        if (this.mirrorHorizontal && this.mirrorVertical) {
+            // Both mirrors - calculate all three mirror positions
+            let mirrorX, mirrorY;
+            
+            if (this.canvasWidth % 2 === 0) {
+                const centerLine = (this.canvasWidth / 2) - 0.5;
+                mirrorX = Math.floor(2 * centerLine - x);
+            } else {
+                const centerPixel = Math.floor(this.canvasWidth / 2);
+                mirrorX = 2 * centerPixel - x;
+            }
+            
+            if (this.canvasHeight % 2 === 0) {
+                const centerLine = (this.canvasHeight / 2) - 0.5;
+                mirrorY = Math.floor(2 * centerLine - y);
+            } else {
+                const centerPixel = Math.floor(this.canvasHeight / 2);
+                mirrorY = 2 * centerPixel - y;
+            }
+            
+            // Horizontal mirror
+            if (mirrorX >= 0 && mirrorX < this.canvasWidth && mirrorX !== x) {
+                mirrorCoords.push({ x: mirrorX, y: y });
+            }
+            
+            // Vertical mirror
+            if (mirrorY >= 0 && mirrorY < this.canvasHeight && mirrorY !== y) {
+                mirrorCoords.push({ x: x, y: mirrorY });
+            }
+            
+            // Diagonal mirror (both horizontal and vertical)
+            if (mirrorX >= 0 && mirrorX < this.canvasWidth && mirrorY >= 0 && mirrorY < this.canvasHeight && 
+                mirrorX !== x && mirrorY !== y) {
+                mirrorCoords.push({ x: mirrorX, y: mirrorY });
+            }
+        }
+        
+        return mirrorCoords;
+    }
+    
     paste() {
         if (!this.clipboard) return;
         
@@ -10809,6 +10932,35 @@ class DrawingEditor {
                                 oldColor: oldColor,
                                 newColor: newColor
                             });
+                            
+                            // Handle mirroring for pasted pixels
+                            if (this.mirrorHorizontal || this.mirrorVertical) {
+                                console.log(`Mirroring paste at (${canvasX}, ${canvasY}) - H:${this.mirrorHorizontal}, V:${this.mirrorVertical}`);
+                                const mirrorCoords = this.calculateMirrorCoordinates(canvasX, canvasY);
+                                console.log(`Mirror coordinates:`, mirrorCoords);
+                                
+                                for (const mirrorCoord of mirrorCoords) {
+                                    // Make sure mirror coordinates are within canvas bounds
+                                    if (mirrorCoord.x >= 0 && mirrorCoord.x < this.canvasWidth && 
+                                        mirrorCoord.y >= 0 && mirrorCoord.y < this.canvasHeight) {
+                                        
+                                        console.log(`Applying mirror at (${mirrorCoord.x}, ${mirrorCoord.y})`);
+                                        
+                                        // Get current pixel data at mirror location
+                                        const mirrorImageData = ctx.getImageData(mirrorCoord.x, mirrorCoord.y, 1, 1);
+                                        const mirrorData = mirrorImageData.data;
+                                        const mirrorOldColor = `rgba(${mirrorData[0]}, ${mirrorData[1]}, ${mirrorData[2]}, ${mirrorData[3]/255})`;
+                                        
+                                        // Record the mirror change
+                                        pasteData.push({
+                                            x: mirrorCoord.x,
+                                            y: mirrorCoord.y,
+                                            oldColor: mirrorOldColor,
+                                            newColor: newColor
+                                        });
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -10859,6 +11011,31 @@ class DrawingEditor {
                             oldColor: oldColor,
                             newColor: newColor
                         });
+                        
+                        // Handle mirroring for pasted pixels
+                        if (this.mirrorHorizontal || this.mirrorVertical) {
+                            const mirrorCoords = this.calculateMirrorCoordinates(x, y);
+                            
+                            for (const mirrorCoord of mirrorCoords) {
+                                // Make sure mirror coordinates are within canvas bounds
+                                if (mirrorCoord.x >= 0 && mirrorCoord.x < this.canvasWidth && 
+                                    mirrorCoord.y >= 0 && mirrorCoord.y < this.canvasHeight) {
+                                    
+                                    // Get current pixel data at mirror location
+                                    const mirrorImageData = ctx.getImageData(mirrorCoord.x, mirrorCoord.y, 1, 1);
+                                    const mirrorData = mirrorImageData.data;
+                                    const mirrorOldColor = `rgba(${mirrorData[0]}, ${mirrorData[1]}, ${mirrorData[2]}, ${mirrorData[3]/255})`;
+                                    
+                                    // Record the mirror change
+                                    pasteData.push({
+                                        x: mirrorCoord.x,
+                                        y: mirrorCoord.y,
+                                        oldColor: mirrorOldColor,
+                                        newColor: newColor
+                                    });
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -11106,6 +11283,9 @@ class DrawingEditor {
         // Track if any pixels were actually pasted
         let pixelsPasted = false;
         
+        // Collect all pixels to paste (including mirrors) before making any changes
+        const allPixelsToPaste = []; // Array of {x, y, r, g, b, a}
+        
         // Process each pixel
         for (let py = 0; py < actualHeight; py++) {
             for (let px = 0; px < actualWidth; px++) {
@@ -11113,9 +11293,6 @@ class DrawingEditor {
                 const srcX = px + (startX - pasteX);
                 const srcY = py + (startY - pasteY);
                 const srcIndex = (srcY * this.clipboard.width + srcX) * 4;
-                
-                // Destination pixel coordinates in current image
-                const dstIndex = (py * actualWidth + px) * 4;
                 
                 const r = clipboardData[srcIndex];
                 const g = clipboardData[srcIndex + 1];
@@ -11138,21 +11315,55 @@ class DrawingEditor {
                 
                 // Only paste non-transparent pixels that aren't being ignored
                 if (a > 0 && pastePixel) {
-                    // Actually paste the pixel
-                    currentData[dstIndex] = r;
-                    currentData[dstIndex + 1] = g;
-                    currentData[dstIndex + 2] = b;
-                    currentData[dstIndex + 3] = a;
-                    pixelsPasted = true;
+                    const canvasX = startX + px;
+                    const canvasY = startY + py;
+                    
+                    // Add original pixel
+                    allPixelsToPaste.push({
+                        x: canvasX,
+                        y: canvasY,
+                        r: r,
+                        g: g,
+                        b: b,
+                        a: a
+                    });
+                    
+                    // Handle mirroring for pasted pixels
+                    if (this.mirrorHorizontal || this.mirrorVertical) {
+                        const mirrorCoords = this.calculateMirrorCoordinates(canvasX, canvasY);
+                        
+                        for (const mirrorCoord of mirrorCoords) {
+                            // Make sure mirror coordinates are within canvas bounds
+                            if (mirrorCoord.x >= 0 && mirrorCoord.x < this.canvasWidth && 
+                                mirrorCoord.y >= 0 && mirrorCoord.y < this.canvasHeight) {
+                                
+                                // Add mirror pixel
+                                allPixelsToPaste.push({
+                                    x: mirrorCoord.x,
+                                    y: mirrorCoord.y,
+                                    r: r,
+                                    g: g,
+                                    b: b,
+                                    a: a
+                                });
+                            }
+                        }
+                    }
                 }
             }
         }
         
+        // Now paste all pixels at once
+        if (allPixelsToPaste.length > 0) {
+            for (const pixel of allPixelsToPaste) {
+                ctx.fillStyle = `rgba(${pixel.r}, ${pixel.g}, ${pixel.b}, ${pixel.a/255})`;
+                ctx.fillRect(pixel.x, pixel.y, 1, 1);
+            }
+            pixelsPasted = true;
+        }
+        
         // Only update canvas and push undo if pixels were actually pasted
         if (pixelsPasted) {
-            // Put the modified image data back onto the canvas
-            ctx.putImageData(currentImageData, startX, startY);
-            
             // Push undo state
             this.pushUndo();
             
