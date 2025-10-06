@@ -835,7 +835,7 @@ a:hover {
 
 .frame-label,
 .frame-thumb:hover .frame-label {
-    color: #000000 !important;
+    color: #FFFFFF !important;    
 }
 
 .thumb-canvas {
