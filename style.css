@@ -109,8 +109,8 @@ select, input[type="text"], input[type="number"] {
 
 select:focus, input[type="text"]:focus, input[type="number"]:focus {
     outline: none;
-    border-color: #3498db;
-    box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+    border-color: #52E679;
+    box-shadow: 0 0 0 2px rgba(82, 230, 121, 0.2);
 }
 
 input[type="range"] {
@@ -123,7 +123,7 @@ input[type="checkbox"] {
 }
 
 button {
-    background: #3498db;
+    background: #52E679;
     color: white;
     border: none;
     padding: 12px 24px;
@@ -135,7 +135,7 @@ button {
 }
 
 button:hover {
-    background: #2980b9;
+    background: #3d9c4a;
 }
 
 button:active {

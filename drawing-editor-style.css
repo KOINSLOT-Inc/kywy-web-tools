@@ -11,7 +11,7 @@
     --button-hover: #f8f9fa;
     --layer-bg: #ffffff;
     --layer-hover: #f8f9fa;
-    --layer-active: #e3f2fd;
+    --layer-active: rgba(82, 230, 121, 0.1);
     --canvas-bg: #ffffff;
     --canvas-controls-height: 50px;
     --layers-panel-height: 245px;
@@ -215,6 +215,7 @@ header h1 {
     align-items: center;
     justify-content: center;
     z-index: 100;
+    transition: all 0.3s ease;
     box-shadow: 2px 0 4px rgba(0,0,0,0.1);
 }
 
@@ -277,6 +278,7 @@ header h1 {
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     flex-shrink: 0;
+    transition: bottom 0.3s ease, transform 0.3s ease;
     position: absolute;
     left: 0;
     top: 0;
@@ -297,6 +299,7 @@ header h1 {
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     flex-shrink: 0;
+    transition: bottom 0.3s ease, transform 0.3s ease;
     position: absolute;
     right: 0;
     top: 0;
@@ -1016,8 +1019,8 @@ input[type="range"]::-moz-range-thumb {
 }
 
 .mode-btn:hover {
-    background: #d1ecf1;
-    border-color: #b8daff;
+    background: rgba(82, 230, 121, 0.1);
+    border-color: var(--accent-color);
 }
 
 .mode-btn.active {
@@ -1079,8 +1082,8 @@ input[type="range"]::-moz-range-thumb {
 }
 
 .toggle-btn:hover {
-    background: #d1ecf1;
-    border-color: #b8daff;
+    background: rgba(82, 230, 121, 0.1);
+    border-color: var(--accent-color);
 }
 
 .toggle-btn.active {
@@ -1561,8 +1564,8 @@ input[type="range"]::-moz-range-thumb {
 }
 
 .iphone-input:focus {
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    border-color: var(--accent-color);
+    box-shadow: 0 0 0 3px rgba(82, 230, 121, 0.1);
 }
 
 .iphone-input::placeholder {
@@ -1588,8 +1591,8 @@ textarea {
 }
 
 textarea:focus {
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    border-color: var(--accent-color);
+    box-shadow: 0 0 0 3px rgba(82, 230, 121, 0.1);
 }
 
 textarea::placeholder {
@@ -1631,12 +1634,12 @@ textarea::placeholder {
 }
 
 .frame-thumb:hover {
-    border-color: #667eea;
+    border-color: var(--accent-color);
 }
 
 .frame-thumb.active {
-    border-color: #667eea;
-    background: #f0f4ff;
+    border-color: var(--accent-color);
+    background: rgba(82, 230, 121, 0.1);
 }
 
 .thumb-canvas {
@@ -1752,7 +1755,7 @@ textarea::placeholder {
     color: var(--text-color);
     margin-bottom: 15px;
     font-size: 1.2rem;
-    border-bottom: 2px solid #667eea;
+    border-bottom: 2px solid var(--accent-color);
     padding-bottom: 5px;
 }
 
@@ -2154,6 +2157,7 @@ textarea::placeholder {
         padding: 20px;
         border-radius: 0;
         box-shadow: none;
+        transition: transform 0.3s ease;
         margin-bottom: var(--canvas-controls-height, 40px);
     }
     
@@ -2456,7 +2460,7 @@ textarea::placeholder {
 }
 
 .btn-primary:hover {
-    background-color: #0056b3;
+    background-color: #3d9c4a;
 }
 
 /* Footer Branding */
@@ -2758,6 +2762,9 @@ button:focus, .toggle-btn:focus, .collapsible-btn:focus, .mode-btn:focus, .mobil
 }
 
 /* Adjust main canvas area to not overlap with layers panel */
+.canvas-area {
+    transition: padding-bottom 0.3s;
+}
 
 .canvas-area.with-layers {
     padding-bottom: var(--layers-panel-height);
@@ -3121,7 +3128,7 @@ button:focus, .toggle-btn:focus, .collapsible-btn:focus, .mode-btn:focus, .mobil
 
 .animation-panel .frame-thumb.active {
     border-color: var(--primary-color);
-    background: var(--layer-active);
+    background: rgba(82, 230, 121, 0.1);
 }
 
 .animation-panel .frame-thumb canvas {
@@ -3401,8 +3408,8 @@ body:not([class*="-theme"]) {
 
 .layer-item.active {
     border-color: var(--primary-color);
-    background: #f0f8ff;
-    box-shadow: 0 0 0 2px rgba(66, 135, 245, 0.2);
+    background: rgba(82, 230, 121, 0.1);
+    box-shadow: 0 0 0 2px rgba(82, 230, 121, 0.2);
 }
 
 .layer-preview {
