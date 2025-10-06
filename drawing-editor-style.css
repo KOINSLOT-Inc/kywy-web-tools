@@ -699,8 +699,18 @@ input[type="range"]::-moz-range-thumb {
 
 .color-picker {
     display: flex;
+    flex-direction: column;
     gap: 5px;
     margin-bottom: 15px;
+}
+
+.color-picker .label-text {
+    margin-bottom: 2px;
+}
+
+.color-picker .color-buttons {
+    display: flex;
+    gap: 5px;
 }
 
 .mode-buttons {
