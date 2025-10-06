@@ -5,8 +5,8 @@
     --border-color: #e9ecef;
     --text-color: #333;
     --accent-color: #52E679;
-    --canvas-controls-height: 80px;
-    --layers-panel-height: 240px;
+    --canvas-controls-height: 60px;
+    --layers-panel-height: 245px;
 }
 
 * {
@@ -2584,7 +2584,7 @@ button:focus, .toggle-btn:focus, .collapsible-btn:focus, .mode-btn:focus, .mobil
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 8px 12px;
+    padding: 0px 2px;
     background: #f5f5f5; /* Light gray header */
     border-bottom: 1px solid var(--border-color);
 }
@@ -2655,6 +2655,12 @@ button:focus, .toggle-btn:focus, .collapsible-btn:focus, .mode-btn:focus, .mobil
     overflow-y: auto; /* Allow vertical scrolling to show all buttons */
     align-items: flex-start;
     min-height: 0; /* Important for flex scrolling */
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* Internet Explorer 10+ */
+}
+
+.layers-list::-webkit-scrollbar {
+    display: none; /* WebKit */
 }
 
 .layer-item {
