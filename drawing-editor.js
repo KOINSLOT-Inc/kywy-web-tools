@@ -9184,7 +9184,7 @@ class DrawingEditor {
                 selectionModeText.textContent = 'Lasso';
                 selectionModeBtn.setAttribute('data-mode', 'lasso');
             } else {
-                selectionModeIcon.textContent = '▭';
+                selectionModeIcon.textContent = '🟥';
                 selectionModeText.textContent = 'Rectangle';
                 selectionModeBtn.setAttribute('data-mode', 'rectangle');
             }
