@@ -12783,39 +12783,81 @@ Instructions:
         // Get the selected area
         const imageData = currentCtx.getImageData(minX, minY, width, height);
         
-        // Perform pixel-perfect rotation
-        const rotatedPixels = this.rotatePixelsPerfect(imageData, degrees);
+        // Check if this is a 90-degree rotation for lossless rotation
+        const normalizedAngle = ((degrees % 360) + 360) % 360;
+        const is90DegRotation = normalizedAngle === 90 || normalizedAngle === 180 || normalizedAngle === 270;
         
-        if (!rotatedPixels) {
-            alert('Rotation failed. Invalid angle or selection.');
-            return;
-        }
-        
-        // Clear the original selection area
-        currentCtx.fillStyle = '#ffffff';
-        currentCtx.fillRect(minX, minY, width, height);
-        
-        // Calculate original center coordinates for proper centering
-        const originalCenterX = minX + width / 2;
-        const originalCenterY = minY + height / 2;
-        
-        // Find the best position to place the rotated content
-        const placementResult = this.findBestPlacement(rotatedPixels, originalCenterX, originalCenterY);
-        
-        if (placementResult) {
-            // Place the rotated pixels
-            this.placeRotatedPixels(currentCtx, rotatedPixels, placementResult.x, placementResult.y);
+        if (is90DegRotation) {
+            // Use exact 90-degree rotation (non-destructive)
+            const rotatedImageData = this.rotate90Degrees(imageData, normalizedAngle);
             
-            // Update selection bounds to tight bounding box
-            this.selection.startX = placementResult.bounds.minX;
-            this.selection.startY = placementResult.bounds.minY;
-            this.selection.endX = placementResult.bounds.maxX;
-            this.selection.endY = placementResult.bounds.maxY;
+            // Clear the original selection area
+            currentCtx.fillStyle = '#ffffff';
+            currentCtx.fillRect(minX, minY, width, height);
+            
+            // Calculate placement for rotated image
+            const rotatedWidth = rotatedImageData.width;
+            const rotatedHeight = rotatedImageData.height;
+            
+            // Center the rotated image on the original position
+            const originalCenterX = minX + width / 2;
+            const originalCenterY = minY + height / 2;
+            const newX = Math.round(originalCenterX - rotatedWidth / 2);
+            const newY = Math.round(originalCenterY - rotatedHeight / 2);
+            
+            // Check if it fits on canvas
+            if (newX >= 0 && newY >= 0 && 
+                newX + rotatedWidth <= this.canvasWidth && 
+                newY + rotatedHeight <= this.canvasHeight) {
+                
+                // Place the rotated image
+                currentCtx.putImageData(rotatedImageData, newX, newY);
+                
+                // Update selection bounds
+                this.selection.startX = newX;
+                this.selection.startY = newY;
+                this.selection.endX = newX + rotatedWidth;
+                this.selection.endY = newY + rotatedHeight;
+            } else {
+                alert('Rotated selection does not fit on canvas.');
+                currentCtx.putImageData(canvasSnapshot, 0, 0);
+                return;
+            }
         } else {
-            alert('Rotated selection does not fit on canvas.');
-            // Restore original content
-            currentCtx.putImageData(canvasSnapshot, 0, 0);
-            return;
+            // Use approximate rotation for other angles
+            const rotatedPixels = this.rotatePixelsPerfect(imageData, degrees);
+            
+            if (!rotatedPixels) {
+                alert('Rotation failed. Invalid angle or selection.');
+                return;
+            }
+            
+            // Clear the original selection area
+            currentCtx.fillStyle = '#ffffff';
+            currentCtx.fillRect(minX, minY, width, height);
+            
+            // Calculate original center coordinates for proper centering
+            const originalCenterX = minX + width / 2 - 0.5;
+            const originalCenterY = minY + height / 2 - 0.5;
+
+            // Find the best position to place the rotated content
+            const placementResult = this.findBestPlacement(rotatedPixels, originalCenterX, originalCenterY);
+            
+            if (placementResult) {
+                // Place the rotated pixels
+                this.placeRotatedPixels(currentCtx, rotatedPixels, placementResult.x, placementResult.y);
+                
+                // Update selection bounds to tight bounding box
+                this.selection.startX = placementResult.bounds.minX;
+                this.selection.startY = placementResult.bounds.minY;
+                this.selection.endX = placementResult.bounds.maxX;
+                this.selection.endY = placementResult.bounds.maxY;
+            } else {
+                alert('Rotated selection does not fit on canvas.');
+                // Restore original content
+                currentCtx.putImageData(canvasSnapshot, 0, 0);
+                return;
+            }
         }
         
         this.redrawCanvas();
@@ -12827,6 +12869,61 @@ Instructions:
         const command = new RotateSelectionCommand(this, canvasSnapshot, selectionBounds, this.currentFrameIndex);
         this.undoStack.push(command);
         this.redoStack = []; // Clear redo stack
+    }
+    
+    // Exact 90-degree rotation (non-destructive)
+    rotate90Degrees(imageData, degrees) {
+        const width = imageData.width;
+        const height = imageData.height;
+        const data = imageData.data;
+        
+        let newWidth, newHeight;
+        
+        if (degrees === 90 || degrees === 270) {
+            newWidth = height;
+            newHeight = width;
+        } else {
+            newWidth = width;
+            newHeight = height;
+        }
+        
+        const newData = new Uint8ClampedArray(newWidth * newHeight * 4);
+        
+        // Fill with white background
+        for (let i = 0; i < newData.length; i += 4) {
+            newData[i] = 255;
+            newData[i + 1] = 255;
+            newData[i + 2] = 255;
+            newData[i + 3] = 255;
+        }
+        
+        // Perform exact pixel mapping
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                const srcIdx = (y * width + x) * 4;
+                let destX, destY;
+                
+                if (degrees === 90) {
+                    destX = height - 1 - y;
+                    destY = x;
+                } else if (degrees === 180) {
+                    destX = width - 1 - x;
+                    destY = height - 1 - y;
+                } else if (degrees === 270) {
+                    destX = y;
+                    destY = width - 1 - x;
+                }
+                
+                const destIdx = (destY * newWidth + destX) * 4;
+                
+                newData[destIdx] = data[srcIdx];
+                newData[destIdx + 1] = data[srcIdx + 1];
+                newData[destIdx + 2] = data[srcIdx + 2];
+                newData[destIdx + 3] = data[srcIdx + 3];
+            }
+        }
+        
+        return new ImageData(newData, newWidth, newHeight);
     }
     
     // Pixel-perfect rotation using nearest neighbor approach
@@ -13029,40 +13126,84 @@ Instructions:
             }
         }
         
-        // Perform pixel-perfect rotation
-        const rotatedPixels = this.rotatePixelsPerfect(imageData, degrees);
+        // Check if this is a 90-degree rotation for lossless rotation
+        const normalizedAngle = ((degrees % 360) + 360) % 360;
+        const is90DegRotation = normalizedAngle === 90 || normalizedAngle === 180 || normalizedAngle === 270;
         
-        if (!rotatedPixels) {
-            alert('Rotation failed. Invalid angle or selection.');
-            return;
-        }
-        
-        // Clear the original lasso area (approximate with bounding box)
-        currentCtx.fillStyle = '#ffffff';
-        currentCtx.fillRect(clampedMinX, clampedMinY, clampedWidth, clampedHeight);
-        
-        // Calculate original center coordinates for proper centering
-        const originalCenterX = (minX + maxX) / 2;
-        const originalCenterY = (minY + maxY) / 2;
-        
-        // Find the best position to place the rotated content
-        const placementResult = this.findBestPlacement(rotatedPixels, originalCenterX, originalCenterY);
-        
-        if (placementResult) {
-            // Place the rotated pixels
-            this.placeRotatedPixels(currentCtx, rotatedPixels, placementResult.x, placementResult.y);
+        if (is90DegRotation) {
+            // Use exact 90-degree rotation (non-destructive)
+            const rotatedImageData = this.rotate90Degrees(imageData, normalizedAngle);
             
-            // Update selection to rectangle bounds of rotated content
-            this.selection.mode = 'rectangle'; // Convert to rectangle after rotation
-            this.selection.startX = placementResult.bounds.minX;
-            this.selection.startY = placementResult.bounds.minY;
-            this.selection.endX = placementResult.bounds.maxX;
-            this.selection.endY = placementResult.bounds.maxY;
+            // Clear the original lasso area
+            currentCtx.fillStyle = '#ffffff';
+            currentCtx.fillRect(clampedMinX, clampedMinY, clampedWidth, clampedHeight);
+            
+            // Calculate placement for rotated image
+            const rotatedWidth = rotatedImageData.width;
+            const rotatedHeight = rotatedImageData.height;
+            
+            // Center the rotated image on the original position
+            const originalCenterX = (minX + maxX) / 2;
+            const originalCenterY = (minY + maxY) / 2;
+            const newX = Math.round(originalCenterX - rotatedWidth / 2);
+            const newY = Math.round(originalCenterY - rotatedHeight / 2);
+            
+            // Check if it fits on canvas
+            if (newX >= 0 && newY >= 0 && 
+                newX + rotatedWidth <= this.canvasWidth && 
+                newY + rotatedHeight <= this.canvasHeight) {
+                
+                // Place the rotated image
+                currentCtx.putImageData(rotatedImageData, newX, newY);
+                
+                // Update selection - convert to rectangle since lasso shape changes with rotation
+                this.selection.mode = 'rectangle';
+                this.selection.startX = newX;
+                this.selection.startY = newY;
+                this.selection.endX = newX + rotatedWidth;
+                this.selection.endY = newY + rotatedHeight;
+                delete this.selection.lassoPoints;
+            } else {
+                alert('Rotated selection does not fit on canvas.');
+                currentCtx.putImageData(canvasSnapshot, 0, 0);
+                return;
+            }
         } else {
-            alert('Rotated selection does not fit on canvas.');
-            // Restore original content
-            currentCtx.putImageData(canvasSnapshot, 0, 0);
-            return;
+            // Use approximate rotation for other angles
+            const rotatedPixels = this.rotatePixelsPerfect(imageData, degrees);
+            
+            if (!rotatedPixels) {
+                alert('Rotation failed. Invalid angle or selection.');
+                return;
+            }
+            
+            // Clear the original lasso area (approximate with bounding box)
+            currentCtx.fillStyle = '#ffffff';
+            currentCtx.fillRect(clampedMinX, clampedMinY, clampedWidth, clampedHeight);
+            
+            // Calculate original center coordinates for proper centering
+            const originalCenterX = (minX + maxX) / 2;
+            const originalCenterY = (minY + maxY) / 2;
+            
+            // Find the best position to place the rotated content
+            const placementResult = this.findBestPlacement(rotatedPixels, originalCenterX, originalCenterY);
+            
+            if (placementResult) {
+                // Place the rotated pixels
+                this.placeRotatedPixels(currentCtx, rotatedPixels, placementResult.x, placementResult.y);
+                
+                // Update selection bounds to rectangle since lasso shape changes with rotation
+                this.selection.mode = 'rectangle';
+                this.selection.startX = placementResult.bounds.minX;
+                this.selection.startY = placementResult.bounds.minY;
+                this.selection.endX = placementResult.bounds.maxX;
+                this.selection.endY = placementResult.bounds.maxY;
+                delete this.selection.lassoPoints;
+            } else {
+                alert('Rotated selection does not fit on canvas.');
+                currentCtx.putImageData(canvasSnapshot, 0, 0);
+                return;
+            }
         }
         
         this.redrawCanvas();
