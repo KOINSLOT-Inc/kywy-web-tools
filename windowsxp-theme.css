@@ -254,6 +254,7 @@ input[type="checkbox"] {
     background: linear-gradient(to bottom, #ffffff 0%, #f8fbff 100%) !important;
     border-radius: 2px !important;
     box-shadow: inset 1px 1px 1px rgba(0,0,0,0.1) !important;
+    position: relative !important;
 }
 
 input[type="checkbox"]:checked {

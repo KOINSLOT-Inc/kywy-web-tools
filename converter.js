@@ -66,10 +66,28 @@ class ImageToHppConverter {
 
         // Add live preview for other controls
         document.getElementById('invert').addEventListener('change', () => this.updateLivePreview());
-        document.getElementById('edgeDetection').addEventListener('change', () => this.updateLivePreview());
+        document.getElementById('edgeDetection').addEventListener('change', () => {
+            const edgeSettings = document.getElementById('edgeDetectionSettings');
+            edgeSettings.style.display = document.getElementById('edgeDetection').checked ? 'block' : 'none';
+            this.updateLivePreview();
+        });
         document.getElementById('rotate').addEventListener('change', () => this.updateLivePreview());
         document.getElementById('dithering').addEventListener('change', () => this.updateLivePreview());
         document.getElementById('arrayName').addEventListener('input', () => this.generateHppOutput());
+
+        // Edge detection specific controls
+        const edgeSensitivity = document.getElementById('edgeSensitivity');
+        if (edgeSensitivity) {
+            edgeSensitivity.addEventListener('input', (e) => {
+                document.getElementById('edgeSensitivityValue').textContent = e.target.value;
+                this.updateLivePreview();
+            });
+        }
+
+        const edgeThresholding = document.getElementById('edgeThresholding');
+        if (edgeThresholding) {
+            edgeThresholding.addEventListener('change', () => this.updateLivePreview());
+        }
 
         // Auto adjustment buttons
         document.getElementById('autoBrightnessBtn').addEventListener('click', () => this.autoAdjustBrightness());
@@ -191,6 +209,7 @@ class ImageToHppConverter {
         const threshold = parseInt(document.getElementById('threshold').value);
         const invert = document.getElementById('invert').checked;
         const edgeDetection = document.getElementById('edgeDetection').checked;
+        const enableThresholding = document.getElementById('edgeThresholding') ? document.getElementById('edgeThresholding').checked : true;
         const rotate = parseInt(document.getElementById('rotate').value);
         const dithering = document.getElementById('dithering').value;
 
@@ -224,18 +243,37 @@ class ImageToHppConverter {
         // Convert to grayscale
         imageData = this.convertToGrayscale(imageData);
         
-        // Apply edge detection if selected
-        if (edgeDetection) {
-            imageData = this.applyEdgeDetection(imageData);
+        // Apply edge detection and dithering independently if both are selected
+        if (edgeDetection && dithering !== 'none') {
+            // Apply edge detection to a copy of the grayscale image
+            const edgeImageData = this.applyEdgeDetection(this.cloneImageData(imageData), false);
+            
+            // Apply dithering to the original grayscale image
+            const ditheredImageData = this.applyDithering(this.cloneImageData(imageData), dithering, threshold);
+            
+            // Combine edge detection and dithering results
+            imageData = this.combineEdgeAndDither(edgeImageData, ditheredImageData);
+        } else {
+            // Apply edge detection if selected (but not dithering)
+            if (edgeDetection) {
+                imageData = this.applyEdgeDetection(imageData, false);
+            }
+            
+            // Apply dithering if selected (but not edge detection)
+            if (dithering !== 'none') {
+                imageData = this.applyDithering(imageData, dithering, threshold);
+            }
         }
         
-        // Apply dithering if selected
-        if (dithering !== 'none') {
-            imageData = this.applyDithering(imageData, dithering, threshold);
+        // Convert to binary only if thresholding is enabled or edge detection is not being used
+        let binaryData;
+        if (edgeDetection && !enableThresholding) {
+            // For edge detection without thresholding, convert grayscale image data to binary format directly
+            binaryData = this.convertGrayscaleToBinary(imageData, invert);
+        } else {
+            // Normal binary conversion with threshold
+            binaryData = this.convertToBinary(imageData, threshold, invert);
         }
-        
-        // Convert to binary
-        const binaryData = this.convertToBinary(imageData, threshold, invert);
         
         // Check if dimensions exceed display size (144x168) and show/hide warning
         const sizeWarning = document.getElementById('sizeWarning');
@@ -262,48 +300,53 @@ class ImageToHppConverter {
         }
     }
 
-    applyEdgeDetection(imageData) {
+    applyEdgeDetection(imageData, willDither = false) {
         const { width, height, data } = imageData;
         const output = new Uint8ClampedArray(data.length);
         
-        // Sobel edge detection kernels
-        const sobelX = [
-            [-1, 0, 1],
-            [-2, 0, 2],
-            [-1, 0, 1]
-        ];
+        const sobelX = [[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]];
+        const sobelY = [[-1, -2, -1], [0, 0, 0], [1, 2, 1]];
         
-        const sobelY = [
-            [-1, -2, -1],
-            [ 0,  0,  0],
-            [ 1,  2,  1]
-        ];
+        // Use edge sensitivity slider for Sobel threshold
+        const edgeSensitivity = parseInt(document.getElementById('edgeSensitivity').value) || 0;
+        const sobelThreshold = (edgeSensitivity + 100) * 2; // Maps -100 to 100 -> 0 to 400
         
         for (let y = 1; y < height - 1; y++) {
             for (let x = 1; x < width - 1; x++) {
                 let gx = 0, gy = 0;
                 
-                // Apply Sobel kernels
                 for (let ky = -1; ky <= 1; ky++) {
                     for (let kx = -1; kx <= 1; kx++) {
                         const idx = ((y + ky) * width + (x + kx)) * 4;
-                        const pixel = data[idx]; // Grayscale value
+                        const pixel = data[idx];
                         
                         gx += pixel * sobelX[ky + 1][kx + 1];
                         gy += pixel * sobelY[ky + 1][kx + 1];
                     }
                 }
                 
-                // Calculate gradient magnitude
                 const magnitude = Math.sqrt(gx * gx + gy * gy);
-                const edgeValue = Math.min(255, magnitude);
-                const invertedEdgeValue = 255 - edgeValue; // Invert the edge detection
+                let edgeValue;
                 
                 const idx = (y * width + x) * 4;
-                output[idx] = invertedEdgeValue;     // R
-                output[idx + 1] = invertedEdgeValue; // G
-                output[idx + 2] = invertedEdgeValue; // B
-                output[idx + 3] = 255;       // A
+
+                if (willDither) {
+                    // When dithering will be applied, output grayscale intensity
+                    const scaledMagnitude = magnitude * (1 + edgeSensitivity / 100);
+                    edgeValue = 255 - Math.min(255, Math.max(0, scaledMagnitude / 5.7));
+                } else {
+                    // Normal binary edge detection when no dithering
+                    if (magnitude > sobelThreshold) {
+                        edgeValue = 0; // Black (edge detected)
+                    } else {
+                        edgeValue = 255; // White (no edge)
+                    }
+                }
+
+                output[idx] = edgeValue;
+                output[idx + 1] = edgeValue;
+                output[idx + 2] = edgeValue;
+                output[idx + 3] = 255;
             }
         }
         
@@ -319,6 +362,43 @@ class ImageToHppConverter {
                     output[idx + 3] = 255;
                 }
             }
+        }
+    
+        return new ImageData(output, width, height);
+    }
+
+    cloneImageData(imageData) {
+        const { width, height, data } = imageData;
+        const clonedData = new Uint8ClampedArray(data);
+        return new ImageData(clonedData, width, height);
+    }
+
+    combineEdgeAndDither(edgeImageData, ditheredImageData) {
+        const { width, height, data: edgeData } = edgeImageData;
+        const { data: ditherData } = ditheredImageData;
+        const output = new Uint8ClampedArray(edgeData.length);
+        
+        for (let i = 0; i < edgeData.length; i += 4) {
+            const edgePixel = edgeData[i];
+            const ditherPixel = ditherData[i];
+            
+            // Combine using a weighted approach
+            // Strong edges (black pixels from edge detection) override dithering
+            // Weak edges allow dithering to show through
+            let combinedValue;
+            
+            if (edgePixel < 128) {
+                // Strong edge detected - use edge detection result with slight dither influence
+                combinedValue = Math.min(255, edgePixel + (ditherPixel * 0.2));
+            } else {
+                // Weak or no edge - primarily use dithering with slight edge influence
+                combinedValue = Math.max(0, ditherPixel - ((255 - edgePixel) * 0.3));
+            }
+            
+            output[i] = combinedValue;
+            output[i + 1] = combinedValue;
+            output[i + 2] = combinedValue;
+            output[i + 3] = 255;
         }
         
         return new ImageData(output, width, height);
@@ -582,6 +662,47 @@ class ImageToHppConverter {
                         }
                         
                         if (!isBlack) { // White pixel (bit = 1)
+                            byte |= (1 << (7 - bit));
+                        }
+                    } else {
+                        // Padding with white pixels
+                        if (!invert) {
+                            byte |= (1 << (7 - bit));
+                        }
+                    }
+                }
+                binaryData.push(byte);
+            }
+        }
+        
+        return binaryData;
+    }
+
+    convertGrayscaleToBinary(imageData, invert) {
+        const { width, height, data } = imageData;
+        const binaryData = [];
+        
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x += 8) {
+                let byte = 0;
+                for (let bit = 0; bit < 8; bit++) {
+                    if (x + bit < width) {
+                        const index = (y * width + x + bit) * 4;
+                        const pixel = data[index];
+                        // For grayscale output, use the pixel value directly as intensity
+                        // Map 0-255 to 8-bit patterns for dithering effect
+                        const intensity = pixel / 255;
+                        let isWhite;
+                        
+                        // Simple threshold dithering based on pixel position
+                        const ditherThreshold = ((x + bit + y) % 2) * 0.5 + intensity;
+                        isWhite = ditherThreshold > 0.5;
+                        
+                        if (invert) {
+                            isWhite = !isWhite;
+                        }
+                        
+                        if (isWhite) { // White pixel (bit = 1)
                             byte |= (1 << (7 - bit));
                         }
                     } else {

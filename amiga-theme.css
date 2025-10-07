@@ -250,6 +250,7 @@ input[type="checkbox"] {
     border: 1px inset #cccccc !important;
     background-color: #ffffff !important;
     border-radius: 0 !important;
+    position: relative !important;
 }
 
 input[type="checkbox"]:checked {
