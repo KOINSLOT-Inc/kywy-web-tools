@@ -11702,14 +11702,175 @@ class DrawingEditor {
                 this.updateLayersUI();
             }
             
+            // Reset animation state
+            this.isPlaying = false;
+            this.animationInterval = null;
+            this.animationMode = 'cycle';
+            this.animationDirection = 1;
+            this.animationEnabled = false;
+            
+            // Reset layer system
+            this.layers = [];
+            this.currentLayerIndex = 0;
+            this.soloLayerIndex = null;
+            
+            // Reset selection state
+            this.clipboard = null;
+            this.selection = null;
+            this.isPasteModeActive = false;
+            this.pasteTransparencyMode = 'white';
+            this.selectionMode = 'rectangle';
+            
+            // Reset paste mode drag state
+            this.pasteDragActive = false;
+            this.pasteDragStartTime = 0;
+            this.pasteDragStartX = 0;
+            this.pasteDragStartY = 0;
+            this.lastPasteTime = 0;
+            
+            // Reset drawing state
+            this.currentTool = 'pen';
+            this.currentColor = 'black';
+            this.brushSize = 1;
+            this.brushShape = 'square';
+            this.isDrawing = false;
+            this.isPanning = false;
+            
+            // Reset shape properties
+            this.rectangleThickness = 1;
+            this.rectangleStyle = 'outside';
+            this.shapeFillMode = 'outline';
+            this.shapeThickness = 1;
+            this.shapeStrokePosition = 'outside';
+            this.shapeMode = 'corner';
+            
+            // Reset polygon properties
+            this.polygonSides = 6;
+            this.polygonFillMode = 'outline';
+            this.polygonThickness = 1;
+            
+            // Reset grid properties
+            this.showPixelGrid = false;
+            this.showGrid = false;
+            this.gridModeEnabled = false;
+            this.gridSize = 8;
+            this.showGridLines = true;
+            
+            // Reset pen mode properties
+            this.penMode = 'freehand';
+            this.sprayFlow = 3;
+            this.sprayInterval = null;
+            this.sprayPos = null;
+            
+            // Reset fill pattern properties
+            this.fillPattern = 'solid';
+            this.gradientType = null;
+            this.gradientVariant = 'stipple';
+            this.gradientAngle = 0;
+            this.gradientSteepness = 1.0;
+            this.gradientContrast = 1.0;
+            this.gradientCenterDistance = 0.5;
+            this.isEditingGradientSettings = false;
+            this.gradientEditingTimeout = null;
+            
+            // Reset gradient positions
+            this.gradientPositionX = 0.5;
+            this.gradientPositionY = 0.5;
+            this.radialRadius = 0.7;
+            this.radialPositionX = 0.5;
+            this.radialPositionY = 0.5;
+            
+            // Reset pattern properties
+            this.lineAngle = 0;
+            this.lineSpacing = 6;
+            this.lineWidth = 1;
+            this.linePhase = 0;
+            this.currentPercentage = 50;
+            this.checkerboardSize = 2;
+            this.checkerboardInvert = false;
+            this.clipboardScale = 100;
+            this.clipboardInvert = false;
+            this.dotsSpacing = 4;
+            this.dotsSize = 1;
+            this.dotsOffset = 50;
+            this.dotsInvert = false;
+            
+            // Reset mirror drawing state
+            this.mirrorHorizontal = false;
+            this.mirrorVertical = false;
+            
+            // Reset text tool properties
+            this.textInput = '';
+            this.fontFamily = "Arial";
+            this.fontSize = 48;
+            this.textBold = false;
+            this.textItalic = false;
+            this.textColor = 'black';
+            this.isPlacingText = false;
+            this.textPreviewCanvas = null;
+            this.textPreviewData = null;
+            
+            // Reset emoji properties
+            this.emojiBrightness = -20;
+            this.emojiContrast = 100;
+            this.emojiMode = 'edge';
+            this.ditheringType = 'floyd-steinberg';
+            this.currentEmojiCategory = 'food';
+            
+            // Reset zoom and pan
+            this.zoom = 4;
+            this.panX = 0;
+            this.panY = 0;
+            
+            // Reset onion skin settings
+            this.onionSkinMode = 'whiteOnBlack';
+            this.onionSkinOpacity = 0.3;
+            this.onionSkinEnabled = false;
+            
+            // Reset perfect shape mode
+            this.perfectShapeMode = false;
+            
+            // Reset transparency mode
+            this.transparencyMode = false;
+            
             // Clear undo/redo stacks for fresh start
             this.undoStack = [];
             this.redoStack = [];
             this.updateUndoRedoUI();
             
+            // Reset unsaved changes tracking
+            this.hasUnsavedChanges = false;
+            this.isBlankCanvas = true;
+            this.markAsSaved();
+            
+            // Reset save reminder
+            this.lastSaveTime = Date.now();
+            
+            // Update UI and redraw
             this.updateUI();
             this.redrawCanvas();
             this.generateCode();
+            
+            // Reinitialize tools and settings
+            this.setTool('pen');
+            this.updatePenModeButton();
+            this.updateSelectionModeButton();
+            this.updateBrushControlsState();
+            this.updateTransparencyButton();
+            this.updateRotationWarning(0);
+            this.setFillPattern('solid');
+            
+            // Reset animation mode buttons
+            const cycleBtn = document.getElementById('cycleMode');
+            const boomerangBtn = document.getElementById('boomerangMode');
+            if (cycleBtn) cycleBtn.classList.add('active');
+            if (boomerangBtn) boomerangBtn.classList.remove('active');
+            
+            // Reset onion skin mode buttons
+            const blackOnWhiteBtn = document.getElementById('onionModeBlackOnWhite');
+            const whiteOnBlackBtn = document.getElementById('onionModeWhiteOnBlack');
+            if (blackOnWhiteBtn) blackOnWhiteBtn.classList.remove('active');
+            if (whiteOnBlackBtn) whiteOnBlackBtn.classList.add('active');
         }
     }
     
