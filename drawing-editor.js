@@ -12850,8 +12850,9 @@ Instructions:
             return;
         }
         
-        // Capture canvas state before rotation for undo
-        const currentCtx = this.frames[this.currentFrameIndex].getContext('2d', { willReadFrequently: true });
+        // Capture canvas state before rotation for undo - use active canvas (handles layers)
+        const currentCanvas = this.getActiveCanvas();
+        const currentCtx = currentCanvas.getContext('2d', { willReadFrequently: true });
         const canvasSnapshot = currentCtx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
         const selectionBounds = { startX, startY, endX, endY };
         
@@ -13163,8 +13164,9 @@ Instructions:
         
         if (clampedWidth <= 0 || clampedHeight <= 0) return;
         
-        // Capture canvas state before rotation for undo
-        const currentCtx = this.frames[this.currentFrameIndex].getContext('2d', { willReadFrequently: true });
+        // Capture canvas state before rotation for undo - use active canvas (handles layers)
+        const currentCanvas = this.getActiveCanvas();
+        const currentCtx = currentCanvas.getContext('2d', { willReadFrequently: true });
         const canvasSnapshot = currentCtx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
         
         // Store original selection state for undo
@@ -13404,8 +13406,9 @@ Instructions:
         
         if (width === 0 || height === 0) return;
         
-        // Capture canvas state before mirroring for undo
-        const currentCtx = this.frames[this.currentFrameIndex].getContext('2d', { willReadFrequently: true });
+        // Capture canvas state before mirroring for undo - use active canvas (handles layers)
+        const currentCanvas = this.getActiveCanvas();
+        const currentCtx = currentCanvas.getContext('2d', { willReadFrequently: true });
         const canvasSnapshot = currentCtx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
         
         // Get the selected area
@@ -13456,8 +13459,9 @@ Instructions:
         
         if (clampedWidth <= 0 || clampedHeight <= 0) return;
         
-        // Capture canvas state before mirroring for undo
-        const currentCtx = this.frames[this.currentFrameIndex].getContext('2d', { willReadFrequently: true });
+        // Capture canvas state before mirroring for undo - use active canvas (handles layers)
+        const currentCanvas = this.getActiveCanvas();
+        const currentCtx = currentCanvas.getContext('2d', { willReadFrequently: true });
         const canvasSnapshot = currentCtx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
         
         // Store original lasso points BEFORE mirroring
