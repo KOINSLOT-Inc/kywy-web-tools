@@ -1862,10 +1862,10 @@ class DrawingEditor {
                     ditheringOptionsContainer.style.display = this.emojiMode === 'dithering' ? 'block' : 'none';
                 }
                 
-                // Show/hide brightness control based on mode (show for all modes including edge detection)
+                // Show/hide brightness control based on mode (hide for edge detection)
                 const brightnessContainer = document.getElementById('emojiBrightnessContainer');
                 if (brightnessContainer) {
-                    brightnessContainer.style.display = 'block';
+                    brightnessContainer.style.display = this.emojiMode === 'edge' ? 'none' : 'block';
                 }
                 
                 emojiDitheringToggle.classList.add('active');
@@ -1935,10 +1935,10 @@ class DrawingEditor {
             ditheringOptionsContainer.style.display = this.emojiMode === 'dithering' ? 'block' : 'none';
         }
         
-        // Initialize brightness container visibility (show for all modes including edge detection)
+        // Initialize brightness container visibility (hide for edge detection)
         const brightnessContainer = document.getElementById('emojiBrightnessContainer');
         if (brightnessContainer) {
-            brightnessContainer.style.display = 'block';
+            brightnessContainer.style.display = this.emojiMode === 'edge' ? 'none' : 'block';
         }
     }
 
@@ -2437,13 +2437,6 @@ class DrawingEditor {
                 // Calculate luminance
                 let gray = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
 
-                // Apply brightness adjustment
-                gray = Math.max(0, Math.min(255, gray + (this.emojiBrightness * 255 / 100)));
-
-                // Apply contrast adjustment
-                const contrastFactor = this.emojiContrast / 100;
-                gray = Math.max(0, Math.min(255, ((gray - 128) * contrastFactor) + 128));
-
                 grayData[index] = gray;
                 grayData[index + 1] = gray;
                 grayData[index + 2] = gray;
@@ -2514,20 +2507,13 @@ class DrawingEditor {
                 // Calculate gradient magnitude
                 const magnitude = Math.sqrt(gx * gx + gy * gy);
                 
-                // Use brightness to control edge detection threshold
-                // Brightness range: -100 to 100
-                // Lower brightness = lower threshold = more sensitive to edges (detects more)
-                // Higher brightness = higher threshold = less sensitive to edges (detects fewer)
-                // Map brightness to threshold: at -100 (min), threshold=20; at 100 (max), threshold=150
-                const edgeThreshold = 85 + (this.emojiBrightness * 0.65);
+                // Fixed threshold for edge detection
+                const edgeThreshold = 100;
                 
                 let invertedEdge;
                 if (magnitude > edgeThreshold) {
-                    // Detected an edge - make it darker
-                    // Use brightness to control how dark the edges appear
-                    // Lower brightness = darker edges, higher brightness = lighter edges
-                    const edgeDarkness = 180 - (this.emojiBrightness + 100) * 0.8;
-                    invertedEdge = Math.max(0, edgeDarkness);
+                    // Detected an edge - make it dark
+                    invertedEdge = 0;
                 } else {
                     // No significant edge, set to white
                     invertedEdge = 255;
