@@ -13021,6 +13021,12 @@ Instructions:
     }
     
     rotateSelectionByAngle(degrees) {
+        // If paste mode is active, rotate the clipboard content instead of canvas selection
+        if (this.isPasteModeActive && this.clipboard) {
+            this.rotateClipboard(degrees);
+            return;
+        }
+
         if (!this.selection || !this.selection.active) return;
         
         if (this.selection.mode === 'lasso') {
@@ -13138,6 +13144,98 @@ Instructions:
         const command = new RotateSelectionCommand(this, canvasSnapshot, selectionBounds, this.currentFrameIndex);
         this.undoStack.push(command);
         this.redoStack = []; // Clear redo stack
+    }
+
+    rotateClipboard(degrees) {
+        if (!this.clipboard) return;
+
+        // Prevent rotation if clipboard is too large (causes performance issues)
+        const maxDimension = Math.max(this.clipboard.width, this.clipboard.height);
+        if (maxDimension > 200) {
+            alert('Clipboard content too large for rotation. Please copy a smaller selection.');
+            return;
+        }
+
+        // Create a temporary canvas to work with the clipboard data
+        const tempCanvas = document.createElement('canvas');
+        const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
+
+        // Draw the clipboard data to the temp canvas
+        tempCtx.drawImage(this.clipboard.data, 0, 0);
+
+        // Get image data
+        const imageData = tempCtx.getImageData(0, 0, this.clipboard.width, this.clipboard.height);
+
+        // Check if this is a 90-degree rotation for lossless rotation
+        const normalizedAngle = ((degrees % 360) + 360) % 360;
+        const is90DegRotation = normalizedAngle === 90 || normalizedAngle === 180 || normalizedAngle === 270;
+
+        if (is90DegRotation) {
+            // Use exact 90-degree rotation (non-destructive)
+            const rotatedImageData = this.rotate90Degrees(imageData, normalizedAngle);
+
+            // Create new canvas for rotated content
+            const rotatedCanvas = document.createElement('canvas');
+            rotatedCanvas.width = rotatedImageData.width;
+            rotatedCanvas.height = rotatedImageData.height;
+            const rotatedCtx = rotatedCanvas.getContext('2d', { willReadFrequently: true });
+            rotatedCtx.putImageData(rotatedImageData, 0, 0);
+
+            // Update clipboard with rotated data
+            this.clipboard.data = rotatedCanvas;
+            this.clipboard.width = rotatedImageData.width;
+            this.clipboard.height = rotatedImageData.height;
+        } else {
+            // Arbitrary angle rotation using pixel-perfect method (thresholded)
+            const rotatedPixels = this.rotatePixelsPerfect(imageData, degrees);
+
+            if (!rotatedPixels || rotatedPixels.length === 0) {
+                alert('Rotation failed. Invalid angle or clipboard content.');
+                return;
+            }
+
+            // Calculate bounding box of rotated pixels
+            let minX = rotatedPixels[0].x;
+            let maxX = rotatedPixels[0].x;
+            let minY = rotatedPixels[0].y;
+            let maxY = rotatedPixels[0].y;
+
+            rotatedPixels.forEach(pixel => {
+                minX = Math.min(minX, pixel.x);
+                maxX = Math.max(maxX, pixel.x);
+                minY = Math.min(minY, pixel.y);
+                maxY = Math.max(maxY, pixel.y);
+            });
+
+            // Calculate dimensions
+            const rotatedWidth = Math.ceil(maxX - minX) + 1;
+            const rotatedHeight = Math.ceil(maxY - minY) + 1;
+
+            // Create new canvas for rotated content
+            const rotatedCanvas = document.createElement('canvas');
+            rotatedCanvas.width = rotatedWidth;
+            rotatedCanvas.height = rotatedHeight;
+            const rotatedCtx = rotatedCanvas.getContext('2d', { willReadFrequently: true });
+
+            // Fill with white background
+            rotatedCtx.fillStyle = '#ffffff';
+            rotatedCtx.fillRect(0, 0, rotatedWidth, rotatedHeight);
+
+            // Draw thresholded pixels (adjust coordinates to be relative to new canvas)
+            rotatedCtx.fillStyle = '#000000';
+            for (const pixel of rotatedPixels) {
+                const canvasX = pixel.x - minX;
+                const canvasY = pixel.y - minY;
+                if (pixel.color === 'black') {
+                    rotatedCtx.fillRect(canvasX, canvasY, 1, 1);
+                }
+            }
+
+            // Update clipboard with rotated data
+            this.clipboard.data = rotatedCanvas;
+            this.clipboard.width = rotatedWidth;
+            this.clipboard.height = rotatedHeight;
+        }        // Paste preview will update automatically on next mouse movement
     }
     
     // Exact 90-degree rotation (non-destructive)
@@ -13583,6 +13681,12 @@ Instructions:
     }
 
     mirrorSelection(direction) {
+        // If paste mode is active, mirror the clipboard content instead of canvas selection
+        if (this.isPasteModeActive && this.clipboard) {
+            this.mirrorClipboard(direction);
+            return;
+        }
+
         if (!this.selection || !this.selection.active) return;
         
         if (this.selection.mode === 'lasso') {
@@ -13732,6 +13836,33 @@ Instructions:
         const command = new MirrorSelectionCommand(this, canvasSnapshot, { startX: clampedMinX, startY: clampedMinY, endX: clampedMaxX, endY: clampedMaxY }, this.currentFrameIndex, direction, originalLassoPoints);
         this.undoStack.push(command);
         this.redoStack = []; // Clear redo stack
+    }
+
+    mirrorClipboard(direction) {
+        if (!this.clipboard) return;
+
+        // Create a temporary canvas to work with the clipboard data
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = this.clipboard.width;
+        tempCanvas.height = this.clipboard.height;
+        const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
+
+        // Draw the clipboard data to the temp canvas
+        tempCtx.drawImage(this.clipboard.data, 0, 0);
+
+        // Get image data
+        const imageData = tempCtx.getImageData(0, 0, this.clipboard.width, this.clipboard.height);
+
+        // Mirror the image data
+        const mirroredData = this.mirrorImageData(imageData, direction);
+
+        // Put the mirrored data back to temp canvas
+        tempCtx.putImageData(mirroredData, 0, 0);
+
+        // Update clipboard with mirrored data
+        this.clipboard.data = tempCanvas;
+
+        // Paste preview will update automatically on next mouse movement
     }
 
     mirrorImageData(imageData, direction) {
