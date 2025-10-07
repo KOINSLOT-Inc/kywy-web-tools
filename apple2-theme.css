@@ -361,9 +361,7 @@ header {
     background-color: #d0d0d0 !important;
     background-image: radial-gradient(circle at 1px 1px, #888888 1px, transparent 1px) !important;
     background-size: 4px 4px !important;
-    border: 3px solid #000000 !important;
     border-radius: 8px !important;
-    padding: 12px !important;
     box-shadow: 3px 3px 6px rgba(0,0,0,0.5) !important;
 }
 

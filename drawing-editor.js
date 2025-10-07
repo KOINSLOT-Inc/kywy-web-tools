@@ -4914,9 +4914,8 @@ class DrawingEditor {
             // So: new_canvas_offset = mouse_screen - (canvas_logical_coords * new_zoom)
             
             const containerRect = document.querySelector('.canvas-container').getBoundingClientRect();
-            const containerPadding = 3; // Magic correction factor 
-            const mouseScreenX = e.clientX - (containerRect.left + containerPadding);
-            const mouseScreenY = e.clientY - (containerRect.top + containerPadding);
+            const mouseScreenX = e.clientX - (containerRect.left);
+            const mouseScreenY = e.clientY - (containerRect.top);
             
             const newLeft = mouseScreenX - (canvasX * newZoom);
             const newTop = mouseScreenY - (canvasY * newZoom);

@@ -194,7 +194,7 @@ header h1 {
     flex: 1;
     display: block;
     position: relative;
-    padding: 20px;
+    padding: 16px;
     overflow: auto;
     width: 100%;
 }

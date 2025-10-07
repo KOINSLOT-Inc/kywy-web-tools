@@ -272,10 +272,12 @@ header {
 
 /* Canvas containers - keep light for visibility */
 .canvas-container {
-    background-color: #333333 !important;
-    border: 1px solid #555555 !important;
-    border-radius: 6px !important;
-    padding: 16px !important;
+    flex: 1;
+    display: block;
+    position: relative;
+    padding: 16px;
+    overflow: auto;
+    width: 100%;
 }
 
 .main-content, .canvas-workspace {

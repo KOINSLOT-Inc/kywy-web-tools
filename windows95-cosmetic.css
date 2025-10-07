@@ -345,10 +345,12 @@ header {
 
 /* Canvas containers can have styling but not the canvas itself */
 .canvas-container {
-    background-color: #d0d0d0 !important;
-    border: 2px inset #c0c0c0 !important;
-    border-radius: 0 !important;
-    padding: 10px !important;
+    flex: 1;
+    display: block;
+    position: relative;
+    padding: 16px;
+    overflow: auto;
+    width: 100%;
 }
 
 /* Canvas workspace styling but NOT the canvas element */

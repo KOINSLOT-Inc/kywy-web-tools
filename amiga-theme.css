@@ -311,11 +311,12 @@ header {
 }
 
 .canvas-container {
-    background: #005577 !important;
-    border: 2px outset #cccccc !important;
-    border-radius: 0 !important;
-    padding: 12px !important;
-    box-shadow: 2px 2px 4px rgba(0,0,0,0.4) !important;
+    flex: 1;
+    display: block;
+    position: relative;
+    padding: 16px;
+    overflow: auto;
+    width: 100%;
 }
 
 .main-content, .canvas-workspace {
