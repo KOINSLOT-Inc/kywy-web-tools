@@ -6914,9 +6914,9 @@ class DrawingEditor {
         const height = Math.abs(y2 - y1);
         const centerX = (x1 + x2) / 2;
         const centerY = (y1 + y2) / 2;
-        const radiusX = width / 2;
-        const radiusY = height / 2;
-        
+        const radiusX = width / 2 + 0.5;
+        const radiusY = height / 2 + 0.5;
+
         if (radiusX < 1 || radiusY < 1) return; // Skip tiny ellipses
         
         if (this.shapeFillMode === 'filled') {
@@ -7426,9 +7426,9 @@ class DrawingEditor {
         const height = Math.abs(y2 - y1);
         const centerX = (x1 + x2) / 2;
         const centerY = (y1 + y2) / 2;
-        const radiusX = width / 2;
-        const radiusY = height / 2;
-        
+        const radiusX = width / 2 + 0.5;
+        const radiusY = height / 2 + 0.5;
+
         if (radiusX < 1 || radiusY < 1) return; // Skip tiny ellipses
         
         if (this.shapeFillMode === 'filled') {
