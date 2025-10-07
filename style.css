@@ -82,6 +82,14 @@ section h2 {
     flex-wrap: wrap;
 }
 
+#edgeDetectionSettings {
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
 label {
     font-weight: 600;
     min-width: 120px;
@@ -114,7 +122,15 @@ select:focus, input[type="text"]:focus, input[type="number"]:focus {
 
 input[type="range"] {
     flex: 1;
-    max-width: 200px;
+    min-width: 250px;
+    width: 250px;
+}
+
+#edgeSensitivity {
+    flex: 1 !important;
+    min-width: 250px !important;
+    width: 250px !important;
+    max-width: none !important;
 }
 
 input[type="checkbox"] {
@@ -341,6 +357,13 @@ textarea:focus {
     font-weight: 600;
     color: #3498db;
     min-width: 40px;
+    text-align: center;
+}
+
+/* Specific styling for value spans to prevent layout shifts */
+#edgeSensitivityValue, #contrastValue, #brightnessValue, #thresholdValue, #previewScaleValue {
+    display: inline-block;
+    min-width: 50px;
     text-align: center;
 }
 

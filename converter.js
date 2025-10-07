@@ -84,15 +84,11 @@ class ImageToHppConverter {
             });
         }
 
-        const edgeThresholding = document.getElementById('edgeThresholding');
-        if (edgeThresholding) {
-            edgeThresholding.addEventListener('change', () => this.updateLivePreview());
-        }
-
         // Auto adjustment buttons
         document.getElementById('autoBrightnessBtn').addEventListener('click', () => this.autoAdjustBrightness());
         document.getElementById('autoContrastBtn').addEventListener('click', () => this.autoAdjustContrast());
         document.getElementById('autoThresholdBtn').addEventListener('click', () => this.autoAdjustThreshold());
+        document.getElementById('autoEdgeSensitivityBtn').addEventListener('click', () => this.autoAdjustEdgeSensitivity());
         document.getElementById('autoAllBtn').addEventListener('click', () => this.autoAdjustAll());
     }
 
@@ -209,7 +205,6 @@ class ImageToHppConverter {
         const threshold = parseInt(document.getElementById('threshold').value);
         const invert = document.getElementById('invert').checked;
         const edgeDetection = document.getElementById('edgeDetection').checked;
-        const enableThresholding = document.getElementById('edgeThresholding') ? document.getElementById('edgeThresholding').checked : true;
         const rotate = parseInt(document.getElementById('rotate').value);
         const dithering = document.getElementById('dithering').value;
 
@@ -265,15 +260,8 @@ class ImageToHppConverter {
             }
         }
         
-        // Convert to binary only if thresholding is enabled or edge detection is not being used
-        let binaryData;
-        if (edgeDetection && !enableThresholding) {
-            // For edge detection without thresholding, convert grayscale image data to binary format directly
-            binaryData = this.convertGrayscaleToBinary(imageData, invert);
-        } else {
-            // Normal binary conversion with threshold
-            binaryData = this.convertToBinary(imageData, threshold, invert);
-        }
+        // Convert to binary
+        const binaryData = this.convertToBinary(imageData, threshold, invert);
         
         // Check if dimensions exceed display size (144x168) and show/hide warning
         const sizeWarning = document.getElementById('sizeWarning');
@@ -350,15 +338,14 @@ class ImageToHppConverter {
             }
         }
         
-        // Handle border pixels by inverting them
+        // Handle border pixels - set them to white (no edge detected)
         for (let y = 0; y < height; y++) {
             for (let x = 0; x < width; x++) {
                 if (y === 0 || y === height - 1 || x === 0 || x === width - 1) {
                     const idx = (y * width + x) * 4;
-                    const invertedPixel = 255 - data[idx]; // Invert border pixels
-                    output[idx] = invertedPixel;
-                    output[idx + 1] = invertedPixel;
-                    output[idx + 2] = invertedPixel;
+                    output[idx] = 255; // White (no edge)
+                    output[idx + 1] = 255;
+                    output[idx + 2] = 255;
                     output[idx + 3] = 255;
                 }
             }
@@ -662,47 +649,6 @@ class ImageToHppConverter {
                         }
                         
                         if (!isBlack) { // White pixel (bit = 1)
-                            byte |= (1 << (7 - bit));
-                        }
-                    } else {
-                        // Padding with white pixels
-                        if (!invert) {
-                            byte |= (1 << (7 - bit));
-                        }
-                    }
-                }
-                binaryData.push(byte);
-            }
-        }
-        
-        return binaryData;
-    }
-
-    convertGrayscaleToBinary(imageData, invert) {
-        const { width, height, data } = imageData;
-        const binaryData = [];
-        
-        for (let y = 0; y < height; y++) {
-            for (let x = 0; x < width; x += 8) {
-                let byte = 0;
-                for (let bit = 0; bit < 8; bit++) {
-                    if (x + bit < width) {
-                        const index = (y * width + x + bit) * 4;
-                        const pixel = data[index];
-                        // For grayscale output, use the pixel value directly as intensity
-                        // Map 0-255 to 8-bit patterns for dithering effect
-                        const intensity = pixel / 255;
-                        let isWhite;
-                        
-                        // Simple threshold dithering based on pixel position
-                        const ditherThreshold = ((x + bit + y) % 2) * 0.5 + intensity;
-                        isWhite = ditherThreshold > 0.5;
-                        
-                        if (invert) {
-                            isWhite = !isWhite;
-                        }
-                        
-                        if (isWhite) { // White pixel (bit = 1)
                             byte |= (1 << (7 - bit));
                         }
                     } else {
@@ -1121,6 +1067,50 @@ class ImageToHppConverter {
         const thresholdSlider = document.getElementById('threshold');
         thresholdSlider.value = bestThreshold;
         document.getElementById('thresholdValue').textContent = bestThreshold;
+        
+        this.updateLivePreview();
+    }
+
+    autoAdjustEdgeSensitivity() {
+        const stats = this.getImageStatistics();
+        if (!stats) {
+            alert('Please upload an image first');
+            return;
+        }
+        
+        // Auto-adjust edge sensitivity based on image characteristics
+        // For high contrast images, use lower sensitivity
+        // For low contrast images, use higher sensitivity
+        const currentRange = stats.max - stats.min;
+        let edgeSensitivity = 0;
+        
+        if (currentRange < 80) {
+            // Very low contrast, increase sensitivity significantly
+            edgeSensitivity = 40;
+        } else if (currentRange < 120) {
+            // Low contrast, increase sensitivity moderately
+            edgeSensitivity = 20;
+        } else if (currentRange > 200) {
+            // High contrast, decrease sensitivity
+            edgeSensitivity = -20;
+        } else {
+            // Normal contrast, slight adjustment based on mean
+            if (stats.mean < 100) {
+                // Dark image, increase sensitivity
+                edgeSensitivity = 10;
+            } else if (stats.mean > 180) {
+                // Bright image, increase sensitivity
+                edgeSensitivity = 15;
+            }
+        }
+        
+        // Clamp to slider range
+        edgeSensitivity = Math.max(-100, Math.min(100, edgeSensitivity));
+        
+        // Update slider and display
+        const edgeSensitivitySlider = document.getElementById('edgeSensitivity');
+        edgeSensitivitySlider.value = edgeSensitivity;
+        document.getElementById('edgeSensitivityValue').textContent = edgeSensitivity;
         
         this.updateLivePreview();
     }
