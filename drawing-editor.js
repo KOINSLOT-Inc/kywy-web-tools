@@ -544,15 +544,28 @@ class RotateSelectionCommand {
 }
 
 class MirrorSelectionCommand {
-    constructor(editor, canvasSnapshot, selectionBounds, frameIndex) {
+    constructor(editor, canvasSnapshot, selectionBounds, frameIndex, direction = null, originalLassoPoints = null) {
         this.editor = editor;
         this.canvasSnapshot = canvasSnapshot; // ImageData of the entire canvas before mirroring
         this.selectionBounds = selectionBounds; // {startX, startY, endX, endY} or lasso bounds
         this.frameIndex = frameIndex;
+        this.direction = direction; // Store mirror direction for reference
+        
+        // Store original lasso points (passed in from before mirroring)
+        if (originalLassoPoints) {
+            this.originalLassoPoints = originalLassoPoints.map(p => ({x: p.x, y: p.y}));
+        } else if (editor.selection && editor.selection.lassoPoints) {
+            this.originalLassoPoints = editor.selection.lassoPoints.map(p => ({x: p.x, y: p.y}));
+        }
         
         // Capture state AFTER mirroring for redo
         const ctx = editor.frames[frameIndex].getContext('2d', { willReadFrequently: true });
         this.mirroredSnapshot = ctx.getImageData(0, 0, editor.canvasWidth, editor.canvasHeight);
+        
+        // Store mirrored lasso points (captured after mirroring)
+        if (editor.selection && editor.selection.lassoPoints) {
+            this.mirroredLassoPoints = editor.selection.lassoPoints.map(p => ({x: p.x, y: p.y}));
+        }
     }
     
     execute() {
@@ -563,8 +576,13 @@ class MirrorSelectionCommand {
         // Restore the mirrored state
         ctx.putImageData(this.mirroredSnapshot, 0, 0);
         
+        // Restore mirrored lasso points if they exist
+        if (this.mirroredLassoPoints && this.editor.selection) {
+            this.editor.selection.lassoPoints = this.mirroredLassoPoints.map(p => ({x: p.x, y: p.y}));
+        }
+        
         // Selection bounds remain the same for mirroring
-        if (this.selectionBounds.startX !== undefined) {
+        if (this.selectionBounds.startX !== undefined && this.editor.selection) {
             this.editor.selection.startX = this.selectionBounds.startX;
             this.editor.selection.startY = this.selectionBounds.startY;
             this.editor.selection.endX = this.selectionBounds.endX;
@@ -584,8 +602,13 @@ class MirrorSelectionCommand {
         // Restore the entire canvas to its state before mirroring
         ctx.putImageData(this.canvasSnapshot, 0, 0);
         
+        // Restore original lasso points if they exist
+        if (this.originalLassoPoints && this.editor.selection) {
+            this.editor.selection.lassoPoints = this.originalLassoPoints.map(p => ({x: p.x, y: p.y}));
+        }
+        
         // Restore selection bounds if they were changed
-        if (this.selectionBounds.startX !== undefined) {
+        if (this.selectionBounds.startX !== undefined && this.editor.selection) {
             this.editor.selection.startX = this.selectionBounds.startX;
             this.editor.selection.startY = this.selectionBounds.startY;
             this.editor.selection.endX = this.selectionBounds.endX;
@@ -13437,6 +13460,9 @@ Instructions:
         const currentCtx = this.frames[this.currentFrameIndex].getContext('2d', { willReadFrequently: true });
         const canvasSnapshot = currentCtx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
         
+        // Store original lasso points BEFORE mirroring
+        const originalLassoPoints = lassoPoints.map(p => ({x: p.x, y: p.y}));
+        
         // Get the bounding area
         const imageData = currentCtx.getImageData(clampedMinX, clampedMinY, clampedWidth, clampedHeight);
         
@@ -13478,13 +13504,35 @@ Instructions:
         // Put the mirrored data back
         currentCtx.putImageData(mirroredData, clampedMinX, clampedMinY);
         
+        // Mirror the lasso points as well
+        const centerX = (minX + maxX) / 2;
+        const centerY = (minY + maxY) / 2;
+        
+        const mirroredLassoPoints = lassoPoints.map(point => {
+            let newX = point.x;
+            let newY = point.y;
+            
+            if (direction === 'horizontal') {
+                // Mirror horizontally around the center
+                newX = centerX - (point.x - centerX);
+            } else if (direction === 'vertical') {
+                // Mirror vertically around the center
+                newY = centerY - (point.y - centerY);
+            }
+            
+            return { x: Math.round(newX), y: Math.round(newY) };
+        });
+        
+        // Update the lasso points with the mirrored version
+        this.selection.lassoPoints = mirroredLassoPoints;
+        
         this.redrawCanvas();
         this.drawSelectionOverlay();
         this.generateThumbnail(this.currentFrameIndex);
         this.generateCode();
         
-        // Add undo command
-        const command = new MirrorSelectionCommand(this, canvasSnapshot, { startX: clampedMinX, startY: clampedMinY, endX: clampedMaxX, endY: clampedMaxY }, this.currentFrameIndex);
+        // Add undo command - pass the original lasso points captured before mirroring
+        const command = new MirrorSelectionCommand(this, canvasSnapshot, { startX: clampedMinX, startY: clampedMinY, endX: clampedMaxX, endY: clampedMaxY }, this.currentFrameIndex, direction, originalLassoPoints);
         this.undoStack.push(command);
         this.redoStack = []; // Clear redo stack
     }
