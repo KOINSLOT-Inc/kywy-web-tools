@@ -773,14 +773,14 @@ a:hover {
 /* Mode buttons (Pen Mode, Shape Mode) */
 .shape-mode-btn {
     background-color: #ffffff !important;
-    color: #000000 !important;
+    color: #ffffff !important;
     border: 2px solid #000000 !important;
     border-radius: 8px !important;
     box-shadow: 2px 2px 0px #888888 !important;
 }
 
 .shape-mode-btn:hover {
-    background-color: #000000 !important;
+    background-color: #ffffff !important;
     color: #ffffff !important;
     border-color: #000000 !important;
     box-shadow: inset 2px 2px 2px #333333 !important;

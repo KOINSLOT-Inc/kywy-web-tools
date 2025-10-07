@@ -1131,7 +1131,7 @@ class DrawingEditor {
                 
                 // IMMEDIATELY force red preview
                 if (this.currentTool === 'bucket' && this.fillPattern.startsWith('gradient-')) {
-                    this.updateGradientLivePreview();
+                    this.schedulePreviewUpdate();
                 }
                 
                 // Throttle preview updates
@@ -1139,7 +1139,7 @@ class DrawingEditor {
                     this.gradientUpdateThrottle = true;
                     setTimeout(() => {
                         if (this.currentTool === 'bucket' && this.fillPattern.startsWith('gradient-linear')) {
-                            this.updateGradientLivePreview();
+                            this.schedulePreviewUpdate();
                         }
                         this.gradientUpdateThrottle = false;
                     }, 16); // ~60fps
@@ -4940,7 +4940,7 @@ class DrawingEditor {
         this.setCanvasSize(this.canvasWidth, this.canvasHeight);
         
         // After zoom, redraw any active preview based on current tool
-        this.redrawCurrentPreview();
+        this.onMouseMove(this.lastMouseEvent);
     }
     
     // Touch event handlers
@@ -6540,8 +6540,9 @@ class DrawingEditor {
         if (this.isEditingGradientSettings && 
             this.currentTool === 'bucket' && 
             (this.fillPattern.startsWith('gradient-') || this.fillPattern !== 'solid')) {
-            // Force update the preview to show red
-            this.updateGradientLivePreview();
+            
+            // Use the debounced update function to prevent conflicts
+            this.schedulePreviewUpdate(5);
             
             // Set up a recurring check to maintain the preview
             if (!this.gradientEditingInterval) {
@@ -6558,12 +6559,12 @@ class DrawingEditor {
                             // Only show full preview when mouse is off canvas
                             // And don't interfere if we have a lastPreviewArea (targeted preview active)
                             if (!isOnCanvas && !this.lastPreviewArea) {
-                                this.updateGradientLivePreview();
+                                this.schedulePreviewUpdate(100);
                             }
                         } else {
                             // If no mouse position and no targeted preview, default to full preview
                             if (!this.lastPreviewArea) {
-                                this.updateGradientLivePreview();
+                                this.schedulePreviewUpdate(100);
                             }
                         }
                     } else {
@@ -6571,14 +6572,52 @@ class DrawingEditor {
                         clearInterval(this.gradientEditingInterval);
                         this.gradientEditingInterval = null;
                     }
-                }, 100); // Reduced frequency to 100ms to reduce conflicts
+                }, 200); // Increased to 200ms to reduce conflicts further
             }
         }
+    }
+
+    // Comprehensive preview update that handles both editing and regular states
+    updateFillPreview() {
+        if (this.currentTool !== 'bucket') {
+            return;
+        }
+        
+        // Set editing state and ensure preview
+        this.isEditingGradientSettings = true;
+        this.ensureGradientEditingPreview();
+        this.schedulePreviewUpdate();
+    }
+
+    // Debounced update function to prevent conflicting preview calls
+    schedulePreviewUpdate(delay = 10) {
+        // Cancel any existing timeout
+        if (this.previewUpdateTimeout) {
+            clearTimeout(this.previewUpdateTimeout);
+        }
+        
+        // Schedule a new update
+        this.previewUpdateTimeout = setTimeout(() => {
+            this.updateGradientLivePreview();
+            this.previewUpdateTimeout = null;
+        }, delay);
     }
 
     updateGradientLivePreview() {
         // Only show live preview when bucket tool is selected
         if (this.currentTool !== 'bucket') {
+            return;
+        }
+        
+        // Cancel any pending preview updates to prevent conflicts
+        if (this.previewUpdateTimeout) {
+            clearTimeout(this.previewUpdateTimeout);
+            this.previewUpdateTimeout = null;
+        }
+        
+        // If there's a targeted preview active (lastPreviewArea exists), don't override it
+        if (this.lastPreviewArea && this.lastPreviewArea.pixels && this.lastPreviewArea.pixels.length > 0) {
+            // Don't clear the targeted preview - it takes priority
             return;
         }
         
@@ -6633,35 +6672,6 @@ class DrawingEditor {
                     }
                 }
             }
-        } else if (this.lastPreviewArea && this.lastPreviewArea.pixels) {
-            // For all other patterns, use targeted area preview if available
-            this.overlayCtx.globalAlpha = 0.6; // Semi-transparent for area preview
-            
-            // Apply the current pattern to the stored preview area
-            this.lastPreviewArea.pixels.forEach(pixel => {
-                let shouldShowPixel = true;
-                
-                if (this.fillPattern.startsWith('gradient-')) {
-                    // For gradient patterns, use the exact same logic as performFloodFill
-                    if (this.fillPattern.includes('-dither') || this.fillPattern.includes('-stipple')) {
-                        // For dithered gradients, check if this pixel would be filled
-                        const hexColor = this.getGradientColor(pixel.x, pixel.y, this.fillPattern, this.currentColor);
-                        if ((this.currentColor === 'black' && hexColor === '#ffffff') ||
-                            (this.currentColor === 'white' && hexColor === '#000000')) {
-                            shouldShowPixel = false;
-                        }
-                    }
-                    // For regular gradients, all pixels are filled (shouldShowPixel stays true)
-                } else if (this.fillPattern !== 'solid') {
-                    // For non-gradient patterns, check if pixel should be filled
-                    shouldShowPixel = this.shouldFillPixel(pixel.x, pixel.y, this.fillPattern);
-                }
-                
-                if (shouldShowPixel) {
-                    this.overlayCtx.fillStyle = 'rgba(255, 0, 0, 1)';
-                    this.overlayCtx.fillRect(pixel.x, pixel.y, 1, 1);
-                }
-            });
         }
         
         // Reset overlay context
