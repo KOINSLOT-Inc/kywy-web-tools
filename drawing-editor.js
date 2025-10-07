@@ -7177,7 +7177,7 @@ class DrawingEditor {
             }
         } else {
             // Multi-pixel thickness - draw between outer and inner ellipse
-            const halfThickness = thickness / 2;
+            const halfThickness = thickness / 2 - 0.1;
             const outerRadiusX = radiusX + halfThickness;
             const outerRadiusY = radiusY + halfThickness;
             const innerRadiusX = Math.max(0, radiusX - halfThickness);
@@ -7688,7 +7688,7 @@ class DrawingEditor {
             }
         } else {
             // Multi-pixel thickness - draw between outer and inner ellipse
-            const halfThickness = thickness / 2;
+            const halfThickness = thickness / 2 - 0.1;
             const outerRadiusX = radiusX + halfThickness;
             const outerRadiusY = radiusY + halfThickness;
             const innerRadiusX = Math.max(0, radiusX - halfThickness);
