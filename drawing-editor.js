@@ -7014,9 +7014,9 @@ class DrawingEditor {
                 // Perfect center: draw perfect circle with radius to mouse position
                 const dx = endX - startX;
                 const dy = endY - startY;
-                const radius = Math.round(Math.sqrt(dx * dx + dy * dy)); // Distance from center to mouse
-                this.drawCirclePreview(startX, startY, radius);
-                this.showMirroredShapePreview('circle', startX, startY, radius, 0, 0);
+                const radius = Math.ceil(Math.sqrt(dx * dx + dy * dy)); // Distance from center to mouse
+                this.drawEllipsePreview(startX - radius, startY - radius, startX + radius, startY + radius);
+                this.showMirroredShapePreview('ellipse', startX - radius, startY - radius, 0, startX + radius, startY + radius);
             } else if (isPerfect) {
                 // Perfect corner: draw circle bounded by perfect square from corner
                 const width = Math.abs(endX - startX);
@@ -7453,14 +7453,15 @@ class DrawingEditor {
                 // Perfect center: draw perfect circle with radius to mouse position
                 const dx = endX - startX;
                 const dy = endY - startY;
-                const radius = Math.round(Math.sqrt(dx * dx + dy * dy)); // Distance from center to mouse
-                this.drawCircle(startX, startY, radius, ctx);
+                const radius = Math.ceil(Math.sqrt(dx * dx + dy * dy)); // Distance from center to mouse
+                // this.drawCircle(startX, startY, radius, ctx);
+                this.drawEllipse(startX - radius, startY - radius, startX + radius, startY + radius, ctx); // For anti-aliasing edges
                 
                 // Draw mirrored circles
                 if (this.mirrorHorizontal || this.mirrorVertical) {
                     const mirrorPositions = this.calculateMirrorPositions(startX, startY);
                     mirrorPositions.forEach(mirrorPos => {
-                        this.drawCircle(mirrorPos.x, mirrorPos.y, radius, ctx);
+                        this.drawEllipse(mirrorPos.x - radius, mirrorPos.y - radius, mirrorPos.x + radius, mirrorPos.y + radius, ctx);
                     });
                 }
             } else if (isPerfect) {
