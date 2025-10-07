@@ -3900,11 +3900,6 @@ class DrawingEditor {
             const angle = parseInt(document.getElementById('rotationAngle').value);
             this.rotateSelectionByAngle(angle);
         });
-        document.getElementById('resetRotationBtn').addEventListener('click', () => {
-            document.getElementById('rotationAngle').value = '0';
-            document.getElementById('rotationAngleDisplay').textContent = '0';
-            this.updateRotationWarning(0);
-        });
         
         // Mirror controls
         document.getElementById('mirrorHorizontalBtn').addEventListener('click', () => {
