@@ -6416,6 +6416,11 @@ class DrawingEditor {
         // Draw base overlays (grids etc.)
         this.drawBaseOverlays();
         
+        // Redraw selection overlay if there's an active selection and not in paste mode
+        if (this.selection && this.selection.active && this.currentTool === 'select' && !this.isPasteModeActive) {
+            this.drawSelectionOverlay();
+        }
+        
         // Save overlay context
         this.overlayCtx.save();
         
