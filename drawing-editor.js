@@ -13186,9 +13186,18 @@ Instructions:
             // Use exact 90-degree rotation (non-destructive)
             const rotatedImageData = this.rotate90Degrees(imageData, normalizedAngle);
             
-            // Clear the original lasso area
-            currentCtx.fillStyle = '#ffffff';
-            currentCtx.fillRect(clampedMinX, clampedMinY, clampedWidth, clampedHeight);
+            // Clear only pixels INSIDE the original lasso area
+            for (let y = 0; y < clampedHeight; y++) {
+                for (let x = 0; x < clampedWidth; x++) {
+                    const idx = (y * clampedWidth + x) * 4;
+                    if (maskData[idx] > 0) { // Inside lasso
+                        const canvasX = clampedMinX + x;
+                        const canvasY = clampedMinY + y;
+                        currentCtx.fillStyle = '#ffffff';
+                        currentCtx.fillRect(canvasX, canvasY, 1, 1);
+                    }
+                }
+            }
             
             // Calculate placement for rotated image
             const rotatedWidth = rotatedImageData.width;
@@ -13205,16 +13214,48 @@ Instructions:
                 newX + rotatedWidth <= this.canvasWidth && 
                 newY + rotatedHeight <= this.canvasHeight) {
                 
-                // Place the rotated image
+                // Place the rotated image (it already has transparency preserved)
                 currentCtx.putImageData(rotatedImageData, newX, newY);
                 
-                // Update selection - convert to rectangle since lasso shape changes with rotation
-                this.selection.mode = 'rectangle';
-                this.selection.startX = newX;
-                this.selection.startY = newY;
-                this.selection.endX = newX + rotatedWidth;
-                this.selection.endY = newY + rotatedHeight;
-                delete this.selection.lassoPoints;
+                // Rotate the lasso points to create new lasso shape
+                const rotatedLassoPoints = this.rotateLassoPoints(
+                    lassoPoints, 
+                    normalizedAngle, 
+                    (minX + maxX) / 2, 
+                    (minY + maxY) / 2,
+                    clampedMinX,
+                    clampedMinY,
+                    clampedWidth,
+                    clampedHeight
+                );
+                
+                if (rotatedLassoPoints) {
+                    // Keep as lasso with rotated points
+                    this.selection.mode = 'lasso';
+                    this.selection.lassoPoints = rotatedLassoPoints;
+                    this.selection.active = true;
+                    
+                    // Calculate new bounds for the rotated lasso
+                    let newMinX = Infinity, newMinY = Infinity, newMaxX = -Infinity, newMaxY = -Infinity;
+                    for (const point of rotatedLassoPoints) {
+                        newMinX = Math.min(newMinX, point.x);
+                        newMinY = Math.min(newMinY, point.y);
+                        newMaxX = Math.max(newMaxX, point.x);
+                        newMaxY = Math.max(newMaxY, point.y);
+                    }
+                    this.selection.startX = newMinX;
+                    this.selection.startY = newMinY;
+                    this.selection.endX = newMaxX;
+                    this.selection.endY = newMaxY;
+                } else {
+                    // Fallback to rectangle if rotation failed
+                    this.selection.mode = 'rectangle';
+                    this.selection.startX = newX;
+                    this.selection.startY = newY;
+                    this.selection.endX = newX + rotatedWidth;
+                    this.selection.endY = newY + rotatedHeight;
+                    delete this.selection.lassoPoints;
+                }
             } else {
                 alert('Rotated selection does not fit on canvas.');
                 currentCtx.putImageData(canvasSnapshot, 0, 0);
@@ -13229,9 +13270,18 @@ Instructions:
                 return;
             }
             
-            // Clear the original lasso area (approximate with bounding box)
-            currentCtx.fillStyle = '#ffffff';
-            currentCtx.fillRect(clampedMinX, clampedMinY, clampedWidth, clampedHeight);
+            // Clear only pixels INSIDE the original lasso area
+            for (let y = 0; y < clampedHeight; y++) {
+                for (let x = 0; x < clampedWidth; x++) {
+                    const idx = (y * clampedWidth + x) * 4;
+                    if (maskData[idx] > 0) { // Inside lasso
+                        const canvasX = clampedMinX + x;
+                        const canvasY = clampedMinY + y;
+                        currentCtx.fillStyle = '#ffffff';
+                        currentCtx.fillRect(canvasX, canvasY, 1, 1);
+                    }
+                }
+            }
             
             // Calculate original center coordinates for proper centering
             const originalCenterX = (minX + maxX) / 2;
@@ -13267,6 +13317,51 @@ Instructions:
         const command = new RotateSelectionCommand(this, canvasSnapshot, { startX: clampedMinX, startY: clampedMinY, endX: clampedMaxX, endY: clampedMaxY }, this.currentFrameIndex, originalSelection);
         this.undoStack.push(command);
         this.redoStack = []; // Clear redo stack
+    }
+
+    rotateLassoPoints(lassoPoints, degrees, centerX, centerY, boundsMinX, boundsMinY, boundsWidth, boundsHeight) {
+        // Rotate lasso points around the center of the selection
+        const angleRad = degrees * Math.PI / 180;
+        const cos = Math.cos(angleRad);
+        const sin = Math.sin(angleRad);
+        
+        const rotatedPoints = lassoPoints.map(point => {
+            // Translate to origin (relative to center)
+            const relX = point.x - centerX;
+            const relY = point.y - centerY;
+            
+            // Rotate
+            let newRelX, newRelY;
+            if (degrees === 90) {
+                newRelX = -relY;
+                newRelY = relX;
+            } else if (degrees === 180) {
+                newRelX = -relX;
+                newRelY = -relY;
+            } else if (degrees === 270) {
+                newRelX = relY;
+                newRelY = -relX;
+            } else {
+                newRelX = relX * cos - relY * sin;
+                newRelY = relX * sin + relY * cos;
+            }
+            
+            // Translate back
+            return {
+                x: Math.round(newRelX + centerX),
+                y: Math.round(newRelY + centerY)
+            };
+        });
+        
+        // Check if all points are within canvas bounds
+        for (const point of rotatedPoints) {
+            if (point.x < 0 || point.x >= this.canvasWidth || 
+                point.y < 0 || point.y >= this.canvasHeight) {
+                return null; // Rotation would go out of bounds
+            }
+        }
+        
+        return rotatedPoints;
     }
 
     mirrorSelection(direction) {
