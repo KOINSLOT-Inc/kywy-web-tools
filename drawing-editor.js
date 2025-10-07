@@ -12922,7 +12922,8 @@ Instructions:
     
     drawSelectionOverlay() {
         // Only clear and redraw everything if we have an active selection for the select tool
-        if (this.selection && this.selection.active && this.currentTool === 'select') {
+        // and we're not in paste mode (paste mode handles its own overlay)
+        if (this.selection && this.selection.active && this.currentTool === 'select' && !this.isPasteModeActive) {
             // Clear overlay and redraw ALL base layers first (including grid mode lines)
             this.overlayCtx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
             this.drawBaseOverlays();
