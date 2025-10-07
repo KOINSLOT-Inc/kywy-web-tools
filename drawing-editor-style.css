@@ -711,8 +711,14 @@ input[type="range"]::-moz-range-thumb {
 
 .brush-shape {
     display: flex;
+    flex-direction: column;
     gap: 5px;
     margin-bottom: 15px;
+}
+
+.brush-shape .brush-shape-buttons {
+    display: flex;
+    gap: 5px;
 }
 
 .color-btn, .brush-shape-btn {
