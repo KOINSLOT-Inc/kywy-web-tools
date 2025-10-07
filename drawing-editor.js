@@ -1862,10 +1862,10 @@ class DrawingEditor {
                     ditheringOptionsContainer.style.display = this.emojiMode === 'dithering' ? 'block' : 'none';
                 }
                 
-                // Show/hide brightness control based on mode (hide for edge detection)
+                // Show/hide brightness control based on mode (show for all modes including edge detection)
                 const brightnessContainer = document.getElementById('emojiBrightnessContainer');
                 if (brightnessContainer) {
-                    brightnessContainer.style.display = this.emojiMode === 'edge' ? 'none' : 'block';
+                    brightnessContainer.style.display = 'block';
                 }
                 
                 emojiDitheringToggle.classList.add('active');
@@ -1935,10 +1935,10 @@ class DrawingEditor {
             ditheringOptionsContainer.style.display = this.emojiMode === 'dithering' ? 'block' : 'none';
         }
         
-        // Initialize brightness container visibility (hide for edge detection)
+        // Initialize brightness container visibility (show for all modes including edge detection)
         const brightnessContainer = document.getElementById('emojiBrightnessContainer');
         if (brightnessContainer) {
-            brightnessContainer.style.display = this.emojiMode === 'edge' ? 'none' : 'block';
+            brightnessContainer.style.display = 'block';
         }
     }
 
@@ -2437,6 +2437,13 @@ class DrawingEditor {
                 // Calculate luminance
                 let gray = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
 
+                // Apply brightness adjustment
+                gray = Math.max(0, Math.min(255, gray + (this.emojiBrightness * 255 / 100)));
+
+                // Apply contrast adjustment
+                const contrastFactor = this.emojiContrast / 100;
+                gray = Math.max(0, Math.min(255, ((gray - 128) * contrastFactor) + 128));
+
                 grayData[index] = gray;
                 grayData[index + 1] = gray;
                 grayData[index + 2] = gray;
@@ -2507,8 +2514,12 @@ class DrawingEditor {
                 // Calculate gradient magnitude
                 const magnitude = Math.sqrt(gx * gx + gy * gy);
                 
-                // Fixed threshold for edge detection
-                const edgeThreshold = 100;
+                // Use brightness to control edge detection threshold
+                // Brightness range: -100 to 100
+                // Lower brightness = lower threshold = more sensitive to edges (detects more)
+                // Higher brightness = higher threshold = less sensitive to edges (detects fewer)
+                // Map brightness to threshold: at -100 (min), threshold=20; at 100 (max), threshold=150
+                const edgeThreshold = 85 + (this.emojiBrightness * 0.65);
                 
                 let invertedEdge;
                 if (magnitude > edgeThreshold) {
@@ -14335,6 +14346,7 @@ Instructions:
         
         const sobelX = [[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]];
         const sobelY = [[-1, -2, -1], [0, 0, 0], [1, 2, 1]];
+        const sobelThreshold = (this.emojiBrightness + 100) * 2; // Adjust this threshold as needed
         
         for (let y = 1; y < height - 1; y++) {
             for (let x = 1; x < width - 1; x++) {
@@ -14351,31 +14363,23 @@ Instructions:
                 }
                 
                 const magnitude = Math.sqrt(gx * gx + gy * gy);
-                const edgeValue = Math.min(255, magnitude);
-                const invertedEdgeValue = 255 - edgeValue; // Invert the edge detection
+                let invertedEdgeValue;
                 
                 const idx = (y * width + x) * 4;
+
+                if (magnitude > sobelThreshold) {
+                    invertedEdgeValue = 0; // Black
+                } else {
+                    invertedEdgeValue = 255; // White
+                }
+
                 output[idx] = invertedEdgeValue;
                 output[idx + 1] = invertedEdgeValue;
                 output[idx + 2] = invertedEdgeValue;
                 output[idx + 3] = 255;
             }
         }
-        
-        // Handle border pixels (set to white background, no edge detection)
-        for (let y = 0; y < height; y++) {
-            for (let x = 0; x < width; x++) {
-                if (y === 0 || y === height - 1 || x === 0 || x === width - 1) {
-                    const idx = (y * width + x) * 4;
-                    // Set border pixels to white (no edges at border)
-                    output[idx] = 255;
-                    output[idx + 1] = 255;
-                    output[idx + 2] = 255;
-                    output[idx + 3] = 255;
-                }
-            }
-        }
-        
+    
         return new ImageData(output, width, height);
     }
 
