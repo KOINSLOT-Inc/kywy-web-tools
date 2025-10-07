@@ -630,6 +630,124 @@ class MirrorSelectionCommand {
     }
 }
 
+class NewDrawingCommand {
+    constructor(editor) {
+        this.editor = editor;
+        
+        // Store all the state that will be cleared
+        this.previousState = {
+            frames: editor.frames.map(frame => {
+                const canvas = document.createElement('canvas');
+                canvas.width = frame.width;
+                canvas.height = frame.height;
+                const ctx = canvas.getContext('2d', { willReadFrequently: true });
+                ctx.drawImage(frame, 0, 0);
+                return canvas;
+            }),
+            currentFrameIndex: editor.currentFrameIndex,
+            frameLayers: editor.frameLayers ? JSON.parse(JSON.stringify(editor.frameLayers)) : null,
+            layersEnabled: editor.layersEnabled,
+            animationEnabled: editor.animationEnabled,
+            isPlaying: editor.isPlaying,
+            animationMode: editor.animationMode,
+            animationDirection: editor.animationDirection,
+            clipboard: editor.clipboard,
+            selection: editor.selection ? JSON.parse(JSON.stringify(editor.selection)) : null,
+            isPasteModeActive: editor.isPasteModeActive,
+            pasteTransparencyMode: editor.pasteTransparencyMode,
+            selectionMode: editor.selectionMode,
+            pasteDragActive: editor.pasteDragActive,
+            pasteDragStartTime: editor.pasteDragStartTime,
+            pasteDragStartX: editor.pasteDragStartX,
+            pasteDragStartY: editor.pasteDragStartY,
+            lastPasteTime: editor.lastPasteTime,
+            onionSkinMode: editor.onionSkinMode,
+            onionSkinOpacity: editor.onionSkinOpacity,
+            onionSkinEnabled: editor.onionSkinEnabled,
+            perfectShapeMode: editor.perfectShapeMode,
+            transparencyMode: editor.transparencyMode,
+            undoStack: [...editor.undoStack],
+            redoStack: [...editor.redoStack],
+            hasUnsavedChanges: editor.hasUnsavedChanges,
+            isBlankCanvas: editor.isBlankCanvas,
+            lastSaveTime: editor.lastSaveTime
+        };
+    }
+    
+    execute() {
+        // This command represents the "new drawing" action, so execute() does nothing
+        // The actual clearing happens in newDrawing() before creating this command
+    }
+    
+    undo() {
+        // Restore all the previous state
+        this.editor.frames = this.previousState.frames;
+        this.editor.currentFrameIndex = this.previousState.currentFrameIndex;
+        this.editor.frameLayers = this.previousState.frameLayers;
+        this.editor.layersEnabled = this.previousState.layersEnabled;
+        this.editor.animationEnabled = this.previousState.animationEnabled;
+        this.editor.isPlaying = this.previousState.isPlaying;
+        this.editor.animationMode = this.previousState.animationMode;
+        this.editor.animationDirection = this.previousState.animationDirection;
+        this.editor.clipboard = this.previousState.clipboard;
+        this.editor.selection = this.previousState.selection;
+        this.editor.isPasteModeActive = this.previousState.isPasteModeActive;
+        this.editor.pasteTransparencyMode = this.previousState.pasteTransparencyMode;
+        this.editor.selectionMode = this.previousState.selectionMode;
+        this.editor.pasteDragActive = this.previousState.pasteDragActive;
+        this.editor.pasteDragStartTime = this.previousState.pasteDragStartTime;
+        this.editor.pasteDragStartX = this.previousState.pasteDragStartX;
+        this.editor.pasteDragStartY = this.previousState.pasteDragStartY;
+        this.editor.lastPasteTime = this.previousState.lastPasteTime;
+        this.editor.onionSkinMode = this.previousState.onionSkinMode;
+        this.editor.onionSkinOpacity = this.previousState.onionSkinOpacity;
+        this.editor.onionSkinEnabled = this.previousState.onionSkinEnabled;
+        this.editor.perfectShapeMode = this.previousState.perfectShapeMode;
+        this.editor.transparencyMode = this.previousState.transparencyMode;
+        this.editor.undoStack = this.previousState.undoStack;
+        this.editor.redoStack = this.previousState.redoStack;
+        this.editor.hasUnsavedChanges = this.previousState.hasUnsavedChanges;
+        this.editor.isBlankCanvas = this.previousState.isBlankCanvas;
+        this.editor.lastSaveTime = this.previousState.lastSaveTime;
+        
+        // Update UI and redraw
+        this.editor.updateUI();
+        this.editor.redrawCanvas();
+        this.editor.generateCode();
+        
+        // Update layers UI if layers were enabled
+        if (this.editor.layersEnabled) {
+            this.editor.updateLayersUI();
+        }
+        
+        // Update animation mode buttons
+        const cycleBtn = document.getElementById('cycleMode');
+        const boomerangBtn = document.getElementById('boomerangMode');
+        if (cycleBtn && boomerangBtn) {
+            if (this.editor.animationMode === 'cycle') {
+                cycleBtn.classList.add('active');
+                boomerangBtn.classList.remove('active');
+            } else {
+                cycleBtn.classList.remove('active');
+                boomerangBtn.classList.add('active');
+            }
+        }
+        
+        // Update onion skin mode buttons
+        const blackOnWhiteBtn = document.getElementById('onionModeBlackOnWhite');
+        const whiteOnBlackBtn = document.getElementById('onionModeWhiteOnBlack');
+        if (blackOnWhiteBtn && whiteOnBlackBtn) {
+            if (this.editor.onionSkinMode === 'blackOnWhite') {
+                blackOnWhiteBtn.classList.add('active');
+                whiteOnBlackBtn.classList.remove('active');
+            } else {
+                blackOnWhiteBtn.classList.remove('active');
+                whiteOnBlackBtn.classList.add('active');
+            }
+        }
+    }
+}
+
 class DrawingEditor {
     constructor() {
         
@@ -11691,6 +11809,15 @@ class DrawingEditor {
     
     newDrawing() {
         if (confirm('Create a new drawing? This will clear your current work.')) {
+            // Create command to store current state before clearing
+            const command = new NewDrawingCommand(this);
+            
+            // Clear undo/redo stacks and add the new drawing command
+            this.undoStack = [];
+            this.redoStack = [];
+            this.undoStack.push(command);
+            this.updateUndoRedoUI();
+            
             // Reset to single frame
             this.frames = [this.createEmptyFrame()];
             this.currentFrameIndex = 0;
@@ -11728,99 +11855,9 @@ class DrawingEditor {
             this.pasteDragStartY = 0;
             this.lastPasteTime = 0;
             
-            // Reset drawing state
-            this.currentTool = 'pen';
-            this.currentColor = 'black';
-            this.brushSize = 1;
-            this.brushShape = 'square';
+            // Reset drawing state (keep tool settings)
             this.isDrawing = false;
             this.isPanning = false;
-            
-            // Reset shape properties
-            this.rectangleThickness = 1;
-            this.rectangleStyle = 'outside';
-            this.shapeFillMode = 'outline';
-            this.shapeThickness = 1;
-            this.shapeStrokePosition = 'outside';
-            this.shapeMode = 'corner';
-            
-            // Reset polygon properties
-            this.polygonSides = 6;
-            this.polygonFillMode = 'outline';
-            this.polygonThickness = 1;
-            
-            // Reset grid properties
-            this.showPixelGrid = false;
-            this.showGrid = false;
-            this.gridModeEnabled = false;
-            this.gridSize = 8;
-            this.showGridLines = true;
-            
-            // Reset pen mode properties
-            this.penMode = 'freehand';
-            this.sprayFlow = 3;
-            this.sprayInterval = null;
-            this.sprayPos = null;
-            
-            // Reset fill pattern properties
-            this.fillPattern = 'solid';
-            this.gradientType = null;
-            this.gradientVariant = 'stipple';
-            this.gradientAngle = 0;
-            this.gradientSteepness = 1.0;
-            this.gradientContrast = 1.0;
-            this.gradientCenterDistance = 0.5;
-            this.isEditingGradientSettings = false;
-            this.gradientEditingTimeout = null;
-            
-            // Reset gradient positions
-            this.gradientPositionX = 0.5;
-            this.gradientPositionY = 0.5;
-            this.radialRadius = 0.7;
-            this.radialPositionX = 0.5;
-            this.radialPositionY = 0.5;
-            
-            // Reset pattern properties
-            this.lineAngle = 0;
-            this.lineSpacing = 6;
-            this.lineWidth = 1;
-            this.linePhase = 0;
-            this.currentPercentage = 50;
-            this.checkerboardSize = 2;
-            this.checkerboardInvert = false;
-            this.clipboardScale = 100;
-            this.clipboardInvert = false;
-            this.dotsSpacing = 4;
-            this.dotsSize = 1;
-            this.dotsOffset = 50;
-            this.dotsInvert = false;
-            
-            // Reset mirror drawing state
-            this.mirrorHorizontal = false;
-            this.mirrorVertical = false;
-            
-            // Reset text tool properties
-            this.textInput = '';
-            this.fontFamily = "Arial";
-            this.fontSize = 48;
-            this.textBold = false;
-            this.textItalic = false;
-            this.textColor = 'black';
-            this.isPlacingText = false;
-            this.textPreviewCanvas = null;
-            this.textPreviewData = null;
-            
-            // Reset emoji properties
-            this.emojiBrightness = -20;
-            this.emojiContrast = 100;
-            this.emojiMode = 'edge';
-            this.ditheringType = 'floyd-steinberg';
-            this.currentEmojiCategory = 'food';
-            
-            // Reset zoom and pan
-            this.zoom = 4;
-            this.panX = 0;
-            this.panY = 0;
             
             // Reset onion skin settings
             this.onionSkinMode = 'whiteOnBlack';
@@ -11832,11 +11869,6 @@ class DrawingEditor {
             
             // Reset transparency mode
             this.transparencyMode = false;
-            
-            // Clear undo/redo stacks for fresh start
-            this.undoStack = [];
-            this.redoStack = [];
-            this.updateUndoRedoUI();
             
             // Reset unsaved changes tracking
             this.hasUnsavedChanges = false;
@@ -11850,15 +11882,6 @@ class DrawingEditor {
             this.updateUI();
             this.redrawCanvas();
             this.generateCode();
-            
-            // Reinitialize tools and settings
-            this.setTool('pen');
-            this.updatePenModeButton();
-            this.updateSelectionModeButton();
-            this.updateBrushControlsState();
-            this.updateTransparencyButton();
-            this.updateRotationWarning(0);
-            this.setFillPattern('solid');
             
             // Reset animation mode buttons
             const cycleBtn = document.getElementById('cycleMode');
