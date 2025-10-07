@@ -474,11 +474,47 @@ class RotateSelectionCommand {
         this.selectionBounds = selectionBounds; // {startX, startY, endX, endY}
         this.frameIndex = frameIndex;
         this.originalSelection = originalSelection; // Store original selection state for lasso->rectangle conversion
+        
+        // Capture state AFTER rotation for redo
+        const ctx = editor.frames[frameIndex].getContext('2d', { willReadFrequently: true });
+        this.rotatedSnapshot = ctx.getImageData(0, 0, editor.canvasWidth, editor.canvasHeight);
+        this.rotatedSelectionBounds = editor.selection ? {
+            mode: editor.selection.mode,
+            startX: editor.selection.startX,
+            startY: editor.selection.startY,
+            endX: editor.selection.endX,
+            endY: editor.selection.endY,
+            lassoPoints: editor.selection.lassoPoints ? [...editor.selection.lassoPoints] : null
+        } : null;
     }
     
     execute() {
-        // This command is only created after the rotation is already done,
-        // so execute() doesn't need to do anything for the initial execution
+        // Apply the rotation (used for redo)
+        this.editor.stopAnimation();
+        const ctx = this.editor.frames[this.frameIndex].getContext('2d', { willReadFrequently: true });
+        
+        // Restore the rotated state
+        ctx.putImageData(this.rotatedSnapshot, 0, 0);
+        
+        // Restore rotated selection state
+        if (this.rotatedSelectionBounds) {
+            this.editor.selection = {
+                mode: this.rotatedSelectionBounds.mode,
+                startX: this.rotatedSelectionBounds.startX,
+                startY: this.rotatedSelectionBounds.startY,
+                endX: this.rotatedSelectionBounds.endX,
+                endY: this.rotatedSelectionBounds.endY,
+                active: true
+            };
+            if (this.rotatedSelectionBounds.lassoPoints) {
+                this.editor.selection.lassoPoints = [...this.rotatedSelectionBounds.lassoPoints];
+            }
+        }
+        
+        this.editor.redrawCanvas();
+        this.editor.drawSelectionOverlay();
+        this.editor.generateThumbnail(this.frameIndex);
+        this.editor.generateCode();
     }
     
     undo() {
@@ -513,11 +549,32 @@ class MirrorSelectionCommand {
         this.canvasSnapshot = canvasSnapshot; // ImageData of the entire canvas before mirroring
         this.selectionBounds = selectionBounds; // {startX, startY, endX, endY} or lasso bounds
         this.frameIndex = frameIndex;
+        
+        // Capture state AFTER mirroring for redo
+        const ctx = editor.frames[frameIndex].getContext('2d', { willReadFrequently: true });
+        this.mirroredSnapshot = ctx.getImageData(0, 0, editor.canvasWidth, editor.canvasHeight);
     }
     
     execute() {
-        // This command is only created after the mirroring is already done,
-        // so execute() doesn't need to do anything for the initial execution
+        // Apply the mirroring (used for redo)
+        this.editor.stopAnimation();
+        const ctx = this.editor.frames[this.frameIndex].getContext('2d', { willReadFrequently: true });
+        
+        // Restore the mirrored state
+        ctx.putImageData(this.mirroredSnapshot, 0, 0);
+        
+        // Selection bounds remain the same for mirroring
+        if (this.selectionBounds.startX !== undefined) {
+            this.editor.selection.startX = this.selectionBounds.startX;
+            this.editor.selection.startY = this.selectionBounds.startY;
+            this.editor.selection.endX = this.selectionBounds.endX;
+            this.editor.selection.endY = this.selectionBounds.endY;
+        }
+        
+        this.editor.redrawCanvas();
+        this.editor.drawSelectionOverlay();
+        this.editor.generateThumbnail(this.frameIndex);
+        this.editor.generateCode();
     }
     
     undo() {
