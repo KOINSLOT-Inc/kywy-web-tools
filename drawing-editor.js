@@ -6917,8 +6917,6 @@ class DrawingEditor {
         const radiusX = width / 2 + 0.5;
         const radiusY = height / 2 + 0.5;
 
-        if (radiusX < 1 || radiusY < 1) return; // Skip tiny ellipses
-        
         if (this.shapeFillMode === 'filled') {
             // Draw filled ellipse preview - use floor/ceil for pixel boundaries
             const minX = Math.floor(centerX - radiusX);
@@ -7429,8 +7427,6 @@ class DrawingEditor {
         const radiusX = width / 2 + 0.5;
         const radiusY = height / 2 + 0.5;
 
-        if (radiusX < 1 || radiusY < 1) return; // Skip tiny ellipses
-        
         if (this.shapeFillMode === 'filled') {
             // Draw filled ellipse - use floor/ceil for pixel boundaries
             const minX = Math.floor(centerX - radiusX);
