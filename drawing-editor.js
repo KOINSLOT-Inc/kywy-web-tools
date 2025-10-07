@@ -475,8 +475,9 @@ class RotateSelectionCommand {
         this.frameIndex = frameIndex;
         this.originalSelection = originalSelection; // Store original selection state for lasso->rectangle conversion
         
-        // Capture state AFTER rotation for redo
-        const ctx = editor.frames[frameIndex].getContext('2d', { willReadFrequently: true });
+        // Capture state AFTER rotation for redo - use active canvas
+        const activeCanvas = editor.getActiveCanvas();
+        const ctx = activeCanvas.getContext('2d', { willReadFrequently: true });
         this.rotatedSnapshot = ctx.getImageData(0, 0, editor.canvasWidth, editor.canvasHeight);
         this.rotatedSelectionBounds = editor.selection ? {
             mode: editor.selection.mode,
@@ -489,9 +490,10 @@ class RotateSelectionCommand {
     }
     
     execute() {
-        // Apply the rotation (used for redo)
+        // Apply the rotation (used for redo) - use active canvas
         this.editor.stopAnimation();
-        const ctx = this.editor.frames[this.frameIndex].getContext('2d', { willReadFrequently: true });
+        const activeCanvas = this.editor.getActiveCanvas();
+        const ctx = activeCanvas.getContext('2d', { willReadFrequently: true });
         
         // Restore the rotated state
         ctx.putImageData(this.rotatedSnapshot, 0, 0);
@@ -519,7 +521,9 @@ class RotateSelectionCommand {
     
     undo() {
         this.editor.stopAnimation();
-        const ctx = this.editor.frames[this.frameIndex].getContext('2d', { willReadFrequently: true });
+        // Restore to active canvas
+        const activeCanvas = this.editor.getActiveCanvas();
+        const ctx = activeCanvas.getContext('2d', { willReadFrequently: true });
         
         // Restore the entire canvas to its state before rotation
         ctx.putImageData(this.canvasSnapshot, 0, 0);
@@ -558,8 +562,9 @@ class MirrorSelectionCommand {
             this.originalLassoPoints = editor.selection.lassoPoints.map(p => ({x: p.x, y: p.y}));
         }
         
-        // Capture state AFTER mirroring for redo
-        const ctx = editor.frames[frameIndex].getContext('2d', { willReadFrequently: true });
+        // Capture state AFTER mirroring for redo - use active canvas
+        const activeCanvas = editor.getActiveCanvas();
+        const ctx = activeCanvas.getContext('2d', { willReadFrequently: true });
         this.mirroredSnapshot = ctx.getImageData(0, 0, editor.canvasWidth, editor.canvasHeight);
         
         // Store mirrored lasso points (captured after mirroring)
@@ -569,9 +574,10 @@ class MirrorSelectionCommand {
     }
     
     execute() {
-        // Apply the mirroring (used for redo)
+        // Apply the mirroring (used for redo) - use active canvas
         this.editor.stopAnimation();
-        const ctx = this.editor.frames[this.frameIndex].getContext('2d', { willReadFrequently: true });
+        const activeCanvas = this.editor.getActiveCanvas();
+        const ctx = activeCanvas.getContext('2d', { willReadFrequently: true });
         
         // Restore the mirrored state
         ctx.putImageData(this.mirroredSnapshot, 0, 0);
@@ -597,7 +603,9 @@ class MirrorSelectionCommand {
     
     undo() {
         this.editor.stopAnimation();
-        const ctx = this.editor.frames[this.frameIndex].getContext('2d', { willReadFrequently: true });
+        // Restore to active canvas
+        const activeCanvas = this.editor.getActiveCanvas();
+        const ctx = activeCanvas.getContext('2d', { willReadFrequently: true });
         
         // Restore the entire canvas to its state before mirroring
         ctx.putImageData(this.canvasSnapshot, 0, 0);
