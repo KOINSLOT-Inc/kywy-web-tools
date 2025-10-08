@@ -4870,6 +4870,7 @@ class DrawingEditor {
         const brushSizeSlider = document.getElementById('brushSize');
         const brushSizeDisplay = document.getElementById('brushSizeDisplay');
         const brushShapeButtons = document.querySelectorAll('.brush-shape-btn');
+        const brushShapeContainer = document.querySelector('.brush-shape');
         const sprayFlowControl = document.getElementById('sprayFlowControl');
         
         if (this.gridModeEnabled) {
@@ -4883,11 +4884,10 @@ class DrawingEditor {
                 const gridVisible = (this.gridSize * this.zoom) >= 3 ? ' (Grid)' : ' (Grid - zoom to see lines)';
                 brushSizeDisplay.textContent = `${this.gridSize}${gridVisible}`;
             }
-            // Keep shape buttons enabled but they affect grid behavior
-            brushShapeButtons.forEach(btn => {
-                btn.disabled = false;
-                btn.style.opacity = '1';
-            });
+            // Hide shape buttons in grid mode since grid overrides brush shape
+            if (brushShapeContainer) {
+                brushShapeContainer.style.display = 'none';
+            }
             // Hide flow control
             if (sprayFlowControl) {
                 sprayFlowControl.style.display = 'none';
@@ -4902,10 +4902,9 @@ class DrawingEditor {
                 brushSizeDisplay.textContent = this.brushSize;
             }
             // Hide shape buttons in spray mode
-            brushShapeButtons.forEach(btn => {
-                btn.disabled = true;
-                btn.style.opacity = '0.3';
-            });
+            if (brushShapeContainer) {
+                brushShapeContainer.style.display = 'none';
+            }
             // Show flow control
             if (sprayFlowControl) {
                 sprayFlowControl.style.display = 'block';
@@ -4919,10 +4918,10 @@ class DrawingEditor {
             if (brushSizeDisplay) {
                 brushSizeDisplay.textContent = this.brushSize;
             }
-            brushShapeButtons.forEach(btn => {
-                btn.disabled = false;
-                btn.style.opacity = '1';
-            });
+            // Show shape buttons in normal mode
+            if (brushShapeContainer) {
+                brushShapeContainer.style.display = 'block';
+            }
             // Hide flow control
             if (sprayFlowControl) {
                 sprayFlowControl.style.display = 'none';
