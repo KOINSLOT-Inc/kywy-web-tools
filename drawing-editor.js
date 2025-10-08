@@ -12557,6 +12557,16 @@ class DrawingEditor {
                     
                     console.log('Loaded', frameIndices.length, 'frames with layers');
                     
+                    // Set export format based on detected format
+                    const exportFormatSelect = document.getElementById('exportFormat');
+                    if (exportFormatSelect) {
+                        if (frameIndices.length > 1) {
+                            exportFormatSelect.value = 'animation'; // Multi-frame animation with layers
+                        } else {
+                            exportFormatSelect.value = 'layers'; // Single frame with layers
+                        }
+                    }
+                    
                 } else if (isLayerFile && allLayerData.length > 0) {
                     // Load as layers
                     console.log('Loading as layered file with', allLayerData.length, 'layers');
@@ -12644,6 +12654,13 @@ class DrawingEditor {
                     this.compositeLayersToFrame(0);
                     
                     console.log('Loaded', allLayerData.length, 'layers');
+                    
+                    // Set export format to layers for single frame with layers
+                    const exportFormatSelect = document.getElementById('exportFormat');
+                    if (exportFormatSelect) {
+                        exportFormatSelect.value = 'layers';
+                    }
+                    
                 } else {
                     // Load as frames (existing behavior)
                     console.log('Loading as single frame/animation file with', allFrameData.length, 'frames');
@@ -12704,14 +12721,16 @@ class DrawingEditor {
                     
                     console.log('Loaded', this.frames.length, 'frames with layer system initialized');
                     
-                    
-                    // If multiple frames were loaded, set export format to animation
-                    if (this.frames.length > 1) {
-                        const exportFormatSelect = document.getElementById('exportFormat');
-                        if (exportFormatSelect) {
+                    // Set export format based on number of frames
+                    const exportFormatSelect = document.getElementById('exportFormat');
+                    if (exportFormatSelect) {
+                        if (this.frames.length > 1) {
                             exportFormatSelect.value = 'animation';
+                        } else {
+                            exportFormatSelect.value = 'single';
                         }
                     }
+                    
                 }
                 
                 this.regenerateAllThumbnails();
