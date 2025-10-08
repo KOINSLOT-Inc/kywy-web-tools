@@ -30,15 +30,22 @@ class CanvasStateSnapshot {
                 if (frameData) {
                     this.allFrameLayerData[frameIdx] = {
                         currentLayerIndex: frameData.currentLayerIndex,
-                        layerSnapshots: []
+                        layers: []
                     };
                     
-                    // Store snapshot of each layer
+                    // Store snapshot of each layer with metadata
                     for (let layerIdx = 0; layerIdx < frameData.layers.length; layerIdx++) {
-                        const layerCanvas = frameData.layers[layerIdx].canvas;
+                        const layer = frameData.layers[layerIdx];
+                        const layerCanvas = layer.canvas;
                         const layerSnapshot = layerCanvas.getContext('2d', { willReadFrequently: true })
                             .getImageData(0, 0, editor.canvasWidth, editor.canvasHeight);
-                        this.allFrameLayerData[frameIdx].layerSnapshots.push(layerSnapshot);
+                        
+                        this.allFrameLayerData[frameIdx].layers.push({
+                            name: layer.name,
+                            visible: layer.visible,
+                            transparencyMode: layer.transparencyMode,
+                            snapshot: layerSnapshot
+                        });
                     }
                 }
             }
@@ -59,19 +66,38 @@ class CanvasStateSnapshot {
         // Restore layer data if layers are enabled
         if (this.layersEnabled && this.editor.layersEnabled && this.allFrameLayerData) {
             for (let frameIdx = 0; frameIdx < this.editor.frames.length; frameIdx++) {
-                const frameLayerData = this.allFrameLayerData[frameIdx];
-                const currentFrameData = this.editor.frameLayers && this.editor.frameLayers[frameIdx];
+                const savedFrameData = this.allFrameLayerData[frameIdx];
                 
-                if (frameLayerData && currentFrameData) {
-                    // Restore current layer index
-                    currentFrameData.currentLayerIndex = frameLayerData.currentLayerIndex;
+                if (savedFrameData) {
+                    // Recreate the layer structure
+                    const newLayers = [];
                     
-                    // Restore each layer
-                    for (let layerIdx = 0; layerIdx < frameLayerData.layerSnapshots.length && layerIdx < currentFrameData.layers.length; layerIdx++) {
-                        const layerCanvas = currentFrameData.layers[layerIdx].canvas;
-                        const layerCtx = layerCanvas.getContext('2d', { willReadFrequently: true });
-                        layerCtx.putImageData(frameLayerData.layerSnapshots[layerIdx], 0, 0);
+                    for (let layerIdx = 0; layerIdx < savedFrameData.layers.length; layerIdx++) {
+                        const savedLayer = savedFrameData.layers[layerIdx];
+                        
+                        // Create new layer canvas
+                        const newCanvas = document.createElement('canvas');
+                        newCanvas.width = this.editor.canvasWidth;
+                        newCanvas.height = this.editor.canvasHeight;
+                        
+                        // Restore layer content
+                        const ctx = newCanvas.getContext('2d', { willReadFrequently: true });
+                        ctx.putImageData(savedLayer.snapshot, 0, 0);
+                        
+                        // Create layer object
+                        newLayers.push({
+                            name: savedLayer.name,
+                            canvas: newCanvas,
+                            visible: savedLayer.visible,
+                            transparencyMode: savedLayer.transparencyMode
+                        });
                     }
+                    
+                    // Replace frame layers with restored structure
+                    this.editor.frameLayers[frameIdx] = {
+                        layers: newLayers,
+                        currentLayerIndex: savedFrameData.currentLayerIndex
+                    };
                     
                     // Composite layers to frame
                     this.editor.compositeLayersToFrame(frameIdx);
@@ -10271,7 +10297,8 @@ class DrawingEditor {
                 const clonedLayer = {
                     name: layer.name,
                     canvas: document.createElement('canvas'),
-                    visible: layer.visible
+                    visible: layer.visible,
+                    transparencyMode: layer.transparencyMode || 'white'
                 };
                 clonedLayer.canvas.width = layer.canvas.width;
                 clonedLayer.canvas.height = layer.canvas.height;
@@ -16752,7 +16779,14 @@ Instructions:
                  * @returns {number} Index of new frame
                  */
                 addFrame: () => {
+                    // Capture snapshot for undo before making changes
+                    this.captureSnapshot();
+                    
                     this.addFrame();
+                    
+                    // Push to undo stack
+                    this.pushUndo();
+                    
                     return this.currentFrameIndex;
                 },
                 /**
@@ -16790,6 +16824,9 @@ Instructions:
                  */
                 addLayer: () => {
                     const frameIndex = this.currentFrameIndex;
+                    
+                    // Capture snapshot for undo before making changes
+                    this.captureSnapshot();
                     
                     // Initialize frameLayers structure if it doesn't exist
                     if (!this.frameLayers) {
@@ -16844,7 +16881,10 @@ Instructions:
                     this.frameLayers[frameIndex].layers.push(newLayer);
                     this.frameLayers[frameIndex].currentLayerIndex = this.frameLayers[frameIndex].layers.length - 1;
                     
-                    // Mark that layers were added (so we skip undo and can update UI after)
+                    // Push to undo stack
+                    this.pushUndo();
+                    
+                    // Mark that layers were added (so we can update UI after)
                     this._layersAddedInScript = true;
                     
                     return this.frameLayers[frameIndex].layers.length - 1;
@@ -16888,11 +16928,11 @@ Instructions:
             console.error('Drawing function error:', error);
         }
         
-        // Only push undo if layers weren't added (to preserve layer structure)
-        if (!this._layersAddedInScript) {
-            this.pushUndo();
-        } else {
-            // If layers were added, composite them to frame so the result is visible
+        // Always push to undo stack (snapshot was captured before execution)
+        this.pushUndo();
+        
+        // If layers were added, composite them to frame so the result is visible
+        if (this._layersAddedInScript) {
             this.compositeLayersToFrame(this.currentFrameIndex);
         }
         this._layersAddedInScript = false; // Reset flag
