@@ -17940,7 +17940,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const editor = new DrawingEditor();
     
     // Expose editor globally for scripting
-    window.editor = editor;
+    window.kde = editor;
+    window.editor = editor; // Backwards compatibility
     
     // Initialize sidebar toggles
     initializeSidebarToggles();
@@ -17954,8 +17955,8 @@ document.addEventListener('DOMContentLoaded', () => {
     initializeScriptEditor(editor);
     
     // Log scripting kde availability
-    // console.log('Drawing Editor loaded! Use window.editor to access the kde.');
-    // console.log('Example: editor.executeDrawing(kde => { kde.drawCircle(50, 50, 20, true, "black"); });');
+    // console.log('Drawing Editor loaded! Use window.kde to access the kde.');
+    // console.log('Example: kde.executeDrawing(kde => { kde.drawCircle(50, 50, 20, true, "black"); });');
 });
 
 // Script Editor functionality
