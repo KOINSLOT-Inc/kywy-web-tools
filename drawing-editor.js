@@ -3471,11 +3471,17 @@ class DrawingEditor {
         this.executeCommand(command);
     }
     
-    deleteLayer() {
+    deleteCurrentLayer() {
+        console.log('deleteCurrentLayer() called');
         const frameData = this.frameLayers && this.frameLayers[this.currentFrameIndex];
-        if (!frameData || frameData.layers.length <= 1) return;
+        console.log('frameData:', frameData);
+        if (!frameData || frameData.layers.length <= 1) {
+            console.log('Cannot delete - no frameData or only 1 layer left');
+            return;
+        }
         
         if (confirm(`Delete ${frameData.layers[frameData.currentLayerIndex].name}?`)) {
+            console.log('User confirmed deletion');
             const layerIndex = frameData.currentLayerIndex;
             const layerData = frameData.layers[layerIndex];
             
@@ -3493,7 +3499,10 @@ class DrawingEditor {
             
             // Use command pattern for undo support
             const command = new DeleteLayerCommand(this, this.currentFrameIndex, layerIndex, clonedLayer);
+            console.log('Executing DeleteLayerCommand');
             this.executeCommand(command);
+        } else {
+            console.log('User cancelled deletion');
         }
     }
     
@@ -4521,7 +4530,16 @@ class DrawingEditor {
         // Layers system
         document.getElementById('layersEnabled').addEventListener('change', () => this.toggleLayersMode());
         document.getElementById('addLayer').addEventListener('click', () => this.addLayer());
-        document.getElementById('deleteLayer').addEventListener('click', () => this.deleteLayer());
+        
+        const deleteLayerBtn = document.getElementById('deleteLayer');
+        console.log('deleteLayer button:', deleteLayerBtn);
+        if (deleteLayerBtn) {
+            deleteLayerBtn.addEventListener('click', () => {
+                console.log('Delete layer button clicked!');
+                this.deleteCurrentLayer();
+            });
+        }
+        
         document.getElementById('moveLayerLeft').addEventListener('click', () => this.moveLayerLeft());
         document.getElementById('moveLayerRight').addEventListener('click', () => this.moveLayerRight());
         document.getElementById('mergeDown').addEventListener('click', () => this.mergeLayerDown());
