@@ -10171,7 +10171,7 @@ class DrawingEditor {
         // ALWAYS create layer data (layers are always active internally)
         const layerData = {
             layers: [{
-                name: 'Layer 0',
+                name: '0',
                 canvas: document.createElement('canvas'),
                 visible: true,
                 transparencyMode: 'white'
@@ -10432,6 +10432,12 @@ class DrawingEditor {
             this.animationInterval = setInterval(() => {
                 this.advanceFrame();
                 this.updateUI();
+                
+                // Update layers panel if it's visible
+                if (this.layersPanelVisible) {
+                    this.updateLayersUI();
+                }
+                
                 this.redrawCanvas();
             }, 1000 / fps);
             this.isPlaying = true;
@@ -16864,7 +16870,7 @@ Instructions:
                         // Create Layer 0 with current frame content
                         const frameCanvas = this.frames[frameIndex];
                         const layer0 = {
-                            name: 'Layer 0',
+                            name: '0',
                             canvas: document.createElement('canvas'),
                             visible: true,
                             transparencyMode: 'white'
