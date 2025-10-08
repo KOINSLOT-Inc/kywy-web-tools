@@ -21,9 +21,9 @@ class CanvasStateSnapshot {
             this.allFrameSnapshots.push(frameSnapshot);
         }
         
-        // Additionally capture layer data if layers are enabled
+        // Always capture layer data (layers are always active internally)
         this.allFrameLayerData = null;
-        if (this.layersEnabled && editor.frameLayers) {
+        if (editor.frameLayers) {
             this.allFrameLayerData = {};
             for (let frameIdx = 0; frameIdx < editor.frames.length; frameIdx++) {
                 const frameData = editor.frameLayers[frameIdx];
@@ -53,25 +53,28 @@ class CanvasStateSnapshot {
     }
     
     restore() {
-        // Restore ALL frames
+        console.log('Restoring CanvasStateSnapshot from', new Date(this.timestamp).toLocaleString());
+        
+        // Assume layers are ALWAYS enabled internally for consistency
+        this.editor.layersEnabled = true; // Ensure editor state reflects this assumption
+        // You might want to update the UI checkbox/panel here if necessary, 
+        // but the core logic simplifies:
+        // document.getElementById('layersEnabled').checked = true;
+        // document.getElementById('layersPanel').style.display = 'flex';
+        
+        // 1. Restore ALL frames (pixel data)
         for (let i = 0; i < this.allFrameSnapshots.length && i < this.editor.frames.length; i++) {
             const frameCanvas = this.editor.frames[i];
             const ctx = frameCanvas.getContext('2d', { willReadFrequently: true });
             ctx.putImageData(this.allFrameSnapshots[i], 0, 0);
         }
         
-        // Restore current frame index
+        // 2. Restore current frame index
         this.editor.currentFrameIndex = this.currentFrameIndex;
         
-        // Restore layer system state
-        if (this.layersEnabled && this.allFrameLayerData) {
-            // We had layers in the snapshot, restore them
-            if (!this.editor.layersEnabled) {
-                // Enable layers if they weren't enabled
-                this.editor.layersEnabled = true;
-                document.getElementById('layersEnabled').checked = true;
-                document.getElementById('layersPanel').style.display = 'flex';
-            }
+        // 3. Restore layer system state
+        if (this.allFrameLayerData) {
+            // A. Snapshot contains layer data: Restore the full layer structure
             
             // Clear and recreate frameLayers structure
             this.editor.frameLayers = {};
@@ -112,29 +115,43 @@ class CanvasStateSnapshot {
                     
                     // Composite layers to frame
                     this.editor.compositeLayersToFrame(frameIdx);
+                } else {
+                    // Handle case where layers existed for some frames but not this one
+                    // Fall through to the next block, or call an 'init frame layers' utility
                 }
             }
-        } else if (!this.layersEnabled && this.editor.layersEnabled) {
-            // Snapshot had NO layers, but editor currently has layers enabled
-            // Disable layers and clear layer data
+        } else {
+            // B. Snapshot did NOT contain layer data (legacy/non-layer state): 
+            // Re-initialize layers for all frames by copying frame content to a new layer.
+            
             this.editor.frameLayers = {};
-            // Note: We keep layersEnabled true but clear the data
-            // This way the UI state is preserved but layers are effectively reset
-        }
-        
-        // If we're in layer mode but restoring a non-layer snapshot,
-        // copy frames to active layers
-        if (this.editor.layersEnabled && !this.layersEnabled) {
+
             for (let frameIdx = 0; frameIdx < this.editor.frames.length; frameIdx++) {
-                const frameData = this.editor.frameLayers && this.editor.frameLayers[frameIdx];
-                if (frameData) {
-                    const activeLayer = frameData.layers[frameData.currentLayerIndex];
-                    if (activeLayer) {
-                        const layerCtx = activeLayer.canvas.getContext('2d', { willReadFrequently: true });
-                        layerCtx.clearRect(0, 0, this.editor.canvasWidth, this.editor.canvasHeight);
-                        layerCtx.drawImage(this.editor.frames[frameIdx], 0, 0);
-                    }
-                }
+                // Create the default layer for the frame
+                const newCanvas = document.createElement('canvas');
+                newCanvas.width = this.editor.canvasWidth;
+                newCanvas.height = this.editor.canvasHeight;
+                
+                // Copy the restored frame image data into the new layer
+                const layerCtx = newCanvas.getContext('2d', { willReadFrequently: true });
+                layerCtx.drawImage(this.editor.frames[frameIdx], 0, 0);
+
+                const defaultLayer = {
+                    name: "Layer 1",
+                    canvas: newCanvas,
+                    visible: true,
+                    transparencyMode: 'default'
+                };
+                
+                this.editor.frameLayers[frameIdx] = {
+                    layers: [defaultLayer],
+                    currentLayerIndex: 0 // Select the first layer
+                };
+                
+                // NOTE: The frame canvas already holds the data from step 1, 
+                // but compositeLayersToFrame should be run here too if 
+                // it updates any state besides the canvas pixels.
+                this.editor.compositeLayersToFrame(frameIdx); 
             }
         }
         
@@ -14993,11 +15010,7 @@ Instructions:
             if (item.restore()) {
                 // Stop animation if it's playing
                 this.stopAnimation();
-                
-                // Update layer UI if layers are enabled
-                if (this.layersEnabled) {
-                    this.updateLayersUI();
-                }
+                this.updateLayersUI();
                 
                 // Redraw canvas to show restored state
                 this.redrawCanvas();
@@ -15033,11 +15046,7 @@ Instructions:
             if (item.restore()) {
                 // Stop animation if it's playing
                 this.stopAnimation();
-                
-                // Update layer UI if layers are enabled
-                if (this.layersEnabled) {
-                    this.updateLayersUI();
-                }
+                this.updateLayersUI();
                 
                 // Redraw canvas to show restored state
                 this.redrawCanvas();
