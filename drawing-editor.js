@@ -14303,9 +14303,6 @@ Instructions:
         
         // Redraw to show the paste preview
         this.redrawCanvas();
-        
-        // Show success message
-        alert(`Image loaded into paste mode! (${width}x${height})\nDrag to reposition, click to place.`);
     }
 
     // Image processing methods (adapted from converter.js)
