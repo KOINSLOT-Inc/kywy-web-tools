@@ -17737,51 +17737,140 @@ function initializeScriptEditor(editor) {
     
     // Example scripts
     const examples = {
-        apiReference: `// KYWY Script API Reference
+        apiReference: `// ============================================
+// KYWY Script API Reference & Examples
+// ============================================
+// This example demonstrates all available API functions
+// with helpful comments explaining each parameter.
+
+// Clear the canvas to start fresh
 api.clear();
 
-const w = api.getWidth();
-const h = api.getHeight();
+// Get canvas dimensions
+const w = api.getWidth();   // Returns canvas width in pixels
+const h = api.getHeight();  // Returns canvas height in pixels
 
-// Drawing shapes
+// ============================================
+// BASIC DRAWING FUNCTIONS
+// ============================================
+
+// Draw text at a position
+// drawText(text, x, y, color)
 api.drawText('API Demo', 10, 10, 'black');
+
+// Draw a line between two points
+// drawLine(x1, y1, x2, y2, color)
 api.drawLine(10, 25, w - 10, 25, 'black');
 
-// Pixels
+// Set individual pixels
+// setPixel(x, y, color)
 api.setPixel(15, 35, 'black');
 api.drawText('setPixel', 20, 33);
 
-// Rectangles
-api.drawRect(10, 45, 25, 15, false, 'black');
-api.drawRect(10, 65, 25, 15, true, 'black');
-api.drawText('Rect', 40, 55);
+// ============================================
+// RECTANGLES
+// ============================================
 
-// Circles & Ellipses
+// Draw rectangle outline
+// drawRect(x, y, width, height, filled, color)
+api.drawRect(10, 45, 25, 15, false, 'black');  // false = outline
+
+// Draw filled rectangle
+api.drawRect(10, 65, 25, 15, true, 'black');   // true = filled
+api.drawText('Rectangles', 40, 55);
+
+// ============================================
+// CIRCLES & ELLIPSES
+// ============================================
+
+// Draw circle
+// drawCircle(centerX, centerY, radius, filled, color)
 api.drawCircle(20, 95, 8, false, 'black');
-api.drawEllipse(70, 55, 12, 8, false, 'black');
-api.drawText('Shapes', 35, 93);
 
-// Polygons
-api.drawPolygon(70, 95, 10, 5, 0, true, 'black');
+// Draw ellipse with different horizontal/vertical radii
+// drawEllipse(centerX, centerY, radiusX, radiusY, filled, color)
+api.drawEllipse(70, 55, 12, 8, false, 'black');
+api.drawText('Circles', 35, 93);
+
+// ============================================
+// POLYGONS
+// ============================================
+
+// Draw regular polygon
+// drawPolygon(centerX, centerY, radius, sides, rotation, filled, color)
+api.drawPolygon(70, 95, 10, 5, 0, true, 'black');  // 5 sides = pentagon
 api.drawText('Pentagon', 85, 93);
 
-// Animation info
+// ============================================
+// CANVAS INFORMATION
+// ============================================
+
+// Get current frame and layer info
 api.drawText('Frame: ' + (api.getCurrentFrame() + 1) + '/' + api.getFrameCount(), 10, 115);
 api.drawText('Layer: ' + (api.getCurrentLayer() + 1) + '/' + api.getLayerCount(), 10, 128);
 
-// Utilities
-api.drawText('rand: ' + api.random(1, 10), 10, 145);
+// ============================================
+// UTILITY FUNCTIONS
+// ============================================
 
-// Interactive
+// Generate random integer
+// random(min, max) - returns integer between min and max (inclusive)
+api.drawText('random: ' + api.random(1, 10), 10, 145);
+
+// map(value, inMin, inMax, outMin, outMax) - map value from one range to another
+// constrain(value, min, max) - clamp value between min and max
+
+// ============================================
+// INTERACTIVE FEATURES
+// ============================================
+
+// Handle mouse clicks on canvas
+// onClick(callback) - callback receives (x, y) coordinates
 api.onClick(function(x, y) {
     api.drawCircle(x, y, 3, true, 'black');
 });
 
-// Frame/Layer API: getCurrentFrame, setCurrentFrame,
-// getFrameCount, addFrame, deleteFrame, duplicateFrame,
-// getCurrentLayer, setCurrentLayer, getLayerCount, 
-// addLayer, deleteLayer, setLayerVisibility, 
-// getLayerVisibility, setLayerOpacity, getLayerOpacity`,
+// ============================================
+// ADDITIONAL FUNCTIONS
+// ============================================
+
+// COLORS: All drawing functions accept 'black' or 'white' as color
+// If color is omitted, uses current selected color
+
+// FILL PATTERNS:
+// setFillPattern(pattern) - Set pattern for filled shapes
+// Patterns: 'solid', 'stipple25', 'stipple50', 'stipple75',
+//           'checkerboard', 'diagonal', 'crosshatch', 'dots'
+// getFillPattern() - Get current pattern name
+
+// CANVAS OPERATIONS:
+// getPixel(x, y) - Get color at pixel as hex string
+// setColor(color) - Set drawing color ('black' or 'white')
+// getColor() - Get current drawing color
+// fillCanvas(color) - Fill entire canvas with color
+// invert() - Invert all colors (black <-> white)
+
+// FLOOD FILL:
+// floodFill(x, y, color) - Fill connected region starting at (x, y)
+
+// FRAME CONTROL (Animation):
+// getCurrentFrame() - Get current frame index (0-based)
+// setCurrentFrame(index) - Switch to frame at index
+// getFrameCount() - Get total number of frames
+// addFrame() - Create new frame, returns new frame index
+// deleteFrame() - Delete current frame
+// duplicateFrame() - Copy current frame, returns new frame index
+
+// LAYER CONTROL (Compositing):
+// getCurrentLayer() - Get current layer index (0-based)
+// setCurrentLayer(index) - Switch to layer at index
+// getLayerCount() - Get total number of layers
+// addLayer() - Create new layer, returns new layer index
+// deleteLayer(index) - Delete layer at index
+// setLayerVisibility(index, visible) - Show/hide layer
+// getLayerVisibility(index) - Check if layer is visible
+// setLayerOpacity(index, opacity) - Set layer opacity (0.0-1.0)
+// getLayerOpacity(index) - Get layer opacity`,
         bresenham: `// Bresenham's Circle Algorithm
 // This algorithm is a classic method for drawing circles in computer graphics.
 api.clear();
