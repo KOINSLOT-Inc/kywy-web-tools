@@ -18636,53 +18636,7 @@ api.clearSelection();
 api.drawText('Mirrored V', 50, 115, 'black');
 
 // Show that selection is cleared
-api.drawText('All done!', 10, h-10, 'black');`,
-        debug: `// Debugging with api.print()
-// Use print() to output values for debugging
-
-const w = api.getWidth();
-const h = api.getHeight();
-
-api.clear();
-
-// Print simple values
-api.print('Canvas size:', w, 'x', h);
-
-// Print calculations
-const radius = 15;
-const area = 3.14159 * radius * radius;
-api.print('Circle area with radius', radius, '=', area);
-
-// Print object information
-const info = {
-    frames: api.getFrameCount(),
-    layers: api.getLayerCount(),
-    currentFrame: api.getCurrentFrame(),
-    currentLayer: api.getCurrentLayer()
-};
-api.print('Canvas info:', info);
-
-// Draw something based on calculations
-const centerX = w / 2;
-const centerY = h / 2;
-api.print('Drawing at center:', centerX, centerY);
-api.drawCircle(centerX, centerY, radius, false, 'black');
-
-// Loop example with print
-api.print('Drawing 5 random circles:');
-for (let i = 0; i < 5; i++) {
-    const x = api.random(20, w - 20);
-    const y = api.random(20, h - 20);
-    const r = api.random(5, 15);
-    api.print('  Circle', i + 1, '- x:', x, 'y:', y, 'r:', r);
-    api.drawCircle(x, y, r, false, 'black');
-}
-
-api.print('Script complete!');
-
-// Show an alert popup for important messages
-// Uncomment the line below to test:
-// api.alert('Script finished!', 'Drew', 5, 'circles');`
+api.drawText('All done!', 10, h-10, 'black');`
     };
     
     // Load example script
