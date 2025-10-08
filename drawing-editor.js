@@ -10517,6 +10517,9 @@ class DrawingEditor {
             this.updateAnimationUI();
         }
         this.updateFrameUI();
+        
+        // Update layer thumbnails (layers are always enabled internally)
+        this.updateLayersUI();
     }
     
     updateFrameList() {
