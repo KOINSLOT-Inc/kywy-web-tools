@@ -3580,7 +3580,8 @@ class DrawingEditor {
         const clonedTopLayer = {
             name: currentLayer.name,
             canvas: document.createElement('canvas'),
-            visible: currentLayer.visible
+            visible: currentLayer.visible,
+            transparencyMode: currentLayer.transparencyMode || 'white'
         };
         clonedTopLayer.canvas.width = currentLayer.canvas.width;
         clonedTopLayer.canvas.height = currentLayer.canvas.height;
@@ -3683,7 +3684,8 @@ class DrawingEditor {
                 const newLayer = {
                     name: currentLayer.name,
                     canvas: document.createElement('canvas'),
-                    visible: currentLayer.visible
+                    visible: currentLayer.visible,
+                    transparencyMode: currentLayer.transparencyMode || 'white'
                 };
                 newLayer.canvas.width = this.canvasWidth;
                 newLayer.canvas.height = this.canvasHeight;
