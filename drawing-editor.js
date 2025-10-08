@@ -137,7 +137,7 @@ class CanvasStateSnapshot {
                 layerCtx.drawImage(this.editor.frames[frameIdx], 0, 0);
 
                 const defaultLayer = {
-                    name: "Layer 1",
+                    name: "1",
                     canvas: newCanvas,
                     visible: true,
                     transparencyMode: 'default'
@@ -12956,7 +12956,7 @@ class DrawingEditor {
                         this.frameLayers[frameIndex].layers.push({
                             canvas: layerCanvas,
                             visible: true,
-                            name: 'Layer 1',
+                            name: '1',
                             transparencyMode: 'white'
                         });
                     });
@@ -17238,7 +17238,7 @@ Instructions:
                     ctx.fillRect(0, 0, newCanvas.width, newCanvas.height);
                     
                     const newLayer = {
-                        name: 'Layer ' + layerCount,
+                        name: '' + layerCount,
                         canvas: newCanvas,
                         visible: true,
                         transparencyMode: 'white'
