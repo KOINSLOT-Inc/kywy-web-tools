@@ -18783,7 +18783,22 @@ api.print('Script complete!');
     
     // Helper function to show output
     function showScriptOutput(message, type) {
-        scriptOutput.textContent = message;
+        scriptOutput.innerHTML = ''; // Clear previous content
+        
+        // Create message text node
+        const messageText = document.createTextNode(message);
+        scriptOutput.appendChild(messageText);
+        
+        // Create close button
+        const closeBtn = document.createElement('button');
+        closeBtn.className = 'script-output-close';
+        closeBtn.innerHTML = '×';
+        closeBtn.title = 'Close';
+        closeBtn.onclick = function() {
+            scriptOutput.style.display = 'none';
+        };
+        scriptOutput.appendChild(closeBtn);
+        
         scriptOutput.className = 'script-output ' + type;
         scriptOutput.style.display = 'block';
     }

@@ -3387,7 +3387,7 @@ button:focus-visible, .toggle-btn:focus-visible, .collapsible-btn:focus-visible,
 }
 
 .script-editor-panel .script-output {
-    padding: 8px 12px;
+    padding: 8px 32px 8px 12px;
     border-radius: 6px;
     font-size: 13px;
     font-family: 'Courier New', monospace;
@@ -3409,6 +3409,31 @@ button:focus-visible, .toggle-btn:focus-visible, .collapsible-btn:focus-visible,
     background: var(--error-bg, #fee2e2);
     color: var(--error-text, #991b1b);
     border: 1px solid var(--error-border, #fca5a5);
+}
+
+.script-output-close {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    background: transparent;
+    border: none;
+    color: inherit;
+    font-size: 18px;
+    cursor: pointer;
+    padding: 0;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 3px;
+    opacity: 0.6;
+    transition: opacity 0.2s, background 0.2s;
+}
+
+.script-output-close:hover {
+    opacity: 1;
+    background: rgba(0, 0, 0, 0.1);
 }
 
 /* Fullscreen script editor */
