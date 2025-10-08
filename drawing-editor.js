@@ -2926,8 +2926,24 @@ class DrawingEditor {
             if (exportPanel) exportPanel.classList.add('with-layers');
             
             // Initialize layers for current frame if not already done
-            if (!this.frameLayers[this.currentFrameIndex]) {
+            // Only initialize if frameLayers doesn't exist OR the specific frame has no layers
+            if (!this.frameLayers || !this.frameLayers[this.currentFrameIndex]) {
+                console.log('Initializing layers for frame', this.currentFrameIndex);
                 this.initializeLayersForFrame(this.currentFrameIndex);
+            } else {
+                const frameData = this.frameLayers[this.currentFrameIndex];
+                console.log('Layers already exist for frame', this.currentFrameIndex, '- layer count:', frameData.layers.length);
+                // Log each layer's canvas to see if they have content
+                frameData.layers.forEach((layer, i) => {
+                    const ctx = layer.canvas.getContext('2d', { willReadFrequently: true });
+                    const imageData = ctx.getImageData(0, 0, Math.min(10, layer.canvas.width), Math.min(10, layer.canvas.height));
+                    const hasContent = imageData.data.some((value, idx) => {
+                        // Check if any pixel is not white (for black content) or not fully transparent
+                        if (idx % 4 === 3) return false; // Skip alpha channel
+                        return value !== 255; // Not white
+                    });
+                    console.log(`  Layer ${i} (${layer.name}): ${layer.canvas.width}x${layer.canvas.height}, hasContent:`, hasContent);
+                });
             }
             
             // Undo/redo stacks are preserved - snapshots support cross-mode restoration
@@ -16787,7 +16803,67 @@ Instructions:
                  * Add a new layer
                  * @returns {number} Index of new layer
                  */
-                addLayer: () => this.addLayer(),
+                addLayer: () => {
+                    const frameIndex = this.currentFrameIndex;
+                    
+                    // Initialize frameLayers structure if it doesn't exist
+                    if (!this.frameLayers) {
+                        this.frameLayers = {};
+                    }
+                    
+                    if (!this.frameLayers[frameIndex]) {
+                        // Enable layers mode so subsequent drawing goes to layers
+                        if (!this.layersEnabled) {
+                            this.layersEnabled = true;
+                        }
+                        
+                        // Create Layer 0 with current frame content
+                        const frameCanvas = this.frames[frameIndex];
+                        const layer0 = {
+                            name: 'Layer 0',
+                            canvas: document.createElement('canvas'),
+                            visible: true,
+                            transparencyMode: 'white'
+                        };
+                        layer0.canvas.width = this.canvasWidth;
+                        layer0.canvas.height = this.canvasHeight;
+                        
+                        const ctx = layer0.canvas.getContext('2d', { willReadFrequently: true });
+                        ctx.fillStyle = 'white';
+                        ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
+                        ctx.drawImage(frameCanvas, 0, 0);
+                        
+                        this.frameLayers[frameIndex] = { 
+                            layers: [layer0], 
+                            currentLayerIndex: 0 
+                        };
+                    }
+                    
+                    const layerCount = this.frameLayers[frameIndex].layers.length;
+                    const newCanvas = document.createElement('canvas');
+                    newCanvas.width = this.canvasWidth;
+                    newCanvas.height = this.canvasHeight;
+                    
+                    // Fill with white background
+                    const ctx = newCanvas.getContext('2d', { willReadFrequently: true });
+                    ctx.fillStyle = 'white';
+                    ctx.fillRect(0, 0, newCanvas.width, newCanvas.height);
+                    
+                    const newLayer = {
+                        name: 'Layer ' + layerCount,
+                        canvas: newCanvas,
+                        visible: true,
+                        transparencyMode: 'white'
+                    };
+                    
+                    this.frameLayers[frameIndex].layers.push(newLayer);
+                    this.frameLayers[frameIndex].currentLayerIndex = this.frameLayers[frameIndex].layers.length - 1;
+                    
+                    // Mark that layers were added (so we skip undo and can update UI after)
+                    this._layersAddedInScript = true;
+                    
+                    return this.frameLayers[frameIndex].layers.length - 1;
+                },
                 /**
                  * Delete a layer
                  * @param {number} layerIndex - Layer index to delete (0-based)
@@ -16827,7 +16903,18 @@ Instructions:
             console.error('Drawing function error:', error);
         }
         
-        this.pushUndo();
+        // Only push undo if layers weren't added (to preserve layer structure)
+        if (!this._layersAddedInScript) {
+            this.pushUndo();
+        } else {
+            // If layers were added, just update the UI (don't toggle layers mode)
+            // Let the user manually open the layers panel to see them
+            console.log('Script created', this.frameLayers[this.currentFrameIndex].layers.length, 'layers');
+            // Composite layers to frame so the result is visible
+            this.compositeLayersToFrame(this.currentFrameIndex);
+        }
+        this._layersAddedInScript = false; // Reset flag
+        
         this.redrawCanvas();
         this.generateThumbnail(this.currentFrameIndex);
         this.generateCode();
@@ -18054,43 +18141,44 @@ for (let i = 0; i < frames; i++) {
 // Return to first frame
 api.setCurrentFrame(0);`,
         layers: `// Multi-Layer Drawing Example
-// This demonstrates how to work with multiple layers
-// Note: Layers work best when created through the UI first
+// This script creates 3 additional layers and draws on each
 
-// Simple layer demonstration without creating new layers
-// Works with existing layers in the editor
+// Create 3 new layers (plus Layer 0 = 4 total)
+api.addLayer(); // Layer 1
+api.addLayer(); // Layer 2
+api.addLayer(); // Layer 3
 
-// Get current layer count
-const layerCount = api.getLayerCount();
-api.drawText('Layers Demo', 10, 10, 'black');
-api.drawText('Total Layers: ' + layerCount, 10, 25, 'black');
+const w = api.getWidth();
+const h = api.getHeight();
 
-// Draw on current layer (Layer 0)
-api.drawText('Layer 0 Content', 10, 45, 'black');
-api.drawCircle(40, 70, 10, false, 'black');
-
-// If we have multiple layers, draw on layer 1
-if (layerCount > 1) {
-    api.setCurrentLayer(1);
-    api.drawText('Layer 1 Content', 10, 45, 'black');
-    api.drawRect(70, 60, 25, 20, false, 'black');
-    
-    // Return to layer 0
-    api.setCurrentLayer(0);
-} else {
-    api.drawText('(Add layers in UI', 10, 95, 'black');
-    api.drawText('to see multi-layer)', 10, 108, 'black');
+// Layer 0 - Background grid pattern
+api.setCurrentLayer(0);
+api.drawText('Layer 0: Grid', 5, 10, 'black');
+for (let x = 0; x < w; x += 10) {
+    for (let y = 30; y < h; y += 10) {
+        api.setPixel(x, y, 'black');
+    }
 }
 
-// Draw random dots on current layer
-for (let i = 0; i < 30; i++) {
-    const x = api.random(0, api.getWidth());
-    const y = api.random(125, api.getHeight());
-    api.setPixel(x, y, 'black');
-}
+// Layer 1 - Large circles
+api.setCurrentLayer(1);
+api.drawText('Layer 1: Circles', 5, 25, 'black');
+api.drawCircle(w/4, h/2, 20, false, 'black');
+api.drawCircle(3*w/4, h/2, 20, false, 'black');
 
-// Show current layer
-api.drawText('Current: Layer ' + api.getCurrentLayer(), 10, 130, 'black');`
+// Layer 2 - Filled rectangles
+api.setCurrentLayer(2);
+api.drawText('Layer 2: Boxes', 5, 40, 'black');
+api.drawRect(w/2 - 15, h/2 - 15, 30, 30, true, 'black');
+
+// Layer 3 - Diagonal lines
+api.setCurrentLayer(3);
+api.drawText('Layer 3: Lines', 5, 55, 'black');
+api.drawLine(10, 70, w-10, h-10, 'black');
+api.drawLine(w-10, 70, 10, h-10, 'black');
+
+// Show info
+api.drawText(api.getLayerCount() + ' layers total', 5, h-10, 'black');`
     };
     
     // Load example script
