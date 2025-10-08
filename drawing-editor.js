@@ -17094,6 +17094,105 @@ function initializeScriptEditor(editor) {
     
     // Example scripts
     const examples = {
+        apiReference: `// KYWY Script API Reference
+// This example demonstrates ALL available API functions
+
+api.clear();
+api.setColor('black');
+
+// ========================================
+// 1. CANVAS INFO FUNCTIONS
+// ========================================
+const width = api.getWidth();   // Get canvas width (144)
+const height = api.getHeight(); // Get canvas height (168)
+
+// Draw info text at top
+api.drawText('API Reference', 10, 10);
+api.drawText('Size: ' + width + 'x' + height, 10, 30);
+
+// ========================================
+// 2. COLOR FUNCTIONS
+// ========================================
+api.setColor('black');        // Set drawing color to black
+var color = api.getColor();   // Get current color
+api.drawText('Color: ' + color, 10, 50);
+
+// ========================================
+// 3. PIXEL DRAWING
+// ========================================
+// Draw individual pixels
+api.setPixel(10, 70, 'black');
+api.setPixel(11, 70, 'black');
+api.setPixel(12, 70, 'black');
+api.drawText('setPixel', 15, 68);
+
+// ========================================
+// 4. LINE DRAWING
+// ========================================
+// Draw a horizontal line
+api.drawLine(10, 85, 50, 85, 'black');
+api.drawText('drawLine', 55, 83);
+
+// ========================================
+// 5. RECTANGLE DRAWING
+// ========================================
+// Draw outline rectangle
+api.drawRect(10, 100, 30, 20, false, 'black');
+api.drawText('Outline', 45, 105);
+
+// Draw filled rectangle
+api.drawRect(10, 125, 30, 20, true, 'black');
+api.drawText('Filled', 45, 130);
+
+// ========================================
+// 6. CIRCLE DRAWING
+// ========================================
+// Draw outline circle (x, y, radius, filled, color)
+api.drawCircle(25, 165, 10, false, 'black');
+api.drawText('Outline', 40, 160);
+
+// Draw filled circle
+api.drawCircle(95, 110, 8, true, 'black');
+api.drawText('Filled', 108, 107);
+
+// ========================================
+// 7. TEXT DRAWING
+// ========================================
+api.drawText('Text!', 80, 85, 'black');
+
+// ========================================
+// 8. PIXEL READING
+// ========================================
+// Read pixel color at position
+var pixelColor = api.getPixel(10, 70);
+api.drawText('Read: ' + pixelColor, 10, 150);
+
+// ========================================
+// 9. CLEAR CANVAS
+// ========================================
+// api.clear(); // Uncomment to clear canvas
+
+// ========================================
+// 10. INTERACTIVE CLICK HANDLER
+// ========================================
+// Set up click handler (only one allowed)
+api.onClick(function(x, y) {
+    // Draw a small circle at clicked position
+    api.drawCircle(x, y, 3, true, 'black');
+});
+
+// Draw instruction at bottom
+api.drawText('Click anywhere!', 10, height - 10);
+
+// ========================================
+// NOTES:
+// ========================================
+// - Coordinates are automatically floored to integers
+// - Only 'black' and 'white' colors are allowed
+// - Invalid colors default to current color
+// - onClick() replaces any previous click handler
+// - Text is binarized (no anti-aliasing)
+// ========================================`,
         bresenham: `// Bresenham's Circle Algorithm
 // This algorithm is a classic method for drawing circles in computer graphics.
 api.clear();
@@ -17143,7 +17242,7 @@ api.clear();
 api.setColor('black');
 const centerX = api.getWidth() / 2;
 const centerY = api.getHeight() / 2;
-for (let i = 0; i < 360; i += 5) {
+for (let i = 0; i < 360; i += .1) {
     const angle = i * Math.PI / 180;
     const radius = i / 4;
     const x = Math.floor(centerX + Math.cos(angle) * radius);
@@ -17153,7 +17252,7 @@ for (let i = 0; i < 360; i += 5) {
         grid: `// Grid Pattern
 api.clear();
 api.setColor('black');
-const spacing = 10;
+const spacing = 8;
 for (let x = 0; x < api.getWidth(); x += spacing) {
     api.drawLine(x, 0, x, api.getHeight());
 }
