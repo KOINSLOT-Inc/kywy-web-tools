@@ -16540,9 +16540,11 @@ Instructions:
      */
     getLayerVisibility(layerIndex) {
         const index = Math.floor(layerIndex);
-        const frame = this.frames[this.currentFrameIndex];
-        if (index >= 0 && index < frame.layers.length) {
-            return frame.layers[index].visible;
+        const frameData = this.frameLayers[this.currentFrameIndex];
+        if (!frameData || !frameData.layers) return false;
+        
+        if (index >= 0 && index < frameData.layers.length) {
+            return frameData.layers[index].visible;
         }
         return false;
     }
@@ -17079,7 +17081,7 @@ Instructions:
                     return true;
                 },
                 /**
-                 * Print a message to the script output
+                 * Print a message to the script output and console
                  * @param {...any} args - Values to print (will be converted to strings)
                  */
                 print: (...args) => {
@@ -17094,6 +17096,25 @@ Instructions:
                         return String(arg);
                     }).join(' ');
                     this._printBuffer.push(message);
+                    // Also log to browser console for debugging
+                    console.log('[Script]', ...args);
+                },
+                /**
+                 * Show an alert popup message
+                 * @param {...any} args - Values to show in alert (will be converted to strings)
+                 */
+                alert: (...args) => {
+                    const message = args.map(arg => {
+                        if (typeof arg === 'object') {
+                            try {
+                                return JSON.stringify(arg, null, 2);
+                            } catch (e) {
+                                return String(arg);
+                            }
+                        }
+                        return String(arg);
+                    }).join(' ');
+                    alert(message);
                 },
                 /**
                  * Register a click handler function
@@ -18154,9 +18175,14 @@ api.drawText('Frame: ' + (api.getCurrentFrame() + 1) + '/' + api.getFrameCount()
 const randomNum = api.random(1, 10);
 api.drawText('random: ' + randomNum, 10, 170, 'black');
 
-// Print values for debugging (displays in script output)
+// Print values for debugging (displays in script output AND browser console)
 // print(...args) - Accepts any number of arguments, objects shown as JSON
 api.print('Random number generated:', randomNum);
+api.print('Canvas dimensions:', {width: w, height: h});
+
+// Show alert popup (for important messages)
+// alert(...args) - Shows browser alert dialog with message
+// api.alert('This is an alert!', 'Value:', 123);
 
 // map(value, inMin, inMax, outMin, outMax) - map value from one range to another
 // constrain(value, min, max) - clamp value between min and max
@@ -18238,46 +18264,147 @@ api.mirrorSelectionV();
 api.clearSelection();
 
 // ============================================
-// ADDITIONAL FUNCTIONS
+// FILL PATTERNS - ALL OPTIONS
 // ============================================
 
-// COLORS: Set and get drawing color
-// setColor(color) - Set drawing color ('black' or 'white')
-api.setColor('black');
-// getColor() - Get current drawing color
-const currentColor = api.getColor();
-api.print('Current color:', currentColor);
+// Create a new frame to demonstrate all fill patterns
+api.addFrame();
 
-// FILL PATTERNS: Set patterns for filled shapes
-// setFillPattern(pattern) - Set pattern for filled shapes
-api.setFillPattern('stipple50');
-api.drawRect(10, 130, 20, 20, true, 'black');
-api.setFillPattern('checkerboard');
-api.drawRect(35, 130, 20, 20, true, 'black');
-api.setFillPattern('solid'); // Reset to solid
+api.drawText('Fill Patterns', 5, 5, 'black');
+
+// All available fill patterns:
+const patterns = [
+    'solid', 'stipple25', 'stipple50', 'stipple75',
+    'checkerboard', 'diagonal', 'crosshatch', 'dots'
+];
+
+let x = 5, y = 15;
+patterns.forEach((pat, i) => {
+    api.setFillPattern(pat);
+    api.drawRect(x, y, 15, 15, true, 'black');
+    api.setFillPattern('solid'); // Reset for text
+    api.drawText(pat, x, y + 18, 'black');
+    
+    x += 35;
+    if ((i + 1) % 4 === 0) {
+        x = 5;
+        y += 40;
+    }
+});
+
+api.setFillPattern('solid'); // Reset to default
 
 // getFillPattern() - Get current pattern name
-const pattern = api.getFillPattern();
-api.print('Current pattern:', pattern);
-
-// CANVAS OPERATIONS:
-// getPixel(x, y) - Get color at pixel as hex string
-const pixelColor = api.getPixel(10, 130);
-api.print('Pixel at (10,130):', pixelColor);
-
-// fillCanvas(color) - Fill entire canvas with color (use with caution!)
-// api.fillCanvas('white'); // Commented to preserve other examples
-
-// invert() - Invert all colors (black <-> white)
-// api.invert(); // Commented to preserve other examples
-
-// FLOOD FILL:
-// floodFill(x, y, color) - Fill connected region starting at (x, y)
-api.drawRect(60, 130, 30, 20, false, 'black');
-api.floodFill(75, 140, 'black');
+api.print('Current fill pattern:', api.getFillPattern());
 
 // ============================================
-// FRAME & LAYER INFO (Already demonstrated above)
+// LAYER OPERATIONS
+// ============================================
+
+// Create a new frame for layer demonstrations
+api.addFrame();
+
+api.drawText('Layer Demo', 5, 5, 'black');
+
+// Check initial layer state
+api.print('Starting layers:', api.getLayerCount());
+api.print('Current layer:', api.getCurrentLayer());
+
+// Create multiple layers
+// addLayer() - Create new layer, returns new layer index
+const layer1 = api.addLayer();
+api.print('Created layer:', layer1);
+
+const layer2 = api.addLayer();
+api.print('Created layer:', layer2);
+
+// Draw on layer 0 (background)
+api.setCurrentLayer(0);
+api.drawRect(10, 20, 40, 40, true, 'black');
+api.drawText('Layer 0', 15, 35, 'white');
+
+// Draw on layer 1 (middle)
+api.setCurrentLayer(1);
+api.drawCircle(50, 40, 20, true, 'black');
+api.drawText('Layer 1', 40, 38, 'white');
+
+// Draw on layer 2 (top)
+api.setCurrentLayer(2);
+api.drawPolygon(90, 40, 15, 5, 0, true, 'black');
+api.drawText('Layer 2', 80, 38, 'white');
+
+// Demonstrate layer visibility
+// setLayerVisibility(index, visible) - Show/hide layer
+api.setLayerVisibility(1, false);
+api.print('Layer 1 hidden');
+
+// getLayerVisibility(index) - Check if layer is visible
+const isVisible = api.getLayerVisibility(1);
+api.print('Layer 1 visible?', isVisible);
+
+// Show it again
+api.setLayerVisibility(1, true);
+api.print('Layer 1 shown again');
+
+// Layer info summary
+api.drawText('Total Layers: ' + api.getLayerCount(), 5, 70, 'black');
+api.drawText('Current: ' + api.getCurrentLayer(), 5, 80, 'black');
+
+// ============================================
+// CANVAS OPERATIONS
+// ============================================
+
+// Create new frame for canvas operations
+api.addFrame();
+
+api.drawText('Canvas Ops', 5, 5, 'black');
+
+// setColor and getColor
+api.setColor('black');
+api.print('Current color:', api.getColor());
+
+// Draw something to test getPixel
+api.drawRect(10, 20, 30, 30, true, 'black');
+api.drawRect(15, 25, 20, 20, true, 'white');
+
+// getPixel(x, y) - Get color at pixel as hex string
+const blackPixel = api.getPixel(12, 22);
+const whitePixel = api.getPixel(25, 35);
+api.print('Black pixel:', blackPixel);
+api.print('White pixel:', whitePixel);
+
+// Flood fill demonstration
+api.drawRect(50, 20, 40, 40, false, 'black');
+api.drawCircle(70, 40, 10, false, 'black');
+// floodFill(x, y, color) - Fill connected region
+api.floodFill(70, 40, 'black'); // Fill the circle
+api.floodFill(52, 22, 'black'); // Fill the ring area
+api.drawText('Flood filled', 50, 65, 'black');
+
+// Canvas-wide operations (demonstrated at end)
+api.drawText('Try fillCanvas()', 5, 90, 'black');
+api.drawText('or invert()', 5, 100, 'black');
+
+// fillCanvas(color) - Fills entire canvas
+// api.fillCanvas('black');
+
+// invert() - Inverts all colors (black <-> white)
+// api.invert();
+
+// ============================================
+// FRAME & ANIMATION OPERATIONS
+// ============================================
+
+// Already created multiple frames above
+// Summary of frame functions:
+api.print('Total frames created:', api.getFrameCount());
+api.print('Current frame:', api.getCurrentFrame());
+
+// Other frame functions available:
+// setCurrentFrame(index) - Switch to different frame
+// duplicateFrame() - Copy current frame
+// deleteFrame() - Remove current frame`,
+        bresenham: `// Bresenham's Circle Algorithm
 // ============================================
 // Frame functions: getCurrentFrame(), getFrameCount(), addFrame(), etc.
 // Layer functions: getCurrentLayer(), getLayerCount(), addLayer(), etc.
@@ -18556,7 +18683,11 @@ for (let i = 0; i < 5; i++) {
     api.drawCircle(x, y, r, false, 'black');
 }
 
-api.print('Script complete!');`
+api.print('Script complete!');
+
+// Show an alert popup for important messages
+// Uncomment the line below to test:
+// api.alert('Script finished!', 'Drew', 5, 'circles');`
     };
     
     // Load example script
@@ -18618,6 +18749,19 @@ api.print('Script complete!');`
             this.innerHTML = '⛶ Fullscreen';
             this.title = 'Toggle Fullscreen';
         }
+        
+        // Force CodeMirror refresh after layout change
+        if (codeMirrorInstance) {
+            // Immediate refresh
+            codeMirrorInstance.refresh();
+            // Additional refresh after CSS transition completes
+            setTimeout(() => {
+                codeMirrorInstance.refresh();
+            }, 50);
+            setTimeout(() => {
+                codeMirrorInstance.refresh();
+            }, 200);
+        }
     });
     
     // Also allow Escape key to exit fullscreen
@@ -18626,6 +18770,19 @@ api.print('Script complete!');`
             scriptEditorPanel.classList.remove('fullscreen');
             fullscreenScriptBtn.innerHTML = '⛶ Fullscreen';
             fullscreenScriptBtn.title = 'Toggle Fullscreen';
+            
+            // Force CodeMirror refresh after exiting fullscreen
+            if (codeMirrorInstance) {
+                // Immediate refresh
+                codeMirrorInstance.refresh();
+                // Additional refresh after CSS transition completes
+                setTimeout(() => {
+                    codeMirrorInstance.refresh();
+                }, 50);
+                setTimeout(() => {
+                    codeMirrorInstance.refresh();
+                }, 200);
+            }
         }
     });
     
