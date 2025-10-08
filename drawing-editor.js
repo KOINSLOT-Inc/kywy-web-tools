@@ -12430,6 +12430,31 @@ class DrawingEditor {
                 }
             }
             
+            // Save any remaining data from the last array if it wasn't saved yet
+            if (inDataArray && currentPixelData.length > 0) {
+                console.log('Saving final array data, total bytes:', currentPixelData.length);
+                
+                if (isFramesWithLayers) {
+                    // Store in frameLayersData structure
+                    if (!frameLayersData[currentFrameIndex]) {
+                        frameLayersData[currentFrameIndex] = [];
+                    }
+                    frameLayersData[currentFrameIndex].push({
+                        name: currentLayerName || `${currentLayerIndex}`,
+                        data: [...currentPixelData],
+                        layerIndex: currentLayerIndex
+                    });
+                } else if (detectedFormat === 'LAYERS' || (detectedFormat === null && (dataArrayName.includes('_layer_') || /_layer\d+/.test(dataArrayName)))) {
+                    allLayerData.push({
+                        name: currentLayerName || `${allLayerData.length}`,
+                        data: [...currentPixelData]
+                    });
+                } else {
+                    // Animation frames or single frame
+                    allFrameData.push([...currentPixelData]);
+                }
+            }
+            
             console.log('Parse results - Width:', width, 'Height:', height, 'Frames:', allFrameData.length, 'Layers:', allLayerData.length, 'Frames with layers:', Object.keys(frameLayersData).length);
             
             if (width && height && (allFrameData.length > 0 || allLayerData.length > 0 || Object.keys(frameLayersData).length > 0)) {
@@ -12651,6 +12676,27 @@ class DrawingEditor {
                         
                         ctx.putImageData(imageData, 0, 0);
                         this.frames.push(frameCanvas);
+                        
+                        // Initialize layer system for each frame - layers are always active internally
+                        if (!this.frameLayers[frameIndex]) {
+                            this.frameLayers[frameIndex] = {
+                                currentLayerIndex: 0,
+                                layers: []
+                            };
+                        }
+                        
+                        // Create a layer with the loaded data
+                        const layerCanvas = document.createElement('canvas');
+                        layerCanvas.width = width;
+                        layerCanvas.height = height;
+                        const layerCtx = layerCanvas.getContext('2d', { willReadFrequently: true });
+                        layerCtx.drawImage(frameCanvas, 0, 0);
+                        
+                        this.frameLayers[frameIndex].layers.push({
+                            canvas: layerCanvas,
+                            visible: true,
+                            name: 'Layer 1'
+                        });
                     });
                     
                     console.log('Loaded', this.frames.length, 'frames');
