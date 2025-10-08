@@ -2949,6 +2949,31 @@ class DrawingEditor {
     // === LAYER SYSTEM METHODS ===
     
     toggleLayersMode() {
+        // Safety check: ensure mutual exclusivity
+        const layersChecked = document.getElementById('layersEnabled').checked;
+        const animationChecked = document.getElementById('animationEnabled').checked;
+        
+        // If trying to enable layers while animation is already enabled, force animation off
+        if (layersChecked && animationChecked) {
+            document.getElementById('animationEnabled').checked = false;
+            this.animationEnabled = false;
+            
+            // Hide animation panel if it's visible
+            const animationPanel = document.getElementById('animationPanel');
+            if (animationPanel) animationPanel.style.display = 'none';
+            
+            // Remove animation layout classes
+            const canvasArea = document.querySelector('.canvas-area');
+            const mobileToolbar = document.querySelector('.mobile-bottom-toolbar');
+            const toolsPanel = document.querySelector('.tools-panel');
+            const exportPanel = document.querySelector('.export-panel');
+            
+            if (canvasArea) canvasArea.classList.remove('with-animation');
+            if (mobileToolbar) mobileToolbar.classList.remove('with-animation');
+            if (toolsPanel) toolsPanel.classList.remove('with-animation');
+            if (exportPanel) exportPanel.classList.remove('with-animation');
+        }
+        
         this.layersPanelVisible = document.getElementById('layersEnabled').checked;
         const layersPanel = document.getElementById('layersPanel');
         const canvasArea = document.querySelector('.canvas-area');
@@ -2993,6 +3018,31 @@ class DrawingEditor {
     }
     
     toggleAnimationMode() {
+        // Safety check: ensure mutual exclusivity
+        const layersChecked = document.getElementById('layersEnabled').checked;
+        const animationChecked = document.getElementById('animationEnabled').checked;
+        
+        // If trying to enable animation while layers are already enabled, force layers off
+        if (animationChecked && layersChecked) {
+            document.getElementById('layersEnabled').checked = false;
+            this.layersPanelVisible = false;
+            
+            // Hide layers panel if it's visible
+            const layersPanel = document.getElementById('layersPanel');
+            if (layersPanel) layersPanel.style.display = 'none';
+            
+            // Remove layers layout classes
+            const canvasArea = document.querySelector('.canvas-area');
+            const mobileToolbar = document.querySelector('.mobile-bottom-toolbar');
+            const toolsPanel = document.querySelector('.tools-panel');
+            const exportPanel = document.querySelector('.export-panel');
+            
+            if (canvasArea) canvasArea.classList.remove('with-layers');
+            if (mobileToolbar) mobileToolbar.classList.remove('with-layers');
+            if (toolsPanel) toolsPanel.classList.remove('with-layers');
+            if (exportPanel) exportPanel.classList.remove('with-layers');
+        }
+        
         this.animationEnabled = document.getElementById('animationEnabled').checked;
         const animationPanel = document.getElementById('animationPanel');
         const canvasArea = document.querySelector('.canvas-area');
@@ -3082,6 +3132,101 @@ class DrawingEditor {
         }
         
         this.redrawCanvas();
+    }
+    
+    // Safe methods to enable modes that ensure mutual exclusivity
+    safeEnableLayersMode() {
+        // First ensure animations and script editor are disabled
+        if (this.animationEnabled) {
+            document.getElementById('animationEnabled').checked = false;
+            this.toggleAnimationMode();
+        }
+        if (this.scriptEditorEnabled) {
+            document.getElementById('scriptEditorEnabled').checked = false;
+            this.toggleScriptEditorMode();
+        }
+        
+        // Now enable layers mode
+        document.getElementById('layersEnabled').checked = true;
+        this.toggleLayersMode();
+        
+        // Validate that mutual exclusivity is maintained
+        this.validateMutualExclusivity();
+    }
+    
+    safeEnableAnimationMode() {
+        // First ensure layers and script editor are disabled
+        if (this.layersPanelVisible) {
+            document.getElementById('layersEnabled').checked = false;
+            this.toggleLayersMode();
+        }
+        if (this.scriptEditorEnabled) {
+            document.getElementById('scriptEditorEnabled').checked = false;
+            this.toggleScriptEditorMode();
+        }
+        
+        // Now enable animation mode
+        document.getElementById('animationEnabled').checked = true;
+        this.toggleAnimationMode();
+        
+        // Validate that mutual exclusivity is maintained
+        this.validateMutualExclusivity();
+    }
+    
+    safeDisableAllModes() {
+        // Disable all modes safely
+        if (this.layersPanelVisible) {
+            document.getElementById('layersEnabled').checked = false;
+            this.toggleLayersMode();
+        }
+        if (this.animationEnabled) {
+            document.getElementById('animationEnabled').checked = false;
+            this.toggleAnimationMode();
+        }
+        if (this.scriptEditorEnabled) {
+            document.getElementById('scriptEditorEnabled').checked = false;
+            this.toggleScriptEditorMode();
+        }
+    }
+    
+    // Validation function to ensure mutual exclusivity is maintained
+    validateMutualExclusivity() {
+        const layersChecked = document.getElementById('layersEnabled')?.checked || false;
+        const animationChecked = document.getElementById('animationEnabled')?.checked || false;
+        const scriptChecked = document.getElementById('scriptEditorEnabled')?.checked || false;
+        
+        // Count how many are enabled
+        const enabledCount = [layersChecked, animationChecked, scriptChecked].filter(Boolean).length;
+        
+        // If more than one is enabled, this is an error state - fix it
+        if (enabledCount > 1) {
+            console.warn('Multiple modes enabled simultaneously - fixing mutual exclusivity');
+            
+            // Priority: keep layers if enabled, otherwise keep animation, otherwise keep script
+            if (layersChecked) {
+                // Keep layers, disable others
+                if (animationChecked) {
+                    document.getElementById('animationEnabled').checked = false;
+                    this.animationEnabled = false;
+                }
+                if (scriptChecked) {
+                    document.getElementById('scriptEditorEnabled').checked = false;
+                    this.scriptEditorEnabled = false;
+                }
+            } else if (animationChecked) {
+                // Keep animation, disable script
+                if (scriptChecked) {
+                    document.getElementById('scriptEditorEnabled').checked = false;
+                    this.scriptEditorEnabled = false;
+                }
+            }
+            
+            // Force UI refresh to reflect the correct state
+            this.redrawCanvas();
+            return false; // Indicates conflict was found and resolved
+        }
+        
+        return true; // No conflicts found
     }
     
     updateAnimationUI() {
@@ -4541,7 +4686,10 @@ class DrawingEditor {
         document.getElementById('animationToggle').addEventListener('click', () => this.toggleAnimationSettings());
         
         // Layers system
-        document.getElementById('layersEnabled').addEventListener('change', () => this.toggleLayersMode());
+        document.getElementById('layersEnabled').addEventListener('change', () => {
+            this.toggleLayersMode();
+            this.validateMutualExclusivity();
+        });
         document.getElementById('addLayer').addEventListener('click', () => this.addLayer());
         document.getElementById('deleteLayer').addEventListener('click', () => this.deleteCurrentLayer());
         document.getElementById('moveLayerLeft').addEventListener('click', () => this.moveLayerLeft());
@@ -4550,7 +4698,10 @@ class DrawingEditor {
         document.getElementById('copyLayerToFrames').addEventListener('click', () => this.copyLayerToFrames());
         
         // Animation panel system
-        document.getElementById('animationEnabled').addEventListener('change', () => this.toggleAnimationMode());
+        document.getElementById('animationEnabled').addEventListener('change', () => {
+            this.toggleAnimationMode();
+            this.validateMutualExclusivity();
+        });
         
         // Script Editor panel system
         document.getElementById('scriptEditorEnabled').addEventListener('change', () => this.toggleScriptEditorMode());
@@ -12185,24 +12336,12 @@ class DrawingEditor {
                     // Use saved state if available, otherwise default to true since layers exist
                     const shouldEnableLayers = data.layersEnabled !== undefined ? data.layersEnabled : true;
                     
-                    this.layersEnabled = shouldEnableLayers;
-                    document.getElementById('layersEnabled').checked = shouldEnableLayers;
-                    
                     if (shouldEnableLayers) {
-                        const layersPanel = document.getElementById('layersPanel');
-                        layersPanel.style.display = 'flex';
-                        
-                        const canvasArea = document.querySelector('.canvas-area');
-                        const mobileToolbar = document.querySelector('.mobile-bottom-toolbar');
-                        const toolsPanel = document.querySelector('.tools-panel');
-                        const exportPanel = document.querySelector('.export-panel');
-                        
-                        if (canvasArea) canvasArea.classList.add('with-layers');
-                        if (mobileToolbar) mobileToolbar.classList.add('with-layers');
-                        if (toolsPanel) toolsPanel.classList.add('with-layers');
-                        if (exportPanel) exportPanel.classList.add('with-layers');
-                        
-                        this.updateLayersUI();
+                        // Use safe method to enable layers mode (ensures mutual exclusivity)
+                        this.safeEnableLayersMode();
+                    } else {
+                        // Ensure layers mode is disabled
+                        this.safeDisableAllModes();
                     }
                     
                     this.updateUI();
@@ -12576,24 +12715,8 @@ class DrawingEditor {
                         this.compositeLayersToFrame(arrayIdx);
                     });
                     
-                    // Enable layers mode
-                    this.layersEnabled = true;
-                    document.getElementById('layersEnabled').checked = true;
-                    
-                    const layersPanel = document.getElementById('layersPanel');
-                    layersPanel.style.display = 'flex';
-                    
-                    const canvasArea = document.querySelector('.canvas-area');
-                    const mobileToolbar = document.querySelector('.mobile-bottom-toolbar');
-                    const toolsPanel = document.querySelector('.tools-panel');
-                    const exportPanel = document.querySelector('.export-panel');
-                    
-                    if (canvasArea) canvasArea.classList.add('with-layers');
-                    if (mobileToolbar) mobileToolbar.classList.add('with-layers');
-                    if (toolsPanel) toolsPanel.classList.add('with-layers');
-                    if (exportPanel) exportPanel.classList.add('with-layers');
-                    
-                    this.updateLayersUI();
+                    // Enable layers mode using safe method
+                    this.safeEnableLayersMode();
                     
                     console.log('Loaded', frameIndices.length, 'frames with layers');
                     
@@ -12671,24 +12794,8 @@ class DrawingEditor {
                         });
                     });
                     
-                    // Enable layers mode
-                    this.layersEnabled = true;
-                    document.getElementById('layersEnabled').checked = true;
-                    
-                    const layersPanel = document.getElementById('layersPanel');
-                    layersPanel.style.display = 'flex';
-                    
-                    const canvasArea = document.querySelector('.canvas-area');
-                    const mobileToolbar = document.querySelector('.mobile-bottom-toolbar');
-                    const toolsPanel = document.querySelector('.tools-panel');
-                    const exportPanel = document.querySelector('.export-panel');
-                    
-                    if (canvasArea) canvasArea.classList.add('with-layers');
-                    if (mobileToolbar) mobileToolbar.classList.add('with-layers');
-                    if (toolsPanel) toolsPanel.classList.add('with-layers');
-                    if (exportPanel) exportPanel.classList.add('with-layers');
-                    
-                    this.updateLayersUI();
+                    // Enable layers mode using safe method
+                    this.safeEnableLayersMode();
                     
                     // Composite layers to frame
                     this.compositeLayersToFrame(0);
