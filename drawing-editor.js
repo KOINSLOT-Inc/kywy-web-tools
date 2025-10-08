@@ -12646,6 +12646,11 @@ class DrawingEditor {
                     console.log('Loaded', allLayerData.length, 'layers');
                 } else {
                     // Load as frames (existing behavior)
+                    console.log('Loading as single frame/animation file with', allFrameData.length, 'frames');
+                    
+                    // Initialize frame layers structure
+                    this.frameLayers = {};
+                    
                     allFrameData.forEach((pixelData, frameIndex) => {
                         const frameCanvas = this.createEmptyFrame();
                         const ctx = frameCanvas.getContext('2d', { willReadFrequently: true });
@@ -12678,12 +12683,10 @@ class DrawingEditor {
                         this.frames.push(frameCanvas);
                         
                         // Initialize layer system for each frame - layers are always active internally
-                        if (!this.frameLayers[frameIndex]) {
-                            this.frameLayers[frameIndex] = {
-                                currentLayerIndex: 0,
-                                layers: []
-                            };
-                        }
+                        this.frameLayers[frameIndex] = {
+                            currentLayerIndex: 0,
+                            layers: []
+                        };
                         
                         // Create a layer with the loaded data
                         const layerCanvas = document.createElement('canvas');
@@ -12699,7 +12702,8 @@ class DrawingEditor {
                         });
                     });
                     
-                    console.log('Loaded', this.frames.length, 'frames');
+                    console.log('Loaded', this.frames.length, 'frames with layer system initialized');
+                    
                     
                     // If multiple frames were loaded, set export format to animation
                     if (this.frames.length > 1) {
@@ -12710,7 +12714,9 @@ class DrawingEditor {
                     }
                 }
                 
+                this.regenerateAllThumbnails();
                 this.updateUI();
+                this.updateLayersUI();
                 this.redrawCanvas();
                 this.generateCode();
                 
