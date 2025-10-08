@@ -922,4 +922,37 @@ body:not(.menu-page) .onion-skin-control label {
     font-weight: bold !important;
 }
 
+/* NES themed syntax highlighting - bright 8-bit gaming colors */
+.nes-theme .code-editor-wrapper .cm-comment {
+    color: #808080 !important;
+    font-style: italic !important;
+}
+
+.nes-theme .code-editor-wrapper .cm-keyword {
+    color: #ff6b6b !important;
+    font-weight: bold !important;
+}
+
+.nes-theme .code-editor-wrapper .cm-string {
+    color: #ffaa00 !important;
+}
+
+.nes-theme .code-editor-wrapper .cm-number {
+    color: #00d800 !important;
+}
+
+.nes-theme .code-editor-wrapper .cm-variable {
+    color: #5555ff !important;
+}
+
+.nes-theme .code-editor-wrapper .cm-def {
+    color: #ff55ff !important;
+    font-weight: bold !important;
+}
+
+.nes-theme .code-editor-wrapper .cm-operator {
+    color: #000000 !important;
+}
+
+
 

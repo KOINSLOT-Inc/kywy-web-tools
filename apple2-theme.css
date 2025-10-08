@@ -948,6 +948,40 @@ body:not(.menu-page) .onion-skin-control label {
     font-weight: bold !important;
 }
 
+/* Apple II themed syntax highlighting - classic monochrome with subtle colors */
+.apple2-theme .code-editor-wrapper .cm-comment {
+    color: #666666 !important;
+    font-style: italic !important;
+}
+
+.apple2-theme .code-editor-wrapper .cm-keyword {
+    color: #000000 !important;
+    font-weight: bold !important;
+}
+
+.apple2-theme .code-editor-wrapper .cm-string {
+    color: #444444 !important;
+}
+
+.apple2-theme .code-editor-wrapper .cm-number {
+    color: #000000 !important;
+}
+
+.apple2-theme .code-editor-wrapper .cm-variable {
+    color: #222222 !important;
+}
+
+.apple2-theme .code-editor-wrapper .cm-def {
+    color: #000000 !important;
+    font-weight: bold !important;
+    text-decoration: underline !important;
+}
+
+.apple2-theme .code-editor-wrapper .cm-operator {
+    color: #000000 !important;
+}
+
+
 
 
 

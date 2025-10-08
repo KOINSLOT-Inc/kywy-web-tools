@@ -797,4 +797,37 @@ body:not(.menu-page) .onion-skin-control label {
     color: #000000 !important;
 }
 
+/* Windows XP themed syntax highlighting - Luna blue color scheme */
+.windowsxp-theme .code-editor-wrapper .cm-comment {
+    color: #008000 !important;
+    font-style: italic !important;
+}
+
+.windowsxp-theme .code-editor-wrapper .cm-keyword {
+    color: #0054e3 !important;
+    font-weight: bold !important;
+}
+
+.windowsxp-theme .code-editor-wrapper .cm-string {
+    color: #a31515 !important;
+}
+
+.windowsxp-theme .code-editor-wrapper .cm-number {
+    color: #098658 !important;
+}
+
+.windowsxp-theme .code-editor-wrapper .cm-variable {
+    color: #001080 !important;
+}
+
+.windowsxp-theme .code-editor-wrapper .cm-def {
+    color: #795e26 !important;
+    font-weight: bold !important;
+}
+
+.windowsxp-theme .code-editor-wrapper .cm-operator {
+    color: #000000 !important;
+}
+
+
 
