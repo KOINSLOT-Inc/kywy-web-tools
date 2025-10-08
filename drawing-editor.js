@@ -12930,8 +12930,8 @@ class DrawingEditor {
             tempCtx.fillStyle = 'white';
             tempCtx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
             
-            // If layers are enabled, composite them for this frame
-            if (this.layersEnabled && this.frameLayers[i]) {
+            // Composite layers for this frame - layers are always active internally
+            if (this.frameLayers[i]) {
                 const frameData = this.frameLayers[i];
                 frameData.layers.forEach(layer => {
                     if (layer.visible) {
@@ -16967,10 +16967,7 @@ Instructions:
                     }
                     
                     if (!this.frameLayers[frameIndex]) {
-                        // Enable layers mode so subsequent drawing goes to layers
-                        if (!this.layersEnabled) {
-                            this.layersEnabled = true;
-                        }
+                        // Layers are always enabled internally - no need to check
                         
                         // Create Layer 0 with current frame content
                         const frameCanvas = this.frames[frameIndex];
