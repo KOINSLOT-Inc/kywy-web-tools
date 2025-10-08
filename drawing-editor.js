@@ -16745,17 +16745,24 @@ Instructions:
                  * Add a new frame
                  * @returns {number} Index of new frame
                  */
-                addFrame: () => this.addFrame(),
+                addFrame: () => {
+                    this.addFrame();
+                    return this.currentFrameIndex;
+                },
                 /**
-                 * Delete a frame
-                 * @param {number} frameIndex - Frame index to delete (0-based)
+                 * Delete current frame
                  */
-                deleteFrame: (frameIndex) => this.deleteFrame(frameIndex),
+                deleteFrame: () => {
+                    this.deleteFrame();
+                },
                 /**
                  * Duplicate current frame
                  * @returns {number} Index of duplicated frame
                  */
-                duplicateFrame: () => this.duplicateFrame(),
+                duplicateFrame: () => {
+                    this.copyFrame();
+                    return this.currentFrameIndex;
+                },
                 /**
                  * Get current layer index
                  * @returns {number} Current layer index (0-based)
