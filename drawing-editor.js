@@ -2928,22 +2928,7 @@ class DrawingEditor {
             // Initialize layers for current frame if not already done
             // Only initialize if frameLayers doesn't exist OR the specific frame has no layers
             if (!this.frameLayers || !this.frameLayers[this.currentFrameIndex]) {
-                console.log('Initializing layers for frame', this.currentFrameIndex);
                 this.initializeLayersForFrame(this.currentFrameIndex);
-            } else {
-                const frameData = this.frameLayers[this.currentFrameIndex];
-                console.log('Layers already exist for frame', this.currentFrameIndex, '- layer count:', frameData.layers.length);
-                // Log each layer's canvas to see if they have content
-                frameData.layers.forEach((layer, i) => {
-                    const ctx = layer.canvas.getContext('2d', { willReadFrequently: true });
-                    const imageData = ctx.getImageData(0, 0, Math.min(10, layer.canvas.width), Math.min(10, layer.canvas.height));
-                    const hasContent = imageData.data.some((value, idx) => {
-                        // Check if any pixel is not white (for black content) or not fully transparent
-                        if (idx % 4 === 3) return false; // Skip alpha channel
-                        return value !== 255; // Not white
-                    });
-                    console.log(`  Layer ${i} (${layer.name}): ${layer.canvas.width}x${layer.canvas.height}, hasContent:`, hasContent);
-                });
             }
             
             // Undo/redo stacks are preserved - snapshots support cross-mode restoration
@@ -3472,38 +3457,29 @@ class DrawingEditor {
     }
     
     deleteCurrentLayer() {
-        console.log('deleteCurrentLayer() called');
         const frameData = this.frameLayers && this.frameLayers[this.currentFrameIndex];
-        console.log('frameData:', frameData);
         if (!frameData || frameData.layers.length <= 1) {
-            console.log('Cannot delete - no frameData or only 1 layer left');
             return;
         }
         
-        if (confirm(`Delete ${frameData.layers[frameData.currentLayerIndex].name}?`)) {
-            console.log('User confirmed deletion');
-            const layerIndex = frameData.currentLayerIndex;
-            const layerData = frameData.layers[layerIndex];
-            
-            // Clone the layer canvas for undo
-            const clonedLayer = {
-                name: layerData.name,
-                canvas: document.createElement('canvas'),
-                visible: layerData.visible,
-                transparencyMode: layerData.transparencyMode || 'white'
-            };
-            clonedLayer.canvas.width = layerData.canvas.width;
-            clonedLayer.canvas.height = layerData.canvas.height;
-            const ctx = clonedLayer.canvas.getContext('2d', { willReadFrequently: true });
-            ctx.drawImage(layerData.canvas, 0, 0);
-            
-            // Use command pattern for undo support
-            const command = new DeleteLayerCommand(this, this.currentFrameIndex, layerIndex, clonedLayer);
-            console.log('Executing DeleteLayerCommand');
-            this.executeCommand(command);
-        } else {
-            console.log('User cancelled deletion');
-        }
+        const layerIndex = frameData.currentLayerIndex;
+        const layerData = frameData.layers[layerIndex];
+        
+        // Clone the layer canvas for undo
+        const clonedLayer = {
+            name: layerData.name,
+            canvas: document.createElement('canvas'),
+            visible: layerData.visible,
+            transparencyMode: layerData.transparencyMode || 'white'
+        };
+        clonedLayer.canvas.width = layerData.canvas.width;
+        clonedLayer.canvas.height = layerData.canvas.height;
+        const ctx = clonedLayer.canvas.getContext('2d', { willReadFrequently: true });
+        ctx.drawImage(layerData.canvas, 0, 0);
+        
+        // Use command pattern for undo support
+        const command = new DeleteLayerCommand(this, this.currentFrameIndex, layerIndex, clonedLayer);
+        this.executeCommand(command);
     }
     
     moveLayerLeft() {
@@ -4530,16 +4506,7 @@ class DrawingEditor {
         // Layers system
         document.getElementById('layersEnabled').addEventListener('change', () => this.toggleLayersMode());
         document.getElementById('addLayer').addEventListener('click', () => this.addLayer());
-        
-        const deleteLayerBtn = document.getElementById('deleteLayer');
-        console.log('deleteLayer button:', deleteLayerBtn);
-        if (deleteLayerBtn) {
-            deleteLayerBtn.addEventListener('click', () => {
-                console.log('Delete layer button clicked!');
-                this.deleteCurrentLayer();
-            });
-        }
-        
+        document.getElementById('deleteLayer').addEventListener('click', () => this.deleteCurrentLayer());
         document.getElementById('moveLayerLeft').addEventListener('click', () => this.moveLayerLeft());
         document.getElementById('moveLayerRight').addEventListener('click', () => this.moveLayerRight());
         document.getElementById('mergeDown').addEventListener('click', () => this.mergeLayerDown());
@@ -16925,10 +16892,7 @@ Instructions:
         if (!this._layersAddedInScript) {
             this.pushUndo();
         } else {
-            // If layers were added, just update the UI (don't toggle layers mode)
-            // Let the user manually open the layers panel to see them
-            console.log('Script created', this.frameLayers[this.currentFrameIndex].layers.length, 'layers');
-            // Composite layers to frame so the result is visible
+            // If layers were added, composite them to frame so the result is visible
             this.compositeLayersToFrame(this.currentFrameIndex);
         }
         this._layersAddedInScript = false; // Reset flag
