@@ -63,8 +63,19 @@ class CanvasStateSnapshot {
         // Restore current frame index
         this.editor.currentFrameIndex = this.currentFrameIndex;
         
-        // Restore layer data if layers are enabled
-        if (this.layersEnabled && this.editor.layersEnabled && this.allFrameLayerData) {
+        // Restore layer system state
+        if (this.layersEnabled && this.allFrameLayerData) {
+            // We had layers in the snapshot, restore them
+            if (!this.editor.layersEnabled) {
+                // Enable layers if they weren't enabled
+                this.editor.layersEnabled = true;
+                document.getElementById('layersEnabled').checked = true;
+                document.getElementById('layersPanel').style.display = 'flex';
+            }
+            
+            // Clear and recreate frameLayers structure
+            this.editor.frameLayers = {};
+            
             for (let frameIdx = 0; frameIdx < this.editor.frames.length; frameIdx++) {
                 const savedFrameData = this.allFrameLayerData[frameIdx];
                 
@@ -103,6 +114,12 @@ class CanvasStateSnapshot {
                     this.editor.compositeLayersToFrame(frameIdx);
                 }
             }
+        } else if (!this.layersEnabled && this.editor.layersEnabled) {
+            // Snapshot had NO layers, but editor currently has layers enabled
+            // Disable layers and clear layer data
+            this.editor.frameLayers = {};
+            // Note: We keep layersEnabled true but clear the data
+            // This way the UI state is preserved but layers are effectively reset
         }
         
         // If we're in layer mode but restoring a non-layer snapshot,
@@ -16562,8 +16579,15 @@ Instructions:
     executeDrawing(drawFunction) {
         this.captureSnapshot();
         
+        // Set flag to indicate we're executing a script
+        // This prevents individual API calls from creating their own undo entries
+        this._executingScript = true;
+        
         // Clear any previous script click handler
         this.scriptClickHandler = null;
+        
+        // Initialize print buffer for collecting print() output
+        this._printBuffer = [];
         
         try {
             // Call the user's drawing function with API access
@@ -16781,13 +16805,18 @@ Instructions:
                  * @returns {number} Index of new frame
                  */
                 addFrame: () => {
-                    // Capture snapshot for undo before making changes
-                    this.captureSnapshot();
+                    // Only capture snapshot and push undo if NOT executing a script
+                    // When executing a script, the entire script execution is one undo entry
+                    if (!this._executingScript) {
+                        this.captureSnapshot();
+                    }
                     
                     this.addFrame();
                     
-                    // Push to undo stack
-                    this.pushUndo();
+                    // Only push undo if NOT executing a script
+                    if (!this._executingScript) {
+                        this.pushUndo();
+                    }
                     
                     return this.currentFrameIndex;
                 },
@@ -16827,8 +16856,11 @@ Instructions:
                 addLayer: () => {
                     const frameIndex = this.currentFrameIndex;
                     
-                    // Capture snapshot for undo before making changes
-                    this.captureSnapshot();
+                    // Only capture snapshot and push undo if NOT executing a script
+                    // When executing a script, the entire script execution is one undo entry
+                    if (!this._executingScript) {
+                        this.captureSnapshot();
+                    }
                     
                     // Initialize frameLayers structure if it doesn't exist
                     if (!this.frameLayers) {
@@ -16883,8 +16915,10 @@ Instructions:
                     this.frameLayers[frameIndex].layers.push(newLayer);
                     this.frameLayers[frameIndex].currentLayerIndex = this.frameLayers[frameIndex].layers.length - 1;
                     
-                    // Push to undo stack
-                    this.pushUndo();
+                    // Only push undo if NOT executing a script
+                    if (!this._executingScript) {
+                        this.pushUndo();
+                    }
                     
                     // Mark that layers were added (so we can update UI after)
                     this._layersAddedInScript = true;
@@ -16921,6 +16955,147 @@ Instructions:
                  */
                 getLayerOpacity: (layerIndex) => this.getLayerOpacity(layerIndex),
                 /**
+                 * Create a new drawing (clears all frames and resets)
+                 */
+                new: () => {
+                    this.newDrawing();
+                },
+                /**
+                 * Create a rectangular selection
+                 * @param {number} x1 - Top-left x coordinate
+                 * @param {number} y1 - Top-left y coordinate
+                 * @param {number} x2 - Bottom-right x coordinate
+                 * @param {number} y2 - Bottom-right y coordinate
+                 */
+                selectRect: (x1, y1, x2, y2) => {
+                    const startX = Math.min(x1, x2);
+                    const startY = Math.min(y1, y2);
+                    const endX = Math.max(x1, x2);
+                    const endY = Math.max(y1, y2);
+                    
+                    this.selection = {
+                        startX: Math.floor(startX),
+                        startY: Math.floor(startY),
+                        endX: Math.floor(endX),
+                        endY: Math.floor(endY),
+                        type: 'rectangle'
+                    };
+                    
+                    this.redrawCanvas();
+                },
+                /**
+                 * Clear the current selection
+                 */
+                clearSelection: () => {
+                    this.selection = null;
+                    this.redrawCanvas();
+                },
+                /**
+                 * Check if there is an active selection
+                 * @returns {boolean} True if selection exists
+                 */
+                hasSelection: () => {
+                    return this.selection !== null;
+                },
+                /**
+                 * Get the current selection bounds
+                 * @returns {object|null} Selection bounds {x1, y1, x2, y2} or null
+                 */
+                getSelection: () => {
+                    if (!this.selection) return null;
+                    return {
+                        x1: this.selection.startX,
+                        y1: this.selection.startY,
+                        x2: this.selection.endX,
+                        y2: this.selection.endY
+                    };
+                },
+                /**
+                 * Copy the current selection to clipboard
+                 * @returns {boolean} True if copy succeeded
+                 */
+                copySelection: () => {
+                    if (!this.selection) return false;
+                    this.copySelection();
+                    return true;
+                },
+                /**
+                 * Cut the current selection to clipboard
+                 * @returns {boolean} True if cut succeeded
+                 */
+                cutSelection: () => {
+                    if (!this.selection) return false;
+                    this.cut();
+                    return true;
+                },
+                /**
+                 * Paste clipboard at position
+                 * @param {number} x - X coordinate to paste at
+                 * @param {number} y - Y coordinate to paste at
+                 * @returns {boolean} True if paste succeeded
+                 */
+                paste: (x, y) => {
+                    if (!this.clipboard) return false;
+                    
+                    // Enable paste mode
+                    this.isPasteModeActive = true;
+                    this.pasteX = Math.floor(x);
+                    this.pasteY = Math.floor(y);
+                    
+                    // Perform the paste
+                    this.performPaste();
+                    
+                    // Disable paste mode
+                    this.isPasteModeActive = false;
+                    
+                    return true;
+                },
+                /**
+                 * Rotate the current selection by degrees
+                 * @param {number} degrees - Rotation angle (-180 to 180)
+                 * @returns {boolean} True if rotation succeeded
+                 */
+                rotateSelection: (degrees) => {
+                    if (!this.selection) return false;
+                    this.rotateSelectionByAngle(Math.floor(degrees));
+                    return true;
+                },
+                /**
+                 * Mirror the current selection horizontally
+                 * @returns {boolean} True if mirror succeeded
+                 */
+                mirrorSelectionH: () => {
+                    if (!this.selection) return false;
+                    this.mirrorSelection('horizontal');
+                    return true;
+                },
+                /**
+                 * Mirror the current selection vertically
+                 * @returns {boolean} True if mirror succeeded
+                 */
+                mirrorSelectionV: () => {
+                    if (!this.selection) return false;
+                    this.mirrorSelection('vertical');
+                    return true;
+                },
+                /**
+                 * Print a message to the script output
+                 * @param {...any} args - Values to print (will be converted to strings)
+                 */
+                print: (...args) => {
+                    const message = args.map(arg => {
+                        if (typeof arg === 'object') {
+                            try {
+                                return JSON.stringify(arg);
+                            } catch (e) {
+                                return String(arg);
+                            }
+                        }
+                        return String(arg);
+                    }).join(' ');
+                    this._printBuffer.push(message);
+                },
+                /**
                  * Register a click handler function
                  * @param {function} callback - Function called with (x, y) when canvas is clicked
                  */
@@ -16928,7 +17103,15 @@ Instructions:
             });
         } catch (error) {
             console.error('Drawing function error:', error);
+            // Save print buffer before throwing
+            const prints = this._printBuffer || [];
+            this._printBuffer = [];
+            this._executingScript = false;
+            throw error; // Re-throw to be caught by caller
         }
+        
+        // Clear script execution flag
+        this._executingScript = false;
         
         // Always push to undo stack (snapshot was captured before execution)
         this.pushUndo();
@@ -16942,6 +17125,11 @@ Instructions:
         this.redrawCanvas();
         this.generateThumbnail(this.currentFrameIndex);
         this.generateCode();
+        
+        // Return collected print statements
+        const prints = this._printBuffer || [];
+        this._printBuffer = [];
+        return prints;
     }
     
     // Set a click handler for scripts (limited to one)
@@ -17854,13 +18042,15 @@ function initializeScriptEditor(editor) {
     // Example scripts
     const examples = {
         apiReference: `// ============================================
-// KYWY Script API Reference & Examples
+// KYWY Drawing Script API Reference & Examples
 // ============================================
 // This example demonstrates all available API functions
-// with helpful comments explaining each parameter.
 
 // Clear the canvas to start fresh
 api.clear();
+
+// Create a new file from scratch
+api.new();
 
 // Get canvas dimensions
 const w = api.getWidth();   // Returns canvas width in pixels
@@ -17964,6 +18154,10 @@ api.drawText('Frame: ' + (api.getCurrentFrame() + 1) + '/' + api.getFrameCount()
 const randomNum = api.random(1, 10);
 api.drawText('random: ' + randomNum, 10, 170, 'black');
 
+// Print values for debugging (displays in script output)
+// print(...args) - Accepts any number of arguments, objects shown as JSON
+api.print('Random number generated:', randomNum);
+
 // map(value, inMin, inMax, outMin, outMax) - map value from one range to another
 // constrain(value, min, max) - clamp value between min and max
 
@@ -17978,46 +18172,116 @@ api.onClick(function(x, y) {
 });
 
 // ============================================
+// SELECTION OPERATIONS
+// ============================================
+
+// Create a rectangular selection
+// selectRect(x1, y1, x2, y2) - Select area from (x1,y1) to (x2,y2)
+api.drawRect(50, 10, 30, 20, true, 'black');
+api.selectRect(50, 10, 80, 30);
+
+// Check if selection exists
+// hasSelection() - Returns true if a selection is active
+if (api.hasSelection()) {
+    // Get selection bounds
+    // getSelection() - Returns {x1, y1, x2, y2}
+    const sel = api.getSelection();
+    api.print('Selection:', sel);
+    
+    // Copy selection to clipboard
+    // copySelection() - Copy selected area
+    api.copySelection();
+    
+    // Clear the selection (not the content)
+    // clearSelection() - Remove selection border
+    api.clearSelection();
+    
+    // Paste clipboard at new position
+    // paste(x, y) - Paste at specified coordinates
+    api.paste(90, 10);
+}
+
+// Cut example - select, cut, then paste elsewhere
+api.selectRect(50, 40, 80, 60);
+// cutSelection() - Cut selected area to clipboard
+api.cutSelection();
+api.paste(90, 40);
+
+// Rotation example
+api.drawRect(10, 80, 20, 20, true, 'black');
+api.selectRect(10, 80, 30, 100);
+api.copySelection();
+api.clearSelection();
+api.paste(40, 80);
+// Select the pasted content
+api.selectRect(40, 80, 60, 100);
+// rotateSelection(degrees) - Rotate selection (-180 to 180)
+api.rotateSelection(45);
+api.clearSelection();
+
+// Mirror operations
+api.drawText('ABC', 10, 110, 'black');
+api.selectRect(10, 110, 35, 120);
+api.copySelection();
+api.clearSelection();
+// Paste and mirror horizontally
+api.paste(40, 110);
+api.selectRect(40, 110, 65, 120);
+// mirrorSelectionH() - Mirror horizontally
+api.mirrorSelectionH();
+api.clearSelection();
+// Paste and mirror vertically
+api.paste(70, 110);
+api.selectRect(70, 110, 95, 120);
+// mirrorSelectionV() - Mirror vertically
+api.mirrorSelectionV();
+api.clearSelection();
+
+// ============================================
 // ADDITIONAL FUNCTIONS
 // ============================================
 
-// COLORS: All drawing functions accept 'black' or 'white' as color
-// If color is omitted, uses current selected color
+// COLORS: Set and get drawing color
+// setColor(color) - Set drawing color ('black' or 'white')
+api.setColor('black');
+// getColor() - Get current drawing color
+const currentColor = api.getColor();
+api.print('Current color:', currentColor);
 
-// FILL PATTERNS:
+// FILL PATTERNS: Set patterns for filled shapes
 // setFillPattern(pattern) - Set pattern for filled shapes
-// Patterns: 'solid', 'stipple25', 'stipple50', 'stipple75',
-//           'checkerboard', 'diagonal', 'crosshatch', 'dots'
+api.setFillPattern('stipple50');
+api.drawRect(10, 130, 20, 20, true, 'black');
+api.setFillPattern('checkerboard');
+api.drawRect(35, 130, 20, 20, true, 'black');
+api.setFillPattern('solid'); // Reset to solid
+
 // getFillPattern() - Get current pattern name
+const pattern = api.getFillPattern();
+api.print('Current pattern:', pattern);
 
 // CANVAS OPERATIONS:
 // getPixel(x, y) - Get color at pixel as hex string
-// setColor(color) - Set drawing color ('black' or 'white')
-// getColor() - Get current drawing color
-// fillCanvas(color) - Fill entire canvas with color
+const pixelColor = api.getPixel(10, 130);
+api.print('Pixel at (10,130):', pixelColor);
+
+// fillCanvas(color) - Fill entire canvas with color (use with caution!)
+// api.fillCanvas('white'); // Commented to preserve other examples
+
 // invert() - Invert all colors (black <-> white)
+// api.invert(); // Commented to preserve other examples
 
 // FLOOD FILL:
 // floodFill(x, y, color) - Fill connected region starting at (x, y)
+api.drawRect(60, 130, 30, 20, false, 'black');
+api.floodFill(75, 140, 'black');
 
-// FRAME CONTROL (Animation):
-// getCurrentFrame() - Get current frame index (0-based)
-// setCurrentFrame(index) - Switch to frame at index
-// getFrameCount() - Get total number of frames
-// addFrame() - Create new frame, returns new frame index
-// deleteFrame() - Delete current frame
-// duplicateFrame() - Copy current frame, returns new frame index
-
-// LAYER CONTROL (Compositing):
-// getCurrentLayer() - Get current layer index (0-based)
-// setCurrentLayer(index) - Switch to layer at index
-// getLayerCount() - Get total number of layers
-// addLayer() - Create new layer, returns new layer index
-// deleteLayer(index) - Delete layer at index
-// setLayerVisibility(index, visible) - Show/hide layer
-// getLayerVisibility(index) - Check if layer is visible
-// setLayerOpacity(index, opacity) - Set layer opacity (0.0-1.0)
-// getLayerOpacity(index) - Get layer opacity`,
+// ============================================
+// FRAME & LAYER INFO (Already demonstrated above)
+// ============================================
+// Frame functions: getCurrentFrame(), getFrameCount(), addFrame(), etc.
+// Layer functions: getCurrentLayer(), getLayerCount(), addLayer(), etc.
+// See LAYERS and FRAMES sections above for usage examples`,
         bresenham: `// Bresenham's Circle Algorithm
 // This algorithm is a classic method for drawing circles in computer graphics.
 api.clear();
@@ -18202,7 +18466,97 @@ api.drawLine(10, 70, w-10, h-10, 'black');
 api.drawLine(w-10, 70, 10, h-10, 'black');
 
 // Show info
-api.drawText(api.getLayerCount() + ' layers total', 5, h-10, 'black');`
+api.drawText(api.getLayerCount() + ' layers total', 5, h-10, 'black');`,
+        selection: `// Selection Operations Example
+// Demonstrates copy, paste, rotate, and mirror
+
+const w = api.getWidth();
+const h = api.getHeight();
+
+api.clear();
+
+// Draw a simple pattern
+api.drawText('Original', 10, 10, 'black');
+api.drawRect(10, 20, 30, 30, false, 'black');
+api.drawCircle(25, 35, 8, true, 'black');
+
+// Select the pattern area
+api.selectRect(10, 10, 40, 50);
+
+// Copy it
+api.copySelection();
+
+// Clear selection
+api.clearSelection();
+
+// Paste and rotate at different positions
+api.paste(50, 10);
+api.selectRect(50, 10, 90, 50);
+api.rotateSelection(90);
+api.clearSelection();
+
+api.drawText('Rotated 90°', 50, 55, 'black');
+
+// Paste and mirror horizontally
+api.paste(10, 70);
+api.selectRect(10, 70, 50, 110);
+api.mirrorSelectionH();
+api.clearSelection();
+
+api.drawText('Mirrored H', 10, 115, 'black');
+
+// Paste and mirror vertically
+api.paste(50, 70);
+api.selectRect(50, 70, 90, 110);
+api.mirrorSelectionV();
+api.clearSelection();
+
+api.drawText('Mirrored V', 50, 115, 'black');
+
+// Show that selection is cleared
+api.drawText('All done!', 10, h-10, 'black');`,
+        debug: `// Debugging with api.print()
+// Use print() to output values for debugging
+
+const w = api.getWidth();
+const h = api.getHeight();
+
+api.clear();
+
+// Print simple values
+api.print('Canvas size:', w, 'x', h);
+
+// Print calculations
+const radius = 15;
+const area = 3.14159 * radius * radius;
+api.print('Circle area with radius', radius, '=', area);
+
+// Print object information
+const info = {
+    frames: api.getFrameCount(),
+    layers: api.getLayerCount(),
+    currentFrame: api.getCurrentFrame(),
+    currentLayer: api.getCurrentLayer()
+};
+api.print('Canvas info:', info);
+
+// Draw something based on calculations
+const centerX = w / 2;
+const centerY = h / 2;
+api.print('Drawing at center:', centerX, centerY);
+api.drawCircle(centerX, centerY, radius, false, 'black');
+
+// Loop example with print
+api.print('Drawing 5 random circles:');
+for (let i = 0; i < 5; i++) {
+    const x = api.random(20, w - 20);
+    const y = api.random(20, h - 20);
+    const r = api.random(5, 15);
+    api.print('  Circle', i + 1, '- x:', x, 'y:', y, 'r:', r);
+    api.drawCircle(x, y, r, false, 'black');
+}
+
+api.print('Script complete!');`
     };
     
     // Load example script
@@ -18224,20 +18578,27 @@ api.drawText(api.getLayerCount() + ' layers total', 5, h-10, 'black');`
         
         try {
             // Execute the drawing script
-            editor.executeDrawing(function(api) {
+            const prints = editor.executeDrawing(function(api) {
                 // Create a function from the code and execute it
                 const userFunction = new Function('api', code);
                 userFunction(api);
             });
             
-            showScriptOutput('✓ Script executed successfully', 'success');
+            // Display print statements if any
+            if (prints && prints.length > 0) {
+                showScriptOutput('✓ Script executed successfully\n\n' + prints.join('\n'), 'success');
+            } else {
+                showScriptOutput('✓ Script executed successfully', 'success');
+            }
             
-            // Auto-hide success message after 2 seconds
-            setTimeout(() => {
-                if (scriptOutput.classList.contains('success')) {
-                    scriptOutput.style.display = 'none';
-                }
-            }, 2000);
+            // Auto-hide success message after 2 seconds (only if no prints)
+            if (!prints || prints.length === 0) {
+                setTimeout(() => {
+                    if (scriptOutput.classList.contains('success')) {
+                        scriptOutput.style.display = 'none';
+                    }
+                }, 2000);
+            }
         } catch (error) {
             showScriptOutput('Error: ' + error.message, 'error');
             // Show error in popup/alert
