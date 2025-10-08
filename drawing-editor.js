@@ -447,9 +447,7 @@ class DeleteFrameCommand {
             this.editor.currentFrameIndex = this.editor.frames.length - 1;
         }
         
-        if (this.editor.layersEnabled) {
-            this.editor.updateLayersUI();
-        }
+        this.editor.updateLayersUI();
         this.editor.updateUI();
         this.editor.redrawCanvas();
         this.editor.generateCode();
@@ -476,9 +474,7 @@ class DeleteFrameCommand {
         }
         
         this.editor.currentFrameIndex = this.frameIndex;
-        if (this.editor.layersEnabled) {
-            this.editor.updateLayersUI();
-        }
+        this.editor.updateLayersUI();
         this.editor.updateUI();
         this.editor.redrawCanvas();
         this.editor.generateThumbnail(this.frameIndex);
@@ -771,10 +767,8 @@ class NewDrawingCommand {
         this.editor.redrawCanvas();
         this.editor.generateCode();
         
-        // Update layers UI if layers were enabled
-        if (this.editor.layersEnabled) {
-            this.editor.updateLayersUI();
-        }
+        // Update layers UI (layers are always enabled internally)
+        this.editor.updateLayersUI();
         
         // Update animation mode buttons
         const cycleBtn = document.getElementById('cycleMode');
@@ -3381,6 +3375,8 @@ class DrawingEditor {
         document.getElementById('moveLayerLeft').disabled = frameData.currentLayerIndex === 0;
         document.getElementById('moveLayerRight').disabled = frameData.currentLayerIndex === frameData.layers.length - 1;
         document.getElementById('mergeDown').disabled = frameData.currentLayerIndex === 0;
+
+        this.generateCode();
     }
     
     selectLayer(layerIndex) {
@@ -8580,10 +8576,8 @@ class DrawingEditor {
         this.generateThumbnail(this.currentFrameIndex);
         this.generateCode();
         
-        // Update layer previews if layers are enabled
-        if (this.layersEnabled) {
-            this.updateLayersUI();
-        }
+        // Update layer previews (layers are always enabled internally)
+        this.updateLayersUI();
     }
     
     getFilledPixels(beforeImageData, afterImageData) {
@@ -10164,6 +10158,7 @@ class DrawingEditor {
             this.compositeLayersToFrame(this.currentFrameIndex);
             this.redrawCanvas();
             this.generateThumbnail(this.currentFrameIndex);
+            this.regenerateAllThumbnails();
             
             // Push undo
             this.pushUndo();
@@ -10521,6 +10516,7 @@ class DrawingEditor {
         if (this.animationEnabled) {
             this.updateAnimationUI();
         }
+        this.updateFrameUI();
     }
     
     updateFrameList() {
