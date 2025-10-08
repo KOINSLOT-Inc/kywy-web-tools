@@ -3909,12 +3909,13 @@ class DrawingEditor {
             // Draw visible layers in order (bottom to top)
             frameData.layers.forEach((layer, index) => {
                 if (layer.visible && layer.canvas && layer.canvas instanceof HTMLCanvasElement) {
-                    // Bottom layer (index 0) should NOT have transparency applied
+                    // Bottom layer (index 0) NEVER has transparency applied - always drawn directly
+                    // This ensures the bottom layer provides a solid foundation
                     if (index === 0) {
-                        // Draw bottom layer directly - no transparency processing
+                        // Draw bottom layer directly - ignore transparencyMode setting
                         ctx.drawImage(layer.canvas, 0, 0);
                     } else {
-                        // Upper layers use transparency
+                        // Upper layers use transparency based on their transparencyMode
                         this.drawLayerWithTransparency(ctx, layer);
                     }
                 }
@@ -11115,7 +11116,10 @@ class DrawingEditor {
                     ? `${assetName}_frame${frameIndex}_layer${layerIndex}`
                     : `${assetName}_layer${layerIndex}`;
                 
-                code += `// Layer ${layerIndex}: ${layer.name}\n`;
+                const transparencyMode = layer.transparencyMode || 'white';
+                const transparencyBool = transparencyMode === 'white' ? 'true' : 'false';
+                
+                code += `// Layer ${layerIndex}: ${layer.name} (transparency: ${transparencyMode})\n`;
                 code += `uint8_t ${arrayName}[${bytes.length}] = {\n`;
                 for (let i = 0; i < bytes.length; i += 12) {
                     code += '    ' + bytes.slice(i, i + 12).join(', ');
@@ -11141,9 +11145,35 @@ class DrawingEditor {
                 const visibleLayerCount = frameData.layers.filter(l => l.visible).length;
                 code += `#define ${assetName.toUpperCase()}_FRAME${frameIndex}_LAYER_COUNT ${visibleLayerCount}\n`;
             });
+            
+            // Add transparency arrays for each frame
+            framesWithLayers.forEach((frameData, frameIndex) => {
+                const visibleLayers = frameData.layers.filter(l => l.visible);
+                if (visibleLayers.length > 0) {
+                    const transparencyValues = visibleLayers.map(layer => {
+                        const transparencyMode = layer.transparencyMode || 'white';
+                        return transparencyMode === 'white' ? 'true' : 'false';
+                    });
+                    code += `\n// Transparency modes for frame ${frameIndex} (true = white transparent, false = black transparent)\n`;
+                    code += `// Note: Bottom layer (index 0) transparency is ignored during compositing\n`;
+                    code += `bool ${assetName}_frame${frameIndex}_transparency[${visibleLayers.length}] = {${transparencyValues.join(', ')}};\n`;
+                }
+            });
         } else {
             const visibleLayerCount = framesWithLayers[0].layers.filter(l => l.visible).length;
             code += `#define ${assetName.toUpperCase()}_LAYER_COUNT ${visibleLayerCount}\n`;
+            
+            // Add transparency array for single frame
+            const visibleLayers = framesWithLayers[0].layers.filter(l => l.visible);
+            if (visibleLayers.length > 0) {
+                const transparencyValues = visibleLayers.map(layer => {
+                    const transparencyMode = layer.transparencyMode || 'white';
+                    return transparencyMode === 'white' ? 'true' : 'false';
+                });
+                code += `\n// Transparency modes (true = white transparent, false = black transparent)\n`;
+                code += `// Note: Bottom layer (index 0) transparency is ignored during compositing\n`;
+                code += `bool ${assetName}_transparency[${visibleLayers.length}] = {${transparencyValues.join(', ')}};\n`;
+            }
         }
         
         return code;
@@ -12205,7 +12235,8 @@ class DrawingEditor {
                     layers: frameData.layers.map(layer => ({
                         canvas: layer.canvas.toDataURL(),
                         visible: layer.visible,
-                        name: layer.name
+                        name: layer.name,
+                        transparencyMode: layer.transparencyMode || 'white'
                     }))
                 };
             });
@@ -12350,6 +12381,11 @@ class DrawingEditor {
                         this.safeDisableAllModes();
                     }
                     
+                    // Composite all loaded layers to their respective frames
+                    Object.keys(this.frameLayers).forEach(frameIndex => {
+                        this.compositeLayersToFrame(parseInt(frameIndex));
+                    });
+                    
                     this.updateUI();
                     this.redrawCanvas();
                     this.generateCode();
@@ -12437,6 +12473,7 @@ class DrawingEditor {
             let frameLayersData = {}; // For FRAMES_WITH_LAYERS format: {frameIndex: [{name, data}, ...]}
             let currentFrameIndex = 0; // Track current frame being parsed
             let currentLayerIndex = 0; // Track current layer being parsed
+            let transparencyArrays = {}; // Store transparency arrays for frames/layers
             
             console.log('HPP Content preview:', hppContent.substring(0, 500));
             
@@ -12492,6 +12529,19 @@ class DrawingEditor {
                     layerCount = parseInt(layerCountMatch[1]);
                     isLayerFile = true;
                     console.log('Found layer count:', layerCount);
+                }
+                
+                // Look for transparency arrays
+                const transparencyMatch = line.match(/bool\s+(\w+_transparency|\w+_frame\d+_transparency)\[(\d+)\]\s*=\s*{([^}]+)}/);
+                if (transparencyMatch) {
+                    const arrayName = transparencyMatch[1];
+                    const count = parseInt(transparencyMatch[2]);
+                    const valuesStr = transparencyMatch[3];
+                    const values = valuesStr.split(',').map(v => v.trim() === 'true');
+                    
+                    // Store transparency values for later use
+                    transparencyArrays[arrayName] = values;
+                    console.log('Found transparency array:', arrayName, values);
                 }
                 
                 // Look for layer name comments (must come before array declaration)
@@ -12715,11 +12765,18 @@ class DrawingEditor {
                             ctx.putImageData(imageData, 0, 0);
                             
                             // Add layer to frame
+                            // Determine transparency mode from parsed array
+                            let transparencyMode = 'white'; // default
+                            const frameTransparencyKey = `${Object.keys(transparencyArrays).find(key => key.includes(`frame${arrayIdx}_transparency`))}`;
+                            if (transparencyArrays[frameTransparencyKey] && transparencyArrays[frameTransparencyKey][layerInfo.layerIndex]) {
+                                transparencyMode = transparencyArrays[frameTransparencyKey][layerInfo.layerIndex] ? 'white' : 'black';
+                            }
+                            
                             this.frameLayers[arrayIdx].layers.push({
                                 canvas: layerCanvas,
                                 visible: true,
                                 name: layerInfo.name,
-                                transparencyMode: 'white'
+                                transparencyMode: transparencyMode
                             });
                         });
                         
@@ -12804,12 +12861,26 @@ class DrawingEditor {
                         ctx.putImageData(imageData, 0, 0);
                         
                         // Add layer to frame
+                        // Determine transparency mode from parsed array
+                        let transparencyMode = 'white'; // default
+                        const singleFrameTransparencyKey = Object.keys(transparencyArrays).find(key => key.endsWith('_transparency') && !key.includes('frame'));
+                        if (transparencyArrays[singleFrameTransparencyKey]) {
+                            const layerIndex = this.frameLayers[0].layers.length; // Current layer index
+                            if (transparencyArrays[singleFrameTransparencyKey][layerIndex] !== undefined) {
+                                transparencyMode = transparencyArrays[singleFrameTransparencyKey][layerIndex] ? 'white' : 'black';
+                            }
+                        }
+                        
                         this.frameLayers[0].layers.push({
                             canvas: layerCanvas,
                             visible: true,
-                            name: layerInfo.name
+                            name: layerInfo.name,
+                            transparencyMode: transparencyMode
                         });
                     });
+                    
+                    // Composite layers to frame
+                    this.compositeLayersToFrame(0);
                     
                     // Enable layers mode using safe method
                     this.safeEnableLayersMode();
@@ -12885,7 +12956,8 @@ class DrawingEditor {
                         this.frameLayers[frameIndex].layers.push({
                             canvas: layerCanvas,
                             visible: true,
-                            name: 'Layer 1'
+                            name: 'Layer 1',
+                            transparencyMode: 'white'
                         });
                     });
                     
