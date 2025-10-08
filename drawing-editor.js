@@ -11065,6 +11065,9 @@ class DrawingEditor {
         const lassoPoints = this.selection.lassoPoints;
         if (!lassoPoints || lassoPoints.length < 3) return;
         
+        // Capture snapshot for undo
+        this.captureSnapshot();
+        
         // Calculate bounding rectangle of lasso
         let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
         for (const point of lassoPoints) {
@@ -11175,6 +11178,12 @@ class DrawingEditor {
         // Clear selection since content was cut
         this.selection = null;
         this.drawSelectionOverlay();
+        
+        // Redraw canvas to show changes
+        this.redrawCanvas();
+        
+        // Push the snapshot to undo stack
+        this.pushUndo();
         
         // Provide user feedback
         console.log('Lasso content cut and ready to paste. Click to place the cut content.');
@@ -11502,6 +11511,9 @@ class DrawingEditor {
         const width = Math.abs(endX - startX);
         const height = Math.abs(endY - startY);
         
+        // Capture snapshot for undo
+        this.captureSnapshot();
+        
         const ctx = this.getCurrentFrameContext();
         const imageData = ctx.getImageData(minX, minY, width, height);
         
@@ -11522,6 +11534,9 @@ class DrawingEditor {
         
         // Clear the original area immediately
         this.clearSelection();
+        
+        // Push the snapshot to undo stack
+        this.pushUndo();
         
         // Automatically enter paste mode
         this.setTool('select');
