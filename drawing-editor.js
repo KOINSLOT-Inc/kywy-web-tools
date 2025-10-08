@@ -922,17 +922,17 @@ class DrawingEditor {
         this.animationMode = 'cycle'; // 'cycle' or 'boomerang'
         this.animationDirection = 1; // 1 for forward, -1 for backward (boomerang)
         
-        // Layer system
-        this.layersEnabled = false;
+        // Layer system - ALWAYS ACTIVE internally
+        this.layersPanelVisible = false; // UI state - whether layers panel is shown
         this.animationEnabled = false;
         this.scriptEditorEnabled = false;
-        this.layers = []; // Array of layers for current frame: [{name, canvas, visible}, ...]
-        this.currentLayerIndex = 0;
         this.frameLayers = {}; // Store layers per frame: {frameIndex: {layers: [...], currentLayerIndex: 0}}
         this.soloLayerIndex = null; // Index of layer in solo/focus mode, null when not in solo mode
         
         // Create first frame after frames array is initialized
         this.frames.push(this.createEmptyFrame());
+        // Initialize layer system for first frame
+        this.initializeLayersForFrame(0);
         
         // Selection state
         this.clipboard = null;
@@ -2941,14 +2941,14 @@ class DrawingEditor {
     // === LAYER SYSTEM METHODS ===
     
     toggleLayersMode() {
-        this.layersEnabled = document.getElementById('layersEnabled').checked;
+        this.layersPanelVisible = document.getElementById('layersEnabled').checked;
         const layersPanel = document.getElementById('layersPanel');
         const canvasArea = document.querySelector('.canvas-area');
         const mobileToolbar = document.querySelector('.mobile-bottom-toolbar');
         const toolsPanel = document.querySelector('.tools-panel');
         const exportPanel = document.querySelector('.export-panel');
         
-        if (this.layersEnabled) {
+        if (this.layersPanelVisible) {
             // If animation or script editor panel is open, close them first
             if (this.animationEnabled) {
                 document.getElementById('animationEnabled').checked = false;
@@ -2968,18 +2968,10 @@ class DrawingEditor {
             if (toolsPanel) toolsPanel.classList.add('with-layers');
             if (exportPanel) exportPanel.classList.add('with-layers');
             
-            // Initialize layers for current frame if not already done
-            // Only initialize if frameLayers doesn't exist OR the specific frame has no layers
-            if (!this.frameLayers || !this.frameLayers[this.currentFrameIndex]) {
-                this.initializeLayersForFrame(this.currentFrameIndex);
-            }
-            
-            // Undo/redo stacks are preserved - snapshots support cross-mode restoration
-            
-            // Update layers UI
+            // Layers are always initialized for all frames, just update UI
             this.updateLayersUI();
         } else {
-            // Hide layers panel (but keep layer data intact)
+            // Hide layers panel (layer system remains active internally)
             layersPanel.style.display = 'none';
             
             // Remove layout adjustment classes
@@ -2987,17 +2979,6 @@ class DrawingEditor {
             if (mobileToolbar) mobileToolbar.classList.remove('with-layers');
             if (toolsPanel) toolsPanel.classList.remove('with-layers');
             if (exportPanel) exportPanel.classList.remove('with-layers');
-            
-            // Composite all layers to their frame canvases so they're visible in non-layer mode
-            // This preserves the visual appearance while hiding the layer system
-            Object.keys(this.frameLayers).forEach(frameIndex => {
-                this.compositeLayersToFrame(parseInt(frameIndex));
-            });
-            
-            // Note: We intentionally DON'T call flattenAllFrames() or delete frameLayers
-            // This preserves all layer data so it can be restored when layers are re-enabled
-            
-            // Undo/redo stacks are preserved - snapshots support cross-mode restoration
         }
         
         this.redrawCanvas();
@@ -3012,8 +2993,8 @@ class DrawingEditor {
         const exportPanel = document.querySelector('.export-panel');
         
         if (this.animationEnabled) {
-            // If layers or script editor panel is open, close them first
-            if (this.layersEnabled) {
+            // If layers panel is open, close it (but layers remain active internally)
+            if (this.layersPanelVisible) {
                 document.getElementById('layersEnabled').checked = false;
                 this.toggleLayersMode();
             }
@@ -3056,8 +3037,8 @@ class DrawingEditor {
         const exportPanel = document.querySelector('.export-panel');
         
         if (this.scriptEditorEnabled) {
-            // If layers or animation panel is open, close them first
-            if (this.layersEnabled) {
+            // If layers panel or animation panel is open, close them first
+            if (this.layersPanelVisible) {
                 document.getElementById('layersEnabled').checked = false;
                 this.toggleLayersMode();
             }
@@ -3865,13 +3846,24 @@ class DrawingEditor {
     }
     
     getActiveCanvas() {
-        // Return the canvas that should be drawn on
-        if (this.layersEnabled) {
-            const frameData = this.frameLayers && this.frameLayers[this.currentFrameIndex];
-            if (frameData && frameData.layers[frameData.currentLayerIndex]) {
+        // ALWAYS use layer system - it's always active internally
+        const frameData = this.frameLayers && this.frameLayers[this.currentFrameIndex];
+        if (frameData && frameData.layers) {
+            // Validate currentLayerIndex
+            if (frameData.currentLayerIndex >= 0 && 
+                frameData.currentLayerIndex < frameData.layers.length &&
+                frameData.layers[frameData.currentLayerIndex]) {
                 return frameData.layers[frameData.currentLayerIndex].canvas;
+            } else {
+                // Fix invalid index - default to last layer
+                console.warn('[getActiveCanvas] Invalid layer index:', frameData.currentLayerIndex, 'defaulting to last layer');
+                frameData.currentLayerIndex = frameData.layers.length - 1;
+                if (frameData.layers[frameData.currentLayerIndex]) {
+                    return frameData.layers[frameData.currentLayerIndex].canvas;
+                }
             }
         }
+        console.warn('[getActiveCanvas] No layer data for frame', this.currentFrameIndex, '- falling back to frame canvas');
         return this.frames[this.currentFrameIndex];
     }
     
@@ -3898,21 +3890,6 @@ class DrawingEditor {
         
         // Clear layers
         this.frameLayers = {};
-    }
-    
-    getActiveCanvas() {
-        // Return the canvas that should be drawn on
-        if (this.layersEnabled) {
-            const frameData = this.frameLayers && this.frameLayers[this.currentFrameIndex];
-            if (frameData && frameData.layers[frameData.currentLayerIndex]) {
-                return frameData.layers[frameData.currentLayerIndex].canvas;
-            }
-        }
-        return this.frames[this.currentFrameIndex];
-    }
-    
-    getActiveContext() {
-        return this.getActiveCanvas().getContext('2d', { willReadFrequently: true });
     }
 
     initializeEvents() {
@@ -5668,7 +5645,7 @@ class DrawingEditor {
             // Update code output after selection drag completion
             this.generateThumbnail(this.currentFrameIndex);
             this.generateCode();
-            if (this.layersEnabled) {
+            if (this.layersPanelVisible) {
                 this.updateLayersUI();
             }
         }
@@ -8833,11 +8810,8 @@ class DrawingEditor {
     }
     
     getCurrentFrameContext() {
-        // Use active layer if layers are enabled, otherwise use frame canvas
-        if (this.layersEnabled) {
-            return this.getActiveContext();
-        }
-        return this.frames[this.currentFrameIndex].getContext('2d', { willReadFrequently: true });
+        // ALWAYS use active layer context - layers are always active internally
+        return this.getActiveContext();
     }
     
     // Text tool methods
@@ -9857,10 +9831,8 @@ class DrawingEditor {
         // Safety check - ensure we have proper context
         if (!this.drawingCtx) return;
         
-        // Composite layers if layers are enabled
-        if (this.layersEnabled) {
-            this.compositeLayersToFrame(this.currentFrameIndex);
-        }
+        // ALWAYS composite layers (they're always active internally)
+        this.compositeLayersToFrame(this.currentFrameIndex);
         
         // Clear the drawing canvas - leave it transparent for onion skin to show through
         this.drawingCtx.globalCompositeOperation = 'source-over';
@@ -10208,25 +10180,21 @@ class DrawingEditor {
         const newFrame = this.createEmptyFrame();
         const insertIndex = this.currentFrameIndex + 1;
         
-        // Get layer data if layers are enabled
-        let layerData = null;
-        if (this.layersEnabled) {
-            // Initialize will be done in command execute
-            layerData = {
-                layers: [{
-                    name: 'Layer 0',
-                    canvas: document.createElement('canvas'),
-                    visible: true,
-                    transparencyMode: 'white'
-                }],
-                currentLayerIndex: 0
-            };
-            layerData.layers[0].canvas.width = this.canvasWidth;
-            layerData.layers[0].canvas.height = this.canvasHeight;
-            const ctx = layerData.layers[0].canvas.getContext('2d', { willReadFrequently: true });
-            ctx.fillStyle = 'white';
-            ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
-        }
+        // ALWAYS create layer data (layers are always active internally)
+        const layerData = {
+            layers: [{
+                name: 'Layer 0',
+                canvas: document.createElement('canvas'),
+                visible: true,
+                transparencyMode: 'white'
+            }],
+            currentLayerIndex: 0
+        };
+        layerData.layers[0].canvas.width = this.canvasWidth;
+        layerData.layers[0].canvas.height = this.canvasHeight;
+        const ctx = layerData.layers[0].canvas.getContext('2d', { willReadFrequently: true });
+        ctx.fillStyle = 'white';
+        ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
         
         // Use command pattern for undo support
         const command = new AddFrameCommand(this, insertIndex, newFrame, layerData);
@@ -15224,6 +15192,14 @@ Instructions:
         // Push the snapshot that was captured at the start of the stroke
         this.pushUndo();
         this.currentStroke = false; // Clear the stroke flag
+        
+        // ALWAYS composite layers to frame (layers are always active internally)
+        this.compositeLayersToFrame(this.currentFrameIndex);
+        
+        // Update layer thumbnails if panel is visible
+        if (this.layersPanelVisible) {
+            this.updateLayersUI();
+        }
         
         // Generate thumbnail and code after stroke is complete
         this.generateThumbnail(this.currentFrameIndex);
