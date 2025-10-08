@@ -18815,10 +18815,10 @@ kde.drawText('Try fillCanvas()', 5, 90, 'black');
 kde.drawText('or invert()', 5, 100, 'black');
 
 // fillCanvas(color) - Fills entire canvas
-// kde.fillCanvas('black');
+kde.fillCanvas('black');
 
 // invert() - Inverts all colors (black <-> white)
-// kde.invert();
+kde.invert();
 
 // ============================================
 // FRAME & ANIMATION OPERATIONS
@@ -18829,10 +18829,12 @@ kde.drawText('or invert()', 5, 100, 'black');
 kde.print('Total frames created:', kde.getFrameCount());
 kde.print('Current frame:', kde.getCurrentFrame());
 
-// Other frame functions available:
 // setCurrentFrame(index) - Switch to different frame
+kde.setCurrentFrame(0);
 // duplicateFrame() - Copy current frame
-// deleteFrame() - Remove current frame`,
+kde.duplicateFrame();
+// deleteFrame() - Remove current frame
+kde.deleteFrame();` ,
         bresenham: `// Bresenham's Circle Algorithm
 // This algorithm is a classic method for drawing circles in computer graphics.
 kde.clear();
