@@ -1036,6 +1036,10 @@ body:not(.menu-page) .onion-skin-control .opacity-display {
     color: #d4d4d4 !important;
 }
 
+.key {
+    color: #d4d4d4 !important;
+    background-color: #333333 !important;
+}
 
 
 

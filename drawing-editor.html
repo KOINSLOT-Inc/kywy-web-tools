@@ -868,6 +868,157 @@
                         <li><strong>Undo Support:</strong> All layer operations (add, delete, merge, transparency changes) are undoable</li>
                     </ul>
                 </div>
+                
+                <div class="help-section">
+                    <h3>💻 Script API Reference</h3>
+                    <p>The editor includes a powerful scripting system that allows you to programmatically create drawings, animations, and complex patterns. Scripts are executed through the Script Editor panel (check box on bottom bar). </p>
+                                    
+                    <h4>✏️ Basic Drawing Functions:</h4>
+                    <ul>
+                        <li><strong>setPixel(x, y, color)</strong><br>
+                            Draw a single pixel at coordinates</li>
+                        <li><strong>drawLine(x1, y1, x2, y2, color)</strong><br>
+                            Draw a line between two points</li>
+                        <li><strong>drawRect(x, y, w, h, filled, color)</strong><br>
+                            Draw a rectangle (filled or outline)</li>
+                        <li><strong>drawCircle(x, y, radius, filled, color)</strong><br>
+                            Draw a circle (filled or outline)</li>
+                        <li><strong>drawEllipse(x, y, rx, ry, filled, color)</strong><br>
+                            Draw an ellipse with horizontal/vertical radii</li>
+                        <li><strong>drawPolygon(x, y, radius, sides, rotation, filled, color)</strong><br>
+                            Draw a polygon (triangle, pentagon, etc.)</li>
+                        <li><strong>drawText(text, x, y, color)</strong><br>
+                            Draw text at position</li>
+                        <li><strong>floodFill(x, y, color)</strong><br>
+                            Fill a connected region with color</li>
+                    </ul>
+                    
+                    <h4>🎨 Canvas & Color Functions:</h4>
+                    <ul>
+                        <li><strong>getPixel(x, y)</strong><br>
+                            Get color of pixel ('black', 'white', or 'transparent')</li>
+                        <li><strong>setColor(color)</strong><br>
+                            Set current drawing color ('black' or 'white')</li>
+                        <li><strong>getColor()</strong><br>
+                            Get current drawing color</li>
+                        <li><strong>clear()</strong><br>
+                            Clear entire canvas to white</li>
+                        <li><strong>fillCanvas(color)</strong><br>
+                            Fill entire canvas with specified color</li>
+                        <li><strong>invert()</strong><br>
+                            Invert all colors on canvas (black ↔ white)</li>
+                        <li><strong>getWidth()</strong><br>
+                            Get canvas width in pixels (144)</li>
+                        <li><strong>getHeight()</strong><br>
+                            Get canvas height in pixels (168)</li>
+                    </ul>
+                    
+                    <h4>🎬 Animation Functions:</h4>
+                    <ul>
+                        <li><strong>getCurrentFrame()</strong><br>
+                            Get current frame index (0-based)</li>
+                        <li><strong>setCurrentFrame(index)</strong><br>
+                            Switch to specific frame</li>
+                        <li><strong>getFrameCount()</strong><br>
+                            Get total number of frames</li>
+                        <li><strong>addFrame()</strong><br>
+                            Create a new frame, returns frame index</li>
+                        <li><strong>deleteFrame()</strong><br>
+                            Delete current frame</li>
+                        <li><strong>duplicateFrame()</strong><br>
+                            Duplicate current frame, returns new index</li>
+                    </ul>
+                    
+                    <h4>📚 Layer Functions:</h4>
+                    <ul>
+                        <li><strong>getCurrentLayer()</strong><br>
+                            Get current layer index (0-based)</li>
+                        <li><strong>setCurrentLayer(index)</strong><br>
+                            Switch to specific layer</li>
+                        <li><strong>getLayerCount()</strong><br>
+                            Get total number of layers in current frame</li>
+                        <li><strong>addLayer()</strong><br>
+                            Create a new layer, returns layer index</li>
+                        <li><strong>deleteLayer(index)</strong><br>
+                            Delete layer by index</li>
+                        <li><strong>setLayerVisibility(index, visible)</strong><br>
+                            Show/hide layer (true/false)</li>
+                        <li><strong>getLayerVisibility(index)</strong><br>
+                            Check if layer is visible</li>
+                        <li><strong>setLayerOpacity(index, transparency)</strong><br>
+                            Set layer transparency mode ('white', 'black', 'default')</li>
+                        <li><strong>getLayerOpacity(index)</strong><br>
+                            Get layer transparency mode</li>
+                    </ul>
+                    <p><strong>Transparency Modes:</strong> 'white' = white pixels transparent, 'black' = black pixels transparent, 'default' = no transparency</p>
+                    
+                    <h4>✂️ Selection & Clipboard Functions:</h4>
+                    <ul>
+                        <li><strong>selectRect(x1, y1, x2, y2)</strong><br>
+                            Create rectangular selection</li>
+                        <li><strong>clearSelection()</strong><br>
+                            Remove current selection</li>
+                        <li><strong>hasSelection()</strong><br>
+                            Check if selection exists</li>
+                        <li><strong>getSelection()</strong><br>
+                            Get selection bounds {x1, y1, x2, y2}</li>
+                        <li><strong>copySelection()</strong><br>
+                            Copy selection to clipboard</li>
+                        <li><strong>cutSelection()</strong><br>
+                            Cut selection to clipboard</li>
+                        <li><strong>paste(x, y)</strong><br>
+                            Paste clipboard at position</li>
+                        <li><strong>rotateSelection(degrees)</strong><br>
+                            Rotate selection (-180 to 180)</li>
+                        <li><strong>mirrorSelectionH()</strong><br>
+                            Mirror selection horizontally</li>
+                        <li><strong>mirrorSelectionV()</strong><br>
+                            Mirror selection vertically</li>
+                    </ul>
+                    
+                    <h4>🎨 Fill Pattern Functions:</h4>
+                    <ul>
+                        <li><strong>setFillPattern(pattern)</strong><br>
+                            Set fill pattern for shapes</li>
+                        <li><strong>getFillPattern()</strong><br>
+                            Get current fill pattern</li>
+                    </ul>
+                    <p><strong>Available patterns:</strong> 'solid', 'stipple25', 'stipple50', 'stipple75', 'checkerboard', 'diagonal', 'crosshatch', 'dots'</p>
+                    
+                    <h4>🔢 Utility Functions:</h4>
+                    <ul>
+                        <li><strong>random(min, max)</strong><br>
+                            Get random integer between min and max (inclusive)</li>
+                        <li><strong>map(value, inMin, inMax, outMin, outMax)</strong><br>
+                            Map value from one range to another</li>
+                        <li><strong>constrain(value, min, max)</strong><br>
+                            Limit value between min and max</li>
+                    </ul>
+                    
+                    <h4>📤 Output & Interaction Functions:</h4>
+                    <ul>
+                        <li><strong>print(...args)</strong><br>
+                            Output messages to script console</li>
+                        <li><strong>alert(...args)</strong><br>
+                            Show popup alert dialog</li>
+                        <li><strong>onClick(callback)</strong><br>
+                            Register click handler function(x, y)</li>
+                        <li><strong>new()</strong><br>
+                            Create new drawing (clears all)</li>
+                    </ul>
+                    
+                    <h4>⚠️ Important Notes:</h4>
+                    <ul>
+                        <li><strong>Colors:</strong> Only 'black' and 'white' are supported (monochrome display)</li>
+                        <li><strong>Coordinates:</strong> Origin (0,0) is top-left corner</li>
+                        <li><strong>Bounds:</strong> Canvas is 144×168 pixels (KYWY display size)</li>
+                        <li><strong>Animation Pause:</strong> Animations automatically pause during script execution</li>
+                        <li><strong>Undo Support:</strong> Entire script execution is one undo operation</li>
+                        <li><strong>Layer System:</strong> Scripts can work with layers when enabled</li>
+                        <li><strong>Click Handlers:</strong> Only one click handler can be active at a time</li>
+                        <li><strong>Error Handling:</strong> Script errors are shown in console and stop execution</li>
+                    </ul>
+                </div>
             </div>
         </div>
     </div>

@@ -16888,31 +16888,35 @@ Instructions:
     }
     
     /**
-     * Set the opacity of a layer
+     * Set the transparency mode of a layer
      * @param {number} layerIndex - Layer index (0-based)
-     * @param {number} opacity - Opacity value (0.0 to 1.0)
+     * @param {string} transparency - Transparency mode ('white', 'black', or 'default')
      */
-    setLayerOpacity(layerIndex, opacity) {
+    setLayerOpacity(layerIndex, transparency) {
         const index = Math.floor(layerIndex);
         const frame = this.frames[this.currentFrameIndex];
         if (index >= 0 && index < frame.layers.length) {
-            frame.layers[index].opacity = Math.max(0, Math.min(1, opacity));
-            this.redrawCanvas();
+            const validModes = ['white', 'black', 'default'];
+            if (validModes.includes(transparency)) {
+                frame.layers[index].transparencyMode = transparency;
+                this.redrawCanvas();
+                this.updateLayersDisplay();
+            }
         }
     }
     
     /**
-     * Get the opacity of a layer
+     * Get the transparency mode of a layer
      * @param {number} layerIndex - Layer index (0-based)
-     * @returns {number} Opacity value (0.0 to 1.0)
+     * @returns {string} Transparency mode ('white', 'black', or 'default')
      */
     getLayerOpacity(layerIndex) {
         const index = Math.floor(layerIndex);
         const frame = this.frames[this.currentFrameIndex];
         if (index >= 0 && index < frame.layers.length) {
-            return frame.layers[index].opacity;
+            return frame.layers[index].transparencyMode || 'default';
         }
-        return 1.0;
+        return 'default';
     }
     
     // Execute a drawing function - useful for complex patterns
