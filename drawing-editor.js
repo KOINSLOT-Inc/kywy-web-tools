@@ -4577,7 +4577,14 @@ class DrawingEditor {
                 break;
             case 'c':
                 if (e.ctrlKey || e.metaKey) {
-                    this.copySelection();
+                    // Ctrl+C: Copy selection or switch to select tool
+                    if (this.currentTool !== 'select') {
+                        // If not in select tool, just switch to it (ready to make a selection)
+                        this.setTool('select');
+                    } else if (this.selection && this.selection.active) {
+                        // If already in select tool and have a selection, copy it
+                        this.copy();
+                    }
                     e.preventDefault();
                 } else {
                     // C: Circle tool
@@ -4700,13 +4707,27 @@ class DrawingEditor {
                 break;
             case 'v':
                 if (e.ctrlKey || e.metaKey) {
-                    this.paste();
+                    // Ctrl+V: Toggle paste mode (switch to select tool if needed)
+                    if (this.currentTool !== 'select') {
+                        this.setTool('select');
+                    }
+                    // Only toggle paste mode if there's something to paste
+                    if (this.clipboard) {
+                        this.togglePasteMode();
+                    }
                     e.preventDefault();
                 }
                 break;
             case 'x':
                 if (e.ctrlKey || e.metaKey) {
-                    this.cutSelection();
+                    // Ctrl+X: Cut selection or switch to select tool
+                    if (this.currentTool !== 'select') {
+                        // If not in select tool, just switch to it (ready to make a selection)
+                        this.setTool('select');
+                    } else if (this.selection && this.selection.active) {
+                        // If already in select tool and have a selection, cut it
+                        this.cut();
+                    }
                     e.preventDefault();
                 }
                 break;
