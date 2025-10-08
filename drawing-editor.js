@@ -12024,6 +12024,17 @@ class DrawingEditor {
             layersEnabled: this.layersEnabled
         };
         
+        // Save current script code if any exists
+        try {
+            const currentScript = window.getScriptEditorCode ? window.getScriptEditorCode() : '';
+            if (currentScript && currentScript.trim()) {
+                data.script = currentScript;
+            }
+        } catch (e) {
+            // Ignore script save errors
+            console.warn('Could not save script:', e);
+        }
+        
         // Save layer data if layers are being used
         if (this.frameLayers && Object.keys(this.frameLayers).length > 0) {
             data.layers = {};
@@ -12191,14 +12202,33 @@ class DrawingEditor {
                     this.updateUI();
                     this.redrawCanvas();
                     this.generateCode();
+                    
+                    // Load script if it exists
+                    this.loadScript(data);
                 });
             } else {
                 // No layer data, just update normally
                 this.updateUI();
                 this.redrawCanvas();
                 this.generateCode();
+                
+                // Load script if it exists
+                this.loadScript(data);
             }
         });
+    }
+    
+    // Load script code if it exists in the data
+    loadScript(data) {
+        if (data.script && data.script.trim()) {
+            try {
+                if (window.setScriptEditorCode) {
+                    window.setScriptEditorCode(data.script);
+                }
+            } catch (e) {
+                console.warn('Could not load script:', e);
+            }
+        }
     }
     
     loadFromHPP(hppContent) {
@@ -18107,6 +18137,10 @@ function initializeScriptEditor(editor) {
             textarea.value = code;
         }
     }
+    
+    // Expose functions globally for save/load
+    window.getScriptEditorCode = getCode;
+    window.setScriptEditorCode = setCode;
     
     // Example scripts
     const examples = {
