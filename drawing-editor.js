@@ -381,9 +381,7 @@ class AddFrameCommand {
         }
         
         this.editor.currentFrameIndex = this.frameIndex;
-        if (this.editor.layersEnabled) {
-            this.editor.updateLayersUI();
-        }
+        this.editor.updateLayersUI();
         this.editor.updateUI();
         this.editor.redrawCanvas();
         this.editor.generateThumbnail(this.frameIndex);
@@ -412,9 +410,7 @@ class AddFrameCommand {
             this.editor.currentFrameIndex = this.editor.frames.length - 1;
         }
         
-        if (this.editor.layersEnabled) {
-            this.editor.updateLayersUI();
-        }
+        this.editor.updateLayersUI();
         this.editor.updateUI();
         this.editor.redrawCanvas();
         this.editor.generateCode();
@@ -5634,9 +5630,7 @@ class DrawingEditor {
                 // Update code output after paste operation
                 this.generateThumbnail(this.currentFrameIndex);
                 this.generateCode();
-                if (this.layersEnabled) {
-                    this.updateLayersUI();
-                }
+                this.updateLayersUI();
             }
             // If it was a drag, the pasting already happened during mousemove
             
@@ -5663,9 +5657,7 @@ class DrawingEditor {
             // Update code output after selection drag completion
             this.generateThumbnail(this.currentFrameIndex);
             this.generateCode();
-            if (this.layersPanelVisible) {
-                this.updateLayersUI();
-            }
+            this.updateLayersUI();
         }
         
         // Finalize lasso selection when mouse is released
@@ -5715,10 +5707,8 @@ class DrawingEditor {
             this.generateThumbnail(this.currentFrameIndex);
             this.generateCode();
             
-            // Update layer previews if layers are enabled
-            if (this.layersEnabled) {
-                this.updateLayersUI();
-            }
+            // Update layer previews (layers are always enabled internally)
+            this.updateLayersUI();
         }
         
         // Finish stroke for undo system
