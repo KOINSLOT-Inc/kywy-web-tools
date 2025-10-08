@@ -669,3 +669,8 @@ body:not(.menu-page) .onion-skin-control label {
 body:not(.menu-page) .onion-skin-control #animOnionOpacityContainer {
     background: #c0c0c0 !important;
 }
+/* CodeMirror cursor visibility for Windows 95 theme */
+.windows95-theme .code-editor-wrapper .CodeMirror-cursor {
+    border-left: 1px solid #000000 !important;
+    border-left-width: 2px !important;
+}

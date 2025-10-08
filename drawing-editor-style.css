@@ -3264,6 +3264,7 @@ button:focus-visible, .toggle-btn:focus-visible, .collapsible-btn:focus-visible,
     padding: 0 8px 0 0;
     color: #858585;
     text-align: right;
+    left: 0 !important;
 }
 
 .code-editor-wrapper .CodeMirror-cursor {

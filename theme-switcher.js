@@ -140,6 +140,13 @@ class ThemeSwitcher {
         if (theme.id !== 'original') {
             document.body.classList.add(theme.id + '-theme');
         }
+        
+        // Refresh CodeMirror if it exists to update cursor styling
+        if (window.scriptEditorCodeMirror) {
+            setTimeout(() => {
+                window.scriptEditorCodeMirror.refresh();
+            }, 100);
+        }
     }
     
     removeThemeStylesheets() {
