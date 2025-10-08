@@ -3323,36 +3323,36 @@ button:focus-visible, .toggle-btn:focus-visible, .collapsible-btn:focus-visible,
     box-shadow: none !important;
 }
 
-/* Light theme syntax highlighting */
+/* Vibrant syntax highlighting */
 .code-editor-wrapper .cm-comment {
-    color: #008000;
+    color: #22863a;
     font-style: italic;
 }
 
 .code-editor-wrapper .cm-keyword {
-    color: #0000ff;
+    color: #d73a49;
     font-weight: bold;
 }
 
 .code-editor-wrapper .cm-string {
-    color: #a31515;
+    color: #032f62;
 }
 
 .code-editor-wrapper .cm-number {
-    color: #098658;
+    color: #005cc5;
 }
 
 .code-editor-wrapper .cm-variable {
-    color: #001080;
+    color: #6f42c1;
 }
 
 .code-editor-wrapper .cm-def {
-    color: #795e26;
+    color: #e36209;
     font-weight: bold;
 }
 
 .code-editor-wrapper .cm-operator {
-    color: #000000;
+    color: #d73a49;
 }
 
 /* Fallback textarea for when CodeMirror isn't loaded */
