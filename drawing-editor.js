@@ -18405,11 +18405,6 @@ api.print('Current frame:', api.getCurrentFrame());
 // duplicateFrame() - Copy current frame
 // deleteFrame() - Remove current frame`,
         bresenham: `// Bresenham's Circle Algorithm
-// ============================================
-// Frame functions: getCurrentFrame(), getFrameCount(), addFrame(), etc.
-// Layer functions: getCurrentLayer(), getLayerCount(), addLayer(), etc.
-// See LAYERS and FRAMES sections above for usage examples`,
-        bresenham: `// Bresenham's Circle Algorithm
 // This algorithm is a classic method for drawing circles in computer graphics.
 api.clear();
 
