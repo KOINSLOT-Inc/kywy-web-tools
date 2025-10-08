@@ -4,9 +4,9 @@
 
 /* NES Theme CSS Variables */
 .nes-theme {
-    --code-editor-bg: #7c0000;
-    --code-editor-bg-focus: #8c0000;
-    --code-editor-text: #ffffff;
+    --code-editor-bg: #cc8888;
+    --code-editor-bg-focus: #cc8888;
+    --code-editor-text: #000000;
     --code-editor-placeholder: #cc8888;
     --script-button-bg: #e03c28;
     --script-button-hover: #ff6b6b;
@@ -924,7 +924,7 @@ body:not(.menu-page) .onion-skin-control label {
 
 /* NES themed syntax highlighting - bright 8-bit gaming colors */
 .nes-theme .code-editor-wrapper .cm-comment {
-    color: #808080 !important;
+    color: #a0a0a0 !important;
     font-style: italic !important;
 }
 
@@ -951,8 +951,43 @@ body:not(.menu-page) .onion-skin-control label {
 }
 
 .nes-theme .code-editor-wrapper .cm-operator {
-    color: #000000 !important;
+    color: #ffffff !important;
 }
+
+/* Script editor panel background to match other panels */
+.nes-theme .script-editor-panel {
+    background-color: #ff6b6b !important;
+    border-top: 3px solid #ffffff !important;
+    border-style: outset !important;
+    box-shadow: 2px 2px 0px #000000 !important;
+}
+
+.nes-theme .script-editor-header {
+    background-color: #a0a0a0 !important;
+    border-bottom: 3px solid #000000 !important;
+}
+
+.nes-theme .script-editor-header h3 {
+    color: #ffffff !important;
+    text-transform: uppercase !important;
+    text-shadow: none !important;
+}
+
+/* Black background for code editor */
+.nes-theme .code-editor-wrapper .CodeMirror {
+    background-color: #000000 !important;
+}
+
+.nes-theme .code-editor-wrapper .CodeMirror-gutters {
+    background-color: #1a1a1a !important;
+    border-right: 1px solid #333333 !important;
+}
+
+.nes-theme .code-editor-wrapper .CodeMirror-linenumber {
+    color: #808080 !important;
+}
+
+
 
 
 

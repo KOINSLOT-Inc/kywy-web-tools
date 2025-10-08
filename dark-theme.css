@@ -1021,6 +1021,22 @@ body:not(.menu-page) .onion-skin-control .opacity-display {
     color: #dcdcaa !important;
 }
 
+/* Script editor panel background to match other panels */
+.dark-theme .script-editor-panel {
+    background-color: #222222 !important;
+    border-top: 1px solid #333333 !important;
+}
+
+.dark-theme .script-editor-header {
+    background-color: #1a1a1a !important;
+    border-bottom: 1px solid #333333 !important;
+}
+
+.dark-theme .script-editor-header h3 {
+    color: #d4d4d4 !important;
+}
+
+
 
 
 

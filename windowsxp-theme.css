@@ -829,5 +829,22 @@ body:not(.menu-page) .onion-skin-control label {
     color: #000000 !important;
 }
 
+/* Script editor panel background to match other panels */
+.windowsxp-theme .script-editor-panel {
+    background: linear-gradient(to bottom, #ffffff 0%, #f8fbff 100%) !important;
+    border-top: 1px solid #c5d9f1 !important;
+    box-shadow: 1px 1px 4px rgba(0,0,0,0.1) !important;
+}
+
+.windowsxp-theme .script-editor-header {
+    background: linear-gradient(to bottom, #0054e3 0%, #003399 100%) !important;
+    border-bottom: 1px solid #0054e3 !important;
+}
+
+.windowsxp-theme .script-editor-header h3 {
+    color: #ffffff !important;
+}
+
+
 
 

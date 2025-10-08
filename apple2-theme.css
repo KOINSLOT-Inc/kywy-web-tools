@@ -981,6 +981,24 @@ body:not(.menu-page) .onion-skin-control label {
     color: #000000 !important;
 }
 
+/* Script editor panel background to match other panels */
+.apple2-theme .script-editor-panel {
+    background-color: #ffffff !important;
+    border-top: 2px solid #000000 !important;
+    box-shadow: 2px 2px 4px rgba(0,0,0,0.2) !important;
+}
+
+.apple2-theme .script-editor-header {
+    background-color: #d0d0d0 !important;
+    border-bottom: 2px solid #000000 !important;
+}
+
+.apple2-theme .script-editor-header h3 {
+    color: #000000 !important;
+    font-weight: bold !important;
+}
+
+
 
 
 

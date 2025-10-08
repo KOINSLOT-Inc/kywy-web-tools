@@ -680,6 +680,18 @@ body:not(.menu-page) .onion-skin-control #animOnionOpacityContainer {
     background: #c0c0c0 !important;
 }
 
+/* Script editor panel background to match other panels */
+.windows95-theme .script-editor-panel {
+    background-color: #e0e0e0 !important;
+    border-top: 2px outset #c0c0c0 !important;
+    border-radius: 0 !important;
+}
+
+.windows95-theme .script-editor-header {
+    background-color: #c0c0c0 !important;
+    border-bottom: 2px solid #808080 !important;
+}
+
 /* Windows 95 themed syntax highlighting */
 .windows95-theme .code-editor-wrapper .cm-comment {
     color: #008000 !important;
