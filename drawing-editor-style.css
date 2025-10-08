@@ -3391,12 +3391,18 @@ button:focus-visible, .toggle-btn:focus-visible, .collapsible-btn:focus-visible,
     border-radius: 6px;
     font-size: 13px;
     font-family: 'Courier New', monospace;
-    max-width: 300px;
+    max-width: 90%;
+    width: auto;
+    min-width: 250px;
     position: absolute;
     left: 50%;
     transform: translateX(-50%);
     top: 8px;
     z-index: 10;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    line-height: 1.4;
 }
 
 .script-editor-panel .script-output.success {

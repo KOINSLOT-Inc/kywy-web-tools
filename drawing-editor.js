@@ -3760,11 +3760,13 @@ class DrawingEditor {
         if (this.soloLayerIndex !== null && this.soloLayerIndex < frameData.layers.length) {
             const soloLayer = frameData.layers[this.soloLayerIndex];
             // In solo mode, draw layer directly without transparency processing
-            ctx.drawImage(soloLayer.canvas, 0, 0);
+            if (soloLayer && soloLayer.canvas && soloLayer.canvas instanceof HTMLCanvasElement) {
+                ctx.drawImage(soloLayer.canvas, 0, 0);
+            }
         } else {
             // Draw visible layers in order (bottom to top)
             frameData.layers.forEach((layer, index) => {
-                if (layer.visible) {
+                if (layer.visible && layer.canvas && layer.canvas instanceof HTMLCanvasElement) {
                     // Bottom layer (index 0) should NOT have transparency applied
                     if (index === 0) {
                         // Draw bottom layer directly - no transparency processing
@@ -16513,7 +16515,19 @@ Instructions:
         if (!frameData || !frameData.layers) return;
         
         if (index >= 0 && index < frameData.layers.length && frameData.layers.length > 1) {
-            this.deleteLayerAt(index);
+            // Remove the layer from the array
+            frameData.layers.splice(index, 1);
+            
+            // Adjust current layer index if needed
+            if (frameData.currentLayerIndex >= frameData.layers.length) {
+                frameData.currentLayerIndex = frameData.layers.length - 1;
+            }
+            
+            // Composite layers and update display
+            this.compositeLayersToFrame(this.currentFrameIndex);
+            this.redrawCanvas();
+            // Note: updateLayersList() is not needed during script execution
+            // UI updates happen automatically when scripts complete
         }
     }
     
@@ -18303,51 +18317,82 @@ api.print('Current fill pattern:', api.getFillPattern());
 
 // Create a new frame for layer demonstrations
 api.addFrame();
+api.clear();
 
 api.drawText('Layer Demo', 5, 5, 'black');
 
-// Check initial layer state
+// Check initial layer state (before adding layers)
 api.print('Starting layers:', api.getLayerCount());
 api.print('Current layer:', api.getCurrentLayer());
 
 // Create multiple layers
 // addLayer() - Create new layer, returns new layer index
+api.print('Adding layer 1...');
 const layer1 = api.addLayer();
-api.print('Created layer:', layer1);
+api.print('Created layer index:', layer1);
 
+api.print('Adding layer 2...');
 const layer2 = api.addLayer();
-api.print('Created layer:', layer2);
+api.print('Created layer index:', layer2);
+
+api.print('Total layers now:', api.getLayerCount());
 
 // Draw on layer 0 (background)
+api.print('Drawing on layer 0...');
 api.setCurrentLayer(0);
 api.drawRect(10, 20, 40, 40, true, 'black');
 api.drawText('Layer 0', 15, 35, 'white');
 
 // Draw on layer 1 (middle)
+api.print('Drawing on layer 1...');
 api.setCurrentLayer(1);
 api.drawCircle(50, 40, 20, true, 'black');
 api.drawText('Layer 1', 40, 38, 'white');
 
 // Draw on layer 2 (top)
+api.print('Drawing on layer 2...');
 api.setCurrentLayer(2);
 api.drawPolygon(90, 40, 15, 5, 0, true, 'black');
 api.drawText('Layer 2', 80, 38, 'white');
 
+// Go back to layer 0 for UI text
+api.setCurrentLayer(0);
+
 // Demonstrate layer visibility
 // setLayerVisibility(index, visible) - Show/hide layer
+api.print('Hiding layer 1...');
 api.setLayerVisibility(1, false);
-api.print('Layer 1 hidden');
 
 // getLayerVisibility(index) - Check if layer is visible
-const isVisible = api.getLayerVisibility(1);
-api.print('Layer 1 visible?', isVisible);
+const isVisible1 = api.getLayerVisibility(1);
+api.print('Layer 1 visible?', isVisible1);
 
 // Show it again
+api.print('Showing layer 1 again...');
 api.setLayerVisibility(1, true);
-api.print('Layer 1 shown again');
+const isVisible2 = api.getLayerVisibility(1);
+api.print('Layer 1 visible now?', isVisible2);
+
+// Demonstrate deleteLayer
+// Create a temporary layer to delete
+api.print('Adding temporary layer 3...');
+const layer3 = api.addLayer();
+api.setCurrentLayer(layer3);
+api.drawText('Temp', 10, 80, 'black');
+api.print('Created temporary layer:', layer3);
+api.print('Total layers:', api.getLayerCount());
+
+// Delete it
+api.print('Deleting layer', layer3);
+api.deleteLayer(layer3);
+api.print('Total layers after delete:', api.getLayerCount());
+
+// Return to layer 0
+api.setCurrentLayer(0);
 
 // Layer info summary
-api.drawText('Total Layers: ' + api.getLayerCount(), 5, 70, 'black');
+api.drawText('Total Layers: ' + api.getLayerCount(), 5, 90, 'black');
+api.drawText('Current: ' + api.getCurrentLayer(), 5, 100, 'black');
 api.drawText('Current: ' + api.getCurrentLayer(), 5, 80, 'black');
 
 // ============================================
