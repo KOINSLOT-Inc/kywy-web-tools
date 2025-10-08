@@ -1045,7 +1045,7 @@ class DrawingEditor {
         }
         
         // Initialize onion skin mode (black on white is default)
-        this.onionSkinMode = 'whiteOnBlack';
+        this.onionSkinMode = 'blackOnWhite';
         const activeOnionBtn = document.getElementById('onionModeBlackOnWhite');
         if (activeOnionBtn) {
             activeOnionBtn.classList.add('active');
@@ -1276,7 +1276,7 @@ class DrawingEditor {
         });
 
         // Selection mode selection
-        document.querySelectorAll('.mode-btn[data-mode]').forEach(btn => {
+        document.querySelectorAll('.shape-mode-btn[data-mode]').forEach(btn => {
             btn.addEventListener('click', () => {
                 this.setSelectionMode(btn.dataset.mode);
             });
@@ -9650,7 +9650,7 @@ class DrawingEditor {
         }
         
         this.selectionMode = mode;
-        document.querySelectorAll('.mode-btn[data-mode]').forEach(btn => {
+        document.querySelectorAll('.shape-mode-btn[data-mode]').forEach(btn => {
             btn.classList.toggle('active', btn.dataset.mode === mode);
         });
     }
@@ -11288,7 +11288,7 @@ class DrawingEditor {
         }
         
         // Update button states
-        document.querySelectorAll('.mode-btn[data-mode]').forEach(btn => {
+        document.querySelectorAll('.shape-mode-btn[data-mode]').forEach(btn => {
             btn.classList.toggle('active', btn.dataset.mode === mode);
         });
         
@@ -11997,11 +11997,11 @@ class DrawingEditor {
         if (cycleBtn) cycleBtn.classList.add('active');
         if (boomerangBtn) boomerangBtn.classList.remove('active');
         
-        // Reset onion skin mode buttons
+        // Reset onion skin mode buttons to default (blackOnWhite)
         const blackOnWhiteBtn = document.getElementById('onionModeBlackOnWhite');
         const whiteOnBlackBtn = document.getElementById('onionModeWhiteOnBlack');
-        if (blackOnWhiteBtn) blackOnWhiteBtn.classList.remove('active');
-        if (whiteOnBlackBtn) whiteOnBlackBtn.classList.add('active');
+        if (blackOnWhiteBtn) blackOnWhiteBtn.classList.add('active');
+        if (whiteOnBlackBtn) whiteOnBlackBtn.classList.remove('active');
     }
     
     save() {
