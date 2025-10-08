@@ -992,8 +992,7 @@ body:not(.menu-page) .onion-skin-control label {
     border-left: 2px solid #ffffff !important;
 }
 
-
-
-
-
-
+.key {
+    color: #1a1a1a !important;
+    background-color: #ff6b6b;
+}
