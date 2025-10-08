@@ -16895,7 +16895,7 @@ Instructions:
     setLayerOpacity(layerIndex, transparency) {
         const index = Math.floor(layerIndex);
         const frame = this.frames[this.currentFrameIndex];
-        if (index >= 0 && index < frame.layers.length) {
+        if (frame && frame.layers && index >= 0 && index < frame.layers.length) {
             const validModes = ['white', 'black', 'default'];
             if (validModes.includes(transparency)) {
                 frame.layers[index].transparencyMode = transparency;
@@ -16913,7 +16913,7 @@ Instructions:
     getLayerOpacity(layerIndex) {
         const index = Math.floor(layerIndex);
         const frame = this.frames[this.currentFrameIndex];
-        if (index >= 0 && index < frame.layers.length) {
+        if (frame && frame.layers && index >= 0 && index < frame.layers.length) {
             return frame.layers[index].transparencyMode || 'default';
         }
         return 'default';
@@ -17289,15 +17289,15 @@ Instructions:
                  */
                 getLayerVisibility: (layerIndex) => this.getLayerVisibility(layerIndex),
                 /**
-                 * Set layer opacity
+                 * Set layer transparency mode
                  * @param {number} layerIndex - Layer index (0-based)
-                 * @param {number} opacity - Opacity (0.0 to 1.0)
+                 * @param {string} transparency - Transparency mode ('white', 'black', or 'default')
                  */
                 setLayerOpacity: (layerIndex, opacity) => this.setLayerOpacity(layerIndex, opacity),
                 /**
-                 * Get layer opacity
+                 * Get layer transparency mode
                  * @param {number} layerIndex - Layer index (0-based)
-                 * @returns {number} Opacity (0.0 to 1.0)
+                 * @returns {string} Transparency mode ('white', 'black', or 'default')
                  */
                 getLayerOpacity: (layerIndex) => this.getLayerOpacity(layerIndex),
                 /**
@@ -18678,6 +18678,41 @@ kde.drawCircle(40, 140, 5, true, 'black');
 const currentLayer = kde.getCurrentLayer();
 const totalLayers = kde.getLayerCount();
 kde.drawText('Layers: ' + totalLayers, 10, 155, 'black');
+
+// ============================================
+// LAYER TRANSPARENCY DEMONSTRATION
+// ============================================
+
+// Demonstrate layer transparency modes
+// setLayerOpacity(layerIndex, mode) - Set transparency mode for layer
+// Available modes: 'default', 'white', 'black'
+
+// Get current transparency mode
+const currentMode = kde.getLayerOpacity(1);
+kde.print('Layer 1 current transparency:', currentMode);
+
+// Set layer 1 to use white as transparent color
+kde.setLayerOpacity(1, 'white');
+kde.drawText('White=transparent', 10, 145, 'white');
+kde.drawRect(5, 142, 100, 8, true, 'white');
+
+// Draw some black content that will show through
+kde.drawText('Black shows', 10, 148, 'black');
+
+// Change to black as transparent color
+kde.setLayerOpacity(1, 'black');
+kde.drawText('Black=transparent', 110, 145, 'black');
+kde.drawRect(105, 142, 100, 8, true, 'black');
+
+// Draw some white content that will show through
+kde.drawText('White shows', 110, 148, 'white');
+
+// Reset to default (no transparency)
+kde.setLayerOpacity(1, 'default');
+
+// Verify the transparency mode was changed
+const newMode = kde.getLayerOpacity(1);
+kde.print('Layer 1 transparency changed to:', newMode);
 
 // Return to layer 0
 kde.setCurrentLayer(0);
