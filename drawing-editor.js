@@ -10325,8 +10325,8 @@ class DrawingEditor {
         this.frames[indexA] = this.frames[indexB];
         this.frames[indexB] = temp;
         
-        // Swap layer data if layers are enabled
-        if (this.layersEnabled && this.frameLayers) {
+        // Swap layer data - layers are always active internally
+        if (this.frameLayers) {
             const tempLayers = this.frameLayers[indexA];
             this.frameLayers[indexA] = this.frameLayers[indexB];
             this.frameLayers[indexB] = tempLayers;
@@ -10337,6 +10337,12 @@ class DrawingEditor {
             this.currentFrameIndex = indexB;
         } else if (this.currentFrameIndex === indexB) {
             this.currentFrameIndex = indexA;
+        }
+        
+        // Re-composite frames to reflect the swapped layer data
+        if (this.frameLayers) {
+            this.compositeLayersToFrame(indexA);
+            this.compositeLayersToFrame(indexB);
         }
         
         // Update UI and redraw
