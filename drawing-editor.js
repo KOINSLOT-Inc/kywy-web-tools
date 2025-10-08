@@ -18345,8 +18345,6 @@ function initializeScriptEditor(editor) {
             element.setAttribute('placeholder', 'Enter JavaScript code here...');
             element.setAttribute('aria-describedby', 'script-editor-description');
             element.setAttribute('form', 'script-editor-form');
-            
-            console.log('Intercepted textarea creation with ID:', uniqueId);
         }
         
         return element;
