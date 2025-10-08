@@ -16014,7 +16014,12 @@ Instructions:
     // SCRIPTING API - Programmatic Drawing
     // ============================================
     
-    // Set a pixel at the given coordinates
+    /**
+     * Set a pixel at the given coordinates
+     * @param {number} x - X coordinate
+     * @param {number} y - Y coordinate
+     * @param {string} color - Optional color ('black' or 'white'), defaults to current color
+     */
     drawPixelAt(x, y, color = null) {
         const savedColor = this.currentColor;
         if (color) this.currentColor = color;
@@ -16025,7 +16030,14 @@ Instructions:
         if (color) this.currentColor = savedColor;
     }
     
-    // Draw a line from (x1, y1) to (x2, y2)
+    /**
+     * Draw a line from (x1, y1) to (x2, y2)
+     * @param {number} x1 - Starting x coordinate
+     * @param {number} y1 - Starting y coordinate
+     * @param {number} x2 - Ending x coordinate
+     * @param {number} y2 - Ending y coordinate
+     * @param {string} color - Optional color ('black' or 'white'), defaults to current color
+     */
     drawLineAt(x1, y1, x2, y2, color = null) {
         const savedColor = this.currentColor;
         if (color) this.currentColor = color;
@@ -16035,7 +16047,15 @@ Instructions:
         if (color) this.currentColor = savedColor;
     }
     
-    // Draw a rectangle
+    /**
+     * Draw a rectangle
+     * @param {number} x - Top-left x coordinate
+     * @param {number} y - Top-left y coordinate
+     * @param {number} width - Width of the rectangle
+     * @param {number} height - Height of the rectangle
+     * @param {boolean} filled - If true, draws filled rectangle; if false, draws outline
+     * @param {string} color - Optional color ('black' or 'white'), defaults to current color
+     */
     drawRectAt(x, y, width, height, filled = true, color = null) {
         const savedColor = this.currentColor;
         if (color) this.currentColor = color;
@@ -16059,7 +16079,14 @@ Instructions:
         if (color) this.currentColor = savedColor;
     }
     
-    // Draw a circle
+    /**
+     * Draw a circle
+     * @param {number} x - Center x coordinate
+     * @param {number} y - Center y coordinate
+     * @param {number} radius - Radius of the circle
+     * @param {boolean} filled - If true, draws filled circle; if false, draws outline
+     * @param {string} color - Optional color ('black' or 'white'), defaults to current color
+     */
     drawCircleAt(x, y, radius, filled = true, color = null) {
         const savedColor = this.currentColor;
         if (color) this.currentColor = color;
@@ -16082,7 +16109,58 @@ Instructions:
         if (color) this.currentColor = savedColor;
     }
     
-    // Draw text at position
+    /**
+     * Draw an ellipse
+     * @param {number} x - Center x coordinate
+     * @param {number} y - Center y coordinate
+     * @param {number} radiusX - Horizontal radius
+     * @param {number} radiusY - Vertical radius
+     * @param {boolean} filled - If true, draws filled ellipse; if false, draws outline
+     * @param {string} color - Optional color ('black' or 'white'), defaults to current color
+     */
+    drawEllipseAt(x, y, radiusX, radiusY, filled = true, color = null) {
+        const savedColor = this.currentColor;
+        if (color) this.currentColor = color;
+        
+        const ctx = this.getCurrentFrameContext();
+        const cx = Math.floor(x);
+        const cy = Math.floor(y);
+        const rx = Math.floor(radiusX);
+        const ry = Math.floor(radiusY);
+        
+        if (filled) {
+            // Filled ellipse using ellipse equation
+            for (let dy = -ry; dy <= ry; dy++) {
+                for (let dx = -rx; dx <= rx; dx++) {
+                    // Check if point is inside ellipse: (x/rx)² + (y/ry)² <= 1
+                    if ((dx * dx) / (rx * rx) + (dy * dy) / (ry * ry) <= 1) {
+                        this.setPixelInFrame(cx + dx, cy + dy, ctx);
+                    }
+                }
+            }
+        } else {
+            // Outline ellipse
+            for (let dy = -ry; dy <= ry; dy++) {
+                for (let dx = -rx; dx <= rx; dx++) {
+                    const distance = (dx * dx) / (rx * rx) + (dy * dy) / (ry * ry);
+                    // Draw if on the edge (between inner and outer ellipse)
+                    if (distance <= 1 && distance >= 0.8) {
+                        this.setPixelInFrame(cx + dx, cy + dy, ctx);
+                    }
+                }
+            }
+        }
+        
+        if (color) this.currentColor = savedColor;
+    }
+    
+    /**
+     * Draw text at position
+     * @param {string} text - The text string to draw
+     * @param {number} x - Top-left x coordinate
+     * @param {number} y - Top-left y coordinate
+     * @param {string} color - Optional color ('black' or 'white'), defaults to current color
+     */
     drawTextAt(text, x, y, color = null) {
         const savedColor = this.currentColor;
         if (color) this.currentColor = color;
@@ -16163,17 +16241,40 @@ Instructions:
         try {
             // Call the user's drawing function with API access
             drawFunction({
+                /**
+                 * Draw a single pixel
+                 * @param {number} x - X coordinate
+                 * @param {number} y - Y coordinate
+                 * @param {string} color - Color ('black' or 'white')
+                 */
                 setPixel: (x, y, color) => {
                     const coords = this.validateCoords(x, y);
                     const validColor = this.validateColor(color);
                     return this.drawPixelAt(coords.x, coords.y, validColor);
                 },
+                /**
+                 * Draw a line from (x1, y1) to (x2, y2)
+                 * @param {number} x1 - Starting x coordinate
+                 * @param {number} y1 - Starting y coordinate
+                 * @param {number} x2 - Ending x coordinate
+                 * @param {number} y2 - Ending y coordinate
+                 * @param {string} color - Color ('black' or 'white')
+                 */
                 drawLine: (x1, y1, x2, y2, color) => {
                     const c1 = this.validateCoords(x1, y1);
                     const c2 = this.validateCoords(x2, y2);
                     const validColor = this.validateColor(color);
                     return this.drawLineAt(c1.x, c1.y, c2.x, c2.y, validColor);
                 },
+                /**
+                 * Draw a rectangle
+                 * @param {number} x - Top-left x coordinate
+                 * @param {number} y - Top-left y coordinate
+                 * @param {number} w - Width
+                 * @param {number} h - Height
+                 * @param {boolean} filled - If true, draws filled; if false, draws outline
+                 * @param {string} color - Color ('black' or 'white')
+                 */
                 drawRect: (x, y, w, h, filled, color) => {
                     const coords = this.validateCoords(x, y);
                     w = Math.floor(w);
@@ -16181,25 +16282,85 @@ Instructions:
                     const validColor = this.validateColor(color);
                     return this.drawRectAt(coords.x, coords.y, w, h, filled, validColor);
                 },
+                /**
+                 * Draw a circle
+                 * @param {number} x - Center x coordinate
+                 * @param {number} y - Center y coordinate
+                 * @param {number} r - Radius
+                 * @param {boolean} filled - If true, draws filled; if false, draws outline
+                 * @param {string} color - Color ('black' or 'white')
+                 */
                 drawCircle: (x, y, r, filled, color) => {
                     const coords = this.validateCoords(x, y);
                     r = Math.floor(r);
                     const validColor = this.validateColor(color);
                     return this.drawCircleAt(coords.x, coords.y, r, filled, validColor);
                 },
+                /**
+                 * Draw an ellipse
+                 * @param {number} x - Center x coordinate
+                 * @param {number} y - Center y coordinate
+                 * @param {number} rx - Horizontal radius
+                 * @param {number} ry - Vertical radius
+                 * @param {boolean} filled - If true, draws filled; if false, draws outline
+                 * @param {string} color - Color ('black' or 'white')
+                 */
+                drawEllipse: (x, y, rx, ry, filled, color) => {
+                    const coords = this.validateCoords(x, y);
+                    rx = Math.floor(rx);
+                    ry = Math.floor(ry);
+                    const validColor = this.validateColor(color);
+                    return this.drawEllipseAt(coords.x, coords.y, rx, ry, filled, validColor);
+                },
+                /**
+                 * Draw text
+                 * @param {string} text - Text string to draw
+                 * @param {number} x - Top-left x coordinate
+                 * @param {number} y - Top-left y coordinate
+                 * @param {string} color - Color ('black' or 'white')
+                 */
                 drawText: (text, x, y, color) => {
                     const coords = this.validateCoords(x, y);
                     const validColor = this.validateColor(color);
                     return this.drawTextAt(text, coords.x, coords.y, validColor);
                 },
+                /**
+                 * Get the color of a pixel
+                 * @param {number} x - X coordinate
+                 * @param {number} y - Y coordinate
+                 * @returns {string} Color ('black', 'white', or 'transparent')
+                 */
                 getPixel: (x, y) => this.getPixelAt(x, y),
+                /**
+                 * Get canvas width
+                 * @returns {number} Width in pixels (144)
+                 */
                 getWidth: () => this.canvasWidth,
+                /**
+                 * Get canvas height
+                 * @returns {number} Height in pixels (168)
+                 */
                 getHeight: () => this.canvasHeight,
+                /**
+                 * Clear the entire canvas to white
+                 */
                 clear: () => this.clearCurrentFrame(),
+                /**
+                 * Set the current drawing color
+                 * @param {string} color - Color ('black' or 'white')
+                 */
                 setColor: (color) => { 
                     this.currentColor = this.validateColor(color);
                 },
+                /**
+                 * Get the current drawing color
+                 * @returns {string} Current color ('black' or 'white')
+                 */
                 getColor: () => this.currentColor,
+                /**
+                 * Register a click handler function
+                 * @param {function} callback - Function called with (x, y) when canvas is clicked
+                 */
                 onClick: (callback) => this.setScriptClickHandler(callback)
             });
         } catch (error) {
@@ -17096,6 +17257,8 @@ function initializeScriptEditor(editor) {
     const examples = {
         apiReference: `// KYWY Script API Reference
 // This example demonstrates ALL available API functions
+// Scripts run javascript code with access to the 'api' object
+// Errors for run code are in the console (usually F12) for debugging
 
 api.clear();
 api.setColor('black');
@@ -17103,8 +17266,13 @@ api.setColor('black');
 // ========================================
 // 1. CANVAS INFO FUNCTIONS
 // ========================================
-const width = api.getWidth();   // Get canvas width (144)
-const height = api.getHeight(); // Get canvas height (168)
+// api.getWidth()
+//   Returns: Canvas width in pixels (144)
+const width = api.getWidth();
+
+// api.getHeight()
+//   Returns: Canvas height in pixels (168)
+const height = api.getHeight();
 
 // Draw info text at top
 api.drawText('API Reference', 10, 10);
@@ -17113,14 +17281,23 @@ api.drawText('Size: ' + width + 'x' + height, 10, 30);
 // ========================================
 // 2. COLOR FUNCTIONS
 // ========================================
-api.setColor('black');        // Set drawing color to black
-var color = api.getColor();   // Get current color
+// api.setColor(color)
+//   color: 'black' or 'white'
+//   Sets the current drawing color
+api.setColor('black');
+
+// api.getColor()
+//   Returns: Current color ('black' or 'white')
+var color = api.getColor();
 api.drawText('Color: ' + color, 10, 50);
 
 // ========================================
 // 3. PIXEL DRAWING
 // ========================================
-// Draw individual pixels
+// api.setPixel(x, y, color)
+//   x: X coordinate
+//   y: Y coordinate
+//   color: 'black' or 'white'
 api.setPixel(10, 70, 'black');
 api.setPixel(11, 70, 'black');
 api.setPixel(12, 70, 'black');
@@ -17129,14 +17306,21 @@ api.drawText('setPixel', 15, 68);
 // ========================================
 // 4. LINE DRAWING
 // ========================================
-// Draw a horizontal line
+// api.drawLine(x1, y1, x2, y2, color)
+//   x1, y1: Starting point coordinates
+//   x2, y2: Ending point coordinates
+//   color: 'black' or 'white'
 api.drawLine(10, 85, 50, 85, 'black');
 api.drawText('drawLine', 55, 83);
 
 // ========================================
 // 5. RECTANGLE DRAWING
 // ========================================
-// Draw outline rectangle
+// api.drawRect(x, y, width, height, filled, color)
+//   x, y: Top-left corner coordinates
+//   width, height: Size of rectangle
+//   filled: true for filled, false for outline
+//   color: 'black' or 'white'
 api.drawRect(10, 100, 30, 20, false, 'black');
 api.drawText('Outline', 45, 105);
 
@@ -17147,7 +17331,11 @@ api.drawText('Filled', 45, 130);
 // ========================================
 // 6. CIRCLE DRAWING
 // ========================================
-// Draw outline circle (x, y, radius, filled, color)
+// api.drawCircle(x, y, radius, filled, color)
+//   x, y: Center point coordinates
+//   radius: Radius of circle
+//   filled: true for filled, false for outline
+//   color: 'black' or 'white'
 api.drawCircle(25, 165, 10, false, 'black');
 api.drawText('Outline', 40, 160);
 
@@ -17156,26 +17344,52 @@ api.drawCircle(95, 110, 8, true, 'black');
 api.drawText('Filled', 108, 107);
 
 // ========================================
-// 7. TEXT DRAWING
+// 7. ELLIPSE DRAWING
 // ========================================
+// api.drawEllipse(x, y, radiusX, radiusY, filled, color)
+//   x, y: Center point coordinates
+//   radiusX: Horizontal radius
+//   radiusY: Vertical radius
+//   filled: true for filled, false for outline
+//   color: 'black' or 'white'
+api.drawEllipse(95, 135, 15, 8, false, 'black');
+api.drawText('Ellipse', 115, 132);
+
+// Draw filled ellipse
+api.drawEllipse(95, 155, 10, 6, true, 'black');
+api.drawText('Filled', 110, 152);
+
+// ========================================
+// 8. TEXT DRAWING
+// ========================================
+// api.drawText(text, x, y, color)
+//   text: String to draw
+//   x, y: Top-left corner coordinates
+//   color: 'black' or 'white'
 api.drawText('Text!', 80, 85, 'black');
 
 // ========================================
-// 8. PIXEL READING
+// 9. PIXEL READING
 // ========================================
-// Read pixel color at position
+// api.getPixel(x, y)
+//   x, y: Coordinates to read
+//   Returns: 'black', 'white', or 'transparent'
 var pixelColor = api.getPixel(10, 70);
 api.drawText('Read: ' + pixelColor, 10, 150);
 
 // ========================================
-// 9. CLEAR CANVAS
+// 10. CLEAR CANVAS
 // ========================================
+// api.clear()
+//   No arguments - clears entire canvas to white
 // api.clear(); // Uncomment to clear canvas
 
 // ========================================
-// 10. INTERACTIVE CLICK HANDLER
+// 11. INTERACTIVE CLICK HANDLER
 // ========================================
-// Set up click handler (only one allowed)
+// api.onClick(callback)
+//   callback: Function that receives (x, y) when canvas is clicked
+//   Only one click handler can be active at a time
 api.onClick(function(x, y) {
     // Draw a small circle at clicked position
     api.drawCircle(x, y, 3, true, 'black');
