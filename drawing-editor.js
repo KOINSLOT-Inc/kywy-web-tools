@@ -18580,7 +18580,7 @@ kde.print('Canvas dimensions:', {width: w, height: h});
 
 // Show alert popup (for important messages)
 // alert(...args) - Shows browser alert dialog with message
-// kde.alert('This is an alert!', 'Value:', 123);
+kde.alert('This is an alert!');
 
 // map(value, inMin, inMax, outMin, outMax) - map value from one range to another
 // constrain(value, min, max) - clamp value between min and max
