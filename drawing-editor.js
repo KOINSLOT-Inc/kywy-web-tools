@@ -11917,92 +11917,99 @@ class DrawingEditor {
     
     newDrawing() {
         if (confirm('Create a new drawing? This will clear your current work.')) {
-            // Create command to store current state before clearing
-            const command = new NewDrawingCommand(this);
-            
-            // Clear undo/redo stacks and add the new drawing command
-            this.undoStack = [];
-            this.redoStack = [];
-            this.undoStack.push(command);
-            this.updateUndoRedoUI();
-            
-            // Reset to single frame
-            this.frames = [this.createEmptyFrame()];
-            this.currentFrameIndex = 0;
-            
-            // Reset layers to single layer if layers are enabled
-            if (this.layersEnabled) {
-                this.frameLayers = {};
-                this.initializeLayersForFrame(0);
-                this.updateLayersUI();
-            }
-            
-            // Reset animation state
-            this.isPlaying = false;
-            this.animationInterval = null;
-            this.animationMode = 'cycle';
-            this.animationDirection = 1;
-            this.animationEnabled = false;
-            
-            // Reset layer system
-            this.layers = [];
-            this.currentLayerIndex = 0;
-            this.soloLayerIndex = null;
-            
-            // Reset selection state
-            this.clipboard = null;
-            this.selection = null;
-            this.isPasteModeActive = false;
-            this.pasteTransparencyMode = 'white';
-            this.selectionMode = 'rectangle';
-            
-            // Reset paste mode drag state
-            this.pasteDragActive = false;
-            this.pasteDragStartTime = 0;
-            this.pasteDragStartX = 0;
-            this.pasteDragStartY = 0;
-            this.lastPasteTime = 0;
-            
-            // Reset drawing state (keep tool settings)
-            this.isDrawing = false;
-            this.isPanning = false;
-            
-            // Reset onion skin settings
-            this.onionSkinMode = 'whiteOnBlack';
-            this.onionSkinOpacity = 0.3;
-            this.onionSkinEnabled = false;
-            
-            // Reset perfect shape mode
-            this.perfectShapeMode = false;
-            
-            // Reset transparency mode
-            this.transparencyMode = false;
-            
-            // Reset unsaved changes tracking
-            this.hasUnsavedChanges = false;
-            this.isBlankCanvas = true;
-            this.markAsSaved();
-            
-            // Reset save reminder
-            this.lastSaveTime = Date.now();
-            
-            // Update UI and redraw
-            this.updateUI();
-            this.redrawCanvas();
-            this.generateCode();
-            
-            // Reset animation mode buttons
-            const cycleBtn = document.getElementById('cycleMode');
-            const boomerangBtn = document.getElementById('boomerangMode');
-            if (cycleBtn) cycleBtn.classList.add('active');
-            if (boomerangBtn) boomerangBtn.classList.remove('active');
-            
-            // Reset onion skin mode buttons
-            const blackOnWhiteBtn = document.getElementById('onionModeBlackOnWhite');
-            const whiteOnBlackBtn = document.getElementById('onionModeWhiteOnBlack');
-            if (blackOnWhiteBtn) blackOnWhiteBtn.classList.remove('active');
-            if (whiteOnBlackBtn) whiteOnBlackBtn.classList.add('active');
+            this.performNewDrawing();
         }
+    }
+    
+    // Internal method that performs the new drawing reset without confirmation
+    // Used by both the UI button and the scripting API
+    performNewDrawing() {
+        // Create command to store current state before clearing
+        const command = new NewDrawingCommand(this);
+        
+        // Clear undo/redo stacks and add the new drawing command
+        this.undoStack = [];
+        this.redoStack = [];
+        this.undoStack.push(command);
+        this.updateUndoRedoUI();
+        
+        // Reset to single frame
+        this.frames = [this.createEmptyFrame()];
+        this.currentFrameIndex = 0;
+        
+        // Reset layers - layers are ALWAYS active internally
+        this.frameLayers = {};
+        this.initializeLayersForFrame(0);
+        if (this.layersPanelVisible) {
+            this.updateLayersUI();
+        }
+        
+        // Reset animation state
+        this.isPlaying = false;
+        this.animationInterval = null;
+        this.animationMode = 'cycle';
+        this.animationDirection = 1;
+        this.animationEnabled = false;
+        
+        // Reset layer system
+        this.layers = [];
+        this.currentLayerIndex = 0;
+        this.soloLayerIndex = null;
+        
+        // Reset selection state
+        this.clipboard = null;
+        this.selection = null;
+        this.isPasteModeActive = false;
+        this.pasteTransparencyMode = 'white';
+        this.selectionMode = 'rectangle';
+        
+        // Reset paste mode drag state
+        this.pasteDragActive = false;
+        this.pasteDragStartTime = 0;
+        this.pasteDragStartX = 0;
+        this.pasteDragStartY = 0;
+        this.lastPasteTime = 0;
+        
+        // Reset drawing state (keep tool settings)
+        this.isDrawing = false;
+        this.isPanning = false;
+        
+        // Reset onion skin settings
+        this.onionSkinMode = 'whiteOnBlack';
+        this.onionSkinOpacity = 0.3;
+        this.onionSkinEnabled = false;
+        
+        // Reset perfect shape mode
+        this.perfectShapeMode = false;
+        
+        // Reset transparency mode
+        this.transparencyMode = false;
+        
+        // Reset unsaved changes tracking
+        this.hasUnsavedChanges = false;
+        this.isBlankCanvas = true;
+        this.markAsSaved();
+        
+        // Reset save reminder
+        this.lastSaveTime = Date.now();
+        
+        // Update UI and redraw
+        this.updateUI();
+        this.redrawCanvas();
+        this.regenerateAllThumbnails();
+        this.generateCode();
+        
+        // Reset animation mode buttons
+        const cycleBtn = document.getElementById('cycleMode');
+        const boomerangBtn = document.getElementById('boomerangMode');
+        if (cycleBtn) cycleBtn.classList.add('active');
+        if (boomerangBtn) boomerangBtn.classList.remove('active');
+        
+        // Reset onion skin mode buttons
+        const blackOnWhiteBtn = document.getElementById('onionModeBlackOnWhite');
+        const whiteOnBlackBtn = document.getElementById('onionModeWhiteOnBlack');
+        if (blackOnWhiteBtn) blackOnWhiteBtn.classList.remove('active');
+        if (whiteOnBlackBtn) whiteOnBlackBtn.classList.add('active');
     }
     
     save() {
@@ -16947,7 +16954,7 @@ Instructions:
                  * Create a new drawing (clears all frames and resets)
                  */
                 new: () => {
-                    this.newDrawing();
+                    this.performNewDrawing();
                 },
                 /**
                  * Create a rectangular selection
