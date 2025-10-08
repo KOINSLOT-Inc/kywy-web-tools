@@ -16231,6 +16231,298 @@ Instructions:
         if (color) this.currentColor = savedColor;
     }
     
+    /**
+     * Draw a polygon
+     * @param {number} x - Center x coordinate
+     * @param {number} y - Center y coordinate
+     * @param {number} radius - Radius from center to vertices
+     * @param {number} sides - Number of sides (3 = triangle, 4 = square, 5 = pentagon, etc.)
+     * @param {number} rotation - Rotation angle in degrees (0-360)
+     * @param {boolean} filled - If true, draws filled polygon; if false, draws outline
+     * @param {string} color - Optional color ('black' or 'white'), defaults to current color
+     */
+    drawPolygonAt(x, y, radius, sides, rotation = 0, filled = true, color = null) {
+        const savedColor = this.currentColor;
+        if (color) this.currentColor = color;
+        
+        const ctx = this.getCurrentFrameContext();
+        const cx = Math.floor(x);
+        const cy = Math.floor(y);
+        const r = Math.floor(radius);
+        const numSides = Math.max(3, Math.floor(sides)); // Minimum 3 sides
+        const rotRad = (rotation * Math.PI) / 180;
+        
+        // Save and set polygon properties
+        const savedSides = this.polygonSides;
+        const savedFillMode = this.polygonFillMode;
+        this.polygonSides = numSides;
+        this.polygonFillMode = filled ? 'filled' : 'outline';
+        
+        // Use the existing drawPolygon method
+        this.drawPolygon(cx, cy, r, rotRad, ctx);
+        
+        // Restore polygon properties
+        this.polygonSides = savedSides;
+        this.polygonFillMode = savedFillMode;
+        
+        if (color) this.currentColor = savedColor;
+    }
+    
+    /**
+     * Flood fill a region starting at given coordinates
+     * @param {number} x - Starting x coordinate
+     * @param {number} y - Starting y coordinate
+     * @param {string} color - Optional color ('black' or 'white'), defaults to current color
+     */
+    floodFillAt(x, y, color = null) {
+        const savedColor = this.currentColor;
+        if (color) this.currentColor = color;
+        
+        const ctx = this.getCurrentFrameContext();
+        this.performFloodFill(Math.floor(x), Math.floor(y), ctx);
+        
+        if (color) this.currentColor = savedColor;
+    }
+    
+    /**
+     * Get a random integer between min and max (inclusive)
+     * @param {number} min - Minimum value
+     * @param {number} max - Maximum value
+     * @returns {number} Random integer
+     */
+    getRandom(min, max) {
+        min = Math.floor(min);
+        max = Math.floor(max);
+        return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+    
+    /**
+     * Map a value from one range to another
+     * @param {number} value - The value to map
+     * @param {number} inMin - Input range minimum
+     * @param {number} inMax - Input range maximum
+     * @param {number} outMin - Output range minimum
+     * @param {number} outMax - Output range maximum
+     * @returns {number} Mapped value
+     */
+    mapValue(value, inMin, inMax, outMin, outMax) {
+        return (value - inMin) * (outMax - outMin) / (inMax - inMin) + outMin;
+    }
+    
+    /**
+     * Constrain a value between min and max
+     * @param {number} value - The value to constrain
+     * @param {number} min - Minimum value
+     * @param {number} max - Maximum value
+     * @returns {number} Constrained value
+     */
+    constrainValue(value, min, max) {
+        return Math.max(min, Math.min(max, value));
+    }
+    
+    /**
+     * Set the fill pattern for subsequent drawing operations
+     * @param {string} pattern - Pattern name: 'solid', 'stipple25', 'stipple50', 'stipple75', 
+     *                           'checkerboard', 'diagonal', 'crosshatch', 'dots'
+     */
+    setFillPattern(pattern) {
+        const validPatterns = ['solid', 'stipple25', 'stipple50', 'stipple75', 
+                               'checkerboard', 'diagonal', 'crosshatch', 'dots'];
+        if (validPatterns.includes(pattern)) {
+            this.fillPattern = pattern;
+        }
+    }
+    
+    /**
+     * Get the current fill pattern
+     * @returns {string} Current fill pattern name
+     */
+    getFillPattern() {
+        return this.fillPattern;
+    }
+    
+    /**
+     * Fill entire canvas with a color
+     * @param {string} color - Color to fill ('black' or 'white')
+     */
+    fillCanvasAt(color = null) {
+        const savedColor = this.currentColor;
+        if (color) this.currentColor = color;
+        
+        const ctx = this.getCurrentFrameContext();
+        ctx.fillStyle = this.currentColor;
+        ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
+        
+        if (color) this.currentColor = savedColor;
+    }
+    
+    /**
+     * Invert all colors on the canvas (black <-> white)
+     */
+    invertCanvas() {
+        const ctx = this.getCurrentFrameContext();
+        const imageData = ctx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
+        const data = imageData.data;
+        
+        for (let i = 0; i < data.length; i += 4) {
+            // Invert RGB values
+            data[i] = 255 - data[i];         // R
+            data[i + 1] = 255 - data[i + 1]; // G
+            data[i + 2] = 255 - data[i + 2]; // B
+            // Keep alpha as is
+        }
+        
+        ctx.putImageData(imageData, 0, 0);
+    }
+    
+    /**
+     * Get the current frame index
+     * @returns {number} Current frame index (0-based)
+     */
+    getCurrentFrame() {
+        return this.currentFrameIndex;
+    }
+    
+    /**
+     * Set the current frame index
+     * @param {number} frameIndex - Frame index to switch to (0-based)
+     */
+    setCurrentFrame(frameIndex) {
+        const index = Math.floor(frameIndex);
+        if (index >= 0 && index < this.frames.length) {
+            this.currentFrameIndex = index;
+            this.redrawCanvas();
+        }
+    }
+    
+    /**
+     * Get the total number of frames
+     * @returns {number} Total number of frames
+     */
+    getFrameCount() {
+        return this.frames.length;
+    }
+    
+    /**
+     * Get the current layer index
+     * @returns {number} Current layer index (0-based)
+     */
+    getCurrentLayer() {
+        const frameData = this.frameLayers[this.currentFrameIndex];
+        if (!frameData) return 0;
+        return frameData.currentLayerIndex || 0;
+    }
+    
+    /**
+     * Set the current layer index
+     * @param {number} layerIndex - Layer index to switch to (0-based)
+     */
+    setCurrentLayer(layerIndex) {
+        const index = Math.floor(layerIndex);
+        const frameData = this.frameLayers[this.currentFrameIndex];
+        if (!frameData || !frameData.layers) return;
+        
+        if (index >= 0 && index < frameData.layers.length) {
+            frameData.currentLayerIndex = index;
+            this.redrawCanvas();
+        }
+    }
+    
+    /**
+     * Get the total number of layers in the current frame
+     * @returns {number} Total number of layers
+     */
+    getLayerCount() {
+        const frameData = this.frameLayers[this.currentFrameIndex];
+        if (!frameData || !frameData.layers) return 1; // Default to 1 layer if no layer system
+        return frameData.layers.length;
+    }
+    
+    /**
+     * Add a new layer to the current frame
+     * @returns {number} Index of the new layer
+     */
+    addLayer() {
+        const frameData = this.frameLayers[this.currentFrameIndex];
+        if (!frameData || !frameData.layers) return 0; // Return 0 if no layer system
+        
+        const newIndex = frameData.layers.length;
+        this.addNewLayer();
+        return newIndex;
+    }
+    
+    /**
+     * Delete a layer by index
+     * @param {number} layerIndex - Layer index to delete (0-based)
+     */
+    deleteLayer(layerIndex) {
+        const index = Math.floor(layerIndex);
+        const frameData = this.frameLayers[this.currentFrameIndex];
+        if (!frameData || !frameData.layers) return;
+        
+        if (index >= 0 && index < frameData.layers.length && frameData.layers.length > 1) {
+            this.deleteLayerAt(index);
+        }
+    }
+    
+    /**
+     * Set the visibility of a layer
+     * @param {number} layerIndex - Layer index (0-based)
+     * @param {boolean} visible - True to show, false to hide
+     */
+    setLayerVisibility(layerIndex, visible) {
+        const index = Math.floor(layerIndex);
+        const frameData = this.frameLayers[this.currentFrameIndex];
+        if (!frameData || !frameData.layers) return;
+        
+        if (index >= 0 && index < frameData.layers.length) {
+            frameData.layers[index].visible = Boolean(visible);
+            this.redrawCanvas();
+        }
+    }
+    
+    /**
+     * Get the visibility of a layer
+     * @param {number} layerIndex - Layer index (0-based)
+     * @returns {boolean} True if visible, false if hidden
+     */
+    getLayerVisibility(layerIndex) {
+        const index = Math.floor(layerIndex);
+        const frame = this.frames[this.currentFrameIndex];
+        if (index >= 0 && index < frame.layers.length) {
+            return frame.layers[index].visible;
+        }
+        return false;
+    }
+    
+    /**
+     * Set the opacity of a layer
+     * @param {number} layerIndex - Layer index (0-based)
+     * @param {number} opacity - Opacity value (0.0 to 1.0)
+     */
+    setLayerOpacity(layerIndex, opacity) {
+        const index = Math.floor(layerIndex);
+        const frame = this.frames[this.currentFrameIndex];
+        if (index >= 0 && index < frame.layers.length) {
+            frame.layers[index].opacity = Math.max(0, Math.min(1, opacity));
+            this.redrawCanvas();
+        }
+    }
+    
+    /**
+     * Get the opacity of a layer
+     * @param {number} layerIndex - Layer index (0-based)
+     * @returns {number} Opacity value (0.0 to 1.0)
+     */
+    getLayerOpacity(layerIndex) {
+        const index = Math.floor(layerIndex);
+        const frame = this.frames[this.currentFrameIndex];
+        if (index >= 0 && index < frame.layers.length) {
+            return frame.layers[index].opacity;
+        }
+        return 1.0;
+    }
+    
     // Execute a drawing function - useful for complex patterns
     executeDrawing(drawFunction) {
         this.captureSnapshot();
@@ -16357,6 +16649,162 @@ Instructions:
                  * @returns {string} Current color ('black' or 'white')
                  */
                 getColor: () => this.currentColor,
+                /**
+                 * Draw a polygon
+                 * @param {number} x - Center x coordinate
+                 * @param {number} y - Center y coordinate
+                 * @param {number} radius - Radius from center to vertices
+                 * @param {number} sides - Number of sides (3+)
+                 * @param {number} rotation - Rotation angle in degrees (0-360)
+                 * @param {boolean} filled - If true, draws filled; if false, draws outline
+                 * @param {string} color - Color ('black' or 'white')
+                 */
+                drawPolygon: (x, y, radius, sides, rotation, filled, color) => {
+                    const coords = this.validateCoords(x, y);
+                    const r = Math.floor(radius);
+                    const s = Math.max(3, Math.floor(sides));
+                    const rot = Math.floor(rotation || 0);
+                    const validColor = this.validateColor(color);
+                    return this.drawPolygonAt(coords.x, coords.y, r, s, rot, filled, validColor);
+                },
+                /**
+                 * Flood fill a region
+                 * @param {number} x - Starting x coordinate
+                 * @param {number} y - Starting y coordinate
+                 * @param {string} color - Color ('black' or 'white')
+                 */
+                floodFill: (x, y, color) => {
+                    const coords = this.validateCoords(x, y);
+                    const validColor = this.validateColor(color);
+                    return this.floodFillAt(coords.x, coords.y, validColor);
+                },
+                /**
+                 * Get a random integer between min and max (inclusive)
+                 * @param {number} min - Minimum value
+                 * @param {number} max - Maximum value
+                 * @returns {number} Random integer
+                 */
+                random: (min, max) => this.getRandom(min, max),
+                /**
+                 * Map a value from one range to another
+                 * @param {number} value - Value to map
+                 * @param {number} inMin - Input range minimum
+                 * @param {number} inMax - Input range maximum
+                 * @param {number} outMin - Output range minimum
+                 * @param {number} outMax - Output range maximum
+                 * @returns {number} Mapped value
+                 */
+                map: (value, inMin, inMax, outMin, outMax) => this.mapValue(value, inMin, inMax, outMin, outMax),
+                /**
+                 * Constrain a value between min and max
+                 * @param {number} value - Value to constrain
+                 * @param {number} min - Minimum value
+                 * @param {number} max - Maximum value
+                 * @returns {number} Constrained value
+                 */
+                constrain: (value, min, max) => this.constrainValue(value, min, max),
+                /**
+                 * Set the fill pattern for shapes
+                 * @param {string} pattern - Pattern name: 'solid', 'stipple25', 'stipple50', 
+                 *                           'stipple75', 'checkerboard', 'diagonal', 'crosshatch', 'dots'
+                 */
+                setFillPattern: (pattern) => this.setFillPattern(pattern),
+                /**
+                 * Get the current fill pattern
+                 * @returns {string} Current fill pattern name
+                 */
+                getFillPattern: () => this.getFillPattern(),
+                /**
+                 * Fill entire canvas with a color
+                 * @param {string} color - Color ('black' or 'white')
+                 */
+                fillCanvas: (color) => {
+                    const validColor = this.validateColor(color);
+                    return this.fillCanvasAt(validColor);
+                },
+                /**
+                 * Invert all colors on canvas (black <-> white)
+                 */
+                invert: () => this.invertCanvas(),
+                /**
+                 * Get current frame index
+                 * @returns {number} Current frame index (0-based)
+                 */
+                getCurrentFrame: () => this.getCurrentFrame(),
+                /**
+                 * Set current frame
+                 * @param {number} frameIndex - Frame index to switch to (0-based)
+                 */
+                setCurrentFrame: (frameIndex) => this.setCurrentFrame(frameIndex),
+                /**
+                 * Get total number of frames
+                 * @returns {number} Total frame count
+                 */
+                getFrameCount: () => this.getFrameCount(),
+                /**
+                 * Add a new frame
+                 * @returns {number} Index of new frame
+                 */
+                addFrame: () => this.addFrame(),
+                /**
+                 * Delete a frame
+                 * @param {number} frameIndex - Frame index to delete (0-based)
+                 */
+                deleteFrame: (frameIndex) => this.deleteFrame(frameIndex),
+                /**
+                 * Duplicate current frame
+                 * @returns {number} Index of duplicated frame
+                 */
+                duplicateFrame: () => this.duplicateFrame(),
+                /**
+                 * Get current layer index
+                 * @returns {number} Current layer index (0-based)
+                 */
+                getCurrentLayer: () => this.getCurrentLayer(),
+                /**
+                 * Set current layer
+                 * @param {number} layerIndex - Layer index to switch to (0-based)
+                 */
+                setCurrentLayer: (layerIndex) => this.setCurrentLayer(layerIndex),
+                /**
+                 * Get total number of layers in current frame
+                 * @returns {number} Total layer count
+                 */
+                getLayerCount: () => this.getLayerCount(),
+                /**
+                 * Add a new layer
+                 * @returns {number} Index of new layer
+                 */
+                addLayer: () => this.addLayer(),
+                /**
+                 * Delete a layer
+                 * @param {number} layerIndex - Layer index to delete (0-based)
+                 */
+                deleteLayer: (layerIndex) => this.deleteLayer(layerIndex),
+                /**
+                 * Set layer visibility
+                 * @param {number} layerIndex - Layer index (0-based)
+                 * @param {boolean} visible - True to show, false to hide
+                 */
+                setLayerVisibility: (layerIndex, visible) => this.setLayerVisibility(layerIndex, visible),
+                /**
+                 * Get layer visibility
+                 * @param {number} layerIndex - Layer index (0-based)
+                 * @returns {boolean} True if visible
+                 */
+                getLayerVisibility: (layerIndex) => this.getLayerVisibility(layerIndex),
+                /**
+                 * Set layer opacity
+                 * @param {number} layerIndex - Layer index (0-based)
+                 * @param {number} opacity - Opacity (0.0 to 1.0)
+                 */
+                setLayerOpacity: (layerIndex, opacity) => this.setLayerOpacity(layerIndex, opacity),
+                /**
+                 * Get layer opacity
+                 * @param {number} layerIndex - Layer index (0-based)
+                 * @returns {number} Opacity (0.0 to 1.0)
+                 */
+                getLayerOpacity: (layerIndex) => this.getLayerOpacity(layerIndex),
                 /**
                  * Register a click handler function
                  * @param {function} callback - Function called with (x, y) when canvas is clicked
@@ -17283,157 +17731,50 @@ function initializeScriptEditor(editor) {
     // Example scripts
     const examples = {
         apiReference: `// KYWY Script API Reference
-// This example demonstrates ALL available API functions
-// Scripts run javascript code with access to the 'api' object
-// Errors for run code are in the console (usually F12) for debugging
-
 api.clear();
-api.setColor('black');
 
-// ========================================
-// 1. CANVAS INFO FUNCTIONS
-// ========================================
-// api.getWidth()
-//   Returns: Canvas width in pixels (144)
-const width = api.getWidth();
+const w = api.getWidth();
+const h = api.getHeight();
 
-// api.getHeight()
-//   Returns: Canvas height in pixels (168)
-const height = api.getHeight();
+// Drawing shapes
+api.drawText('API Demo', 10, 10, 'black');
+api.drawLine(10, 25, w - 10, 25, 'black');
 
-// Draw info text at top
-api.drawText('API Reference', 10, 10);
-api.drawText('Size: ' + width + 'x' + height, 10, 30);
+// Pixels
+api.setPixel(15, 35, 'black');
+api.drawText('setPixel', 20, 33);
 
-// ========================================
-// 2. COLOR FUNCTIONS
-// ========================================
-// api.setColor(color)
-//   color: 'black' or 'white'
-//   Sets the current drawing color
-api.setColor('black');
+// Rectangles
+api.drawRect(10, 45, 25, 15, false, 'black');
+api.drawRect(10, 65, 25, 15, true, 'black');
+api.drawText('Rect', 40, 55);
 
-// api.getColor()
-//   Returns: Current color ('black' or 'white')
-var color = api.getColor();
-api.drawText('Color: ' + color, 10, 50);
+// Circles & Ellipses
+api.drawCircle(20, 95, 8, false, 'black');
+api.drawEllipse(70, 55, 12, 8, false, 'black');
+api.drawText('Shapes', 35, 93);
 
-// ========================================
-// 3. PIXEL DRAWING
-// ========================================
-// api.setPixel(x, y, color)
-//   x: X coordinate
-//   y: Y coordinate
-//   color: 'black' or 'white'
-api.setPixel(10, 70, 'black');
-api.setPixel(11, 70, 'black');
-api.setPixel(12, 70, 'black');
-api.drawText('setPixel', 15, 68);
+// Polygons
+api.drawPolygon(70, 95, 10, 5, 0, true, 'black');
+api.drawText('Pentagon', 85, 93);
 
-// ========================================
-// 4. LINE DRAWING
-// ========================================
-// api.drawLine(x1, y1, x2, y2, color)
-//   x1, y1: Starting point coordinates
-//   x2, y2: Ending point coordinates
-//   color: 'black' or 'white'
-api.drawLine(10, 85, 50, 85, 'black');
-api.drawText('drawLine', 55, 83);
+// Animation info
+api.drawText('Frame: ' + (api.getCurrentFrame() + 1) + '/' + api.getFrameCount(), 10, 115);
+api.drawText('Layer: ' + (api.getCurrentLayer() + 1) + '/' + api.getLayerCount(), 10, 128);
 
-// ========================================
-// 5. RECTANGLE DRAWING
-// ========================================
-// api.drawRect(x, y, width, height, filled, color)
-//   x, y: Top-left corner coordinates
-//   width, height: Size of rectangle
-//   filled: true for filled, false for outline
-//   color: 'black' or 'white'
-api.drawRect(10, 100, 30, 20, false, 'black');
-api.drawText('Outline', 45, 105);
+// Utilities
+api.drawText('rand: ' + api.random(1, 10), 10, 145);
 
-// Draw filled rectangle
-api.drawRect(10, 125, 30, 20, true, 'black');
-api.drawText('Filled', 45, 130);
-
-// ========================================
-// 6. CIRCLE DRAWING
-// ========================================
-// api.drawCircle(x, y, radius, filled, color)
-//   x, y: Center point coordinates
-//   radius: Radius of circle
-//   filled: true for filled, false for outline
-//   color: 'black' or 'white'
-api.drawCircle(25, 165, 10, false, 'black');
-api.drawText('Outline', 40, 160);
-
-// Draw filled circle
-api.drawCircle(95, 110, 8, true, 'black');
-api.drawText('Filled', 108, 107);
-
-// ========================================
-// 7. ELLIPSE DRAWING
-// ========================================
-// api.drawEllipse(x, y, radiusX, radiusY, filled, color)
-//   x, y: Center point coordinates
-//   radiusX: Horizontal radius
-//   radiusY: Vertical radius
-//   filled: true for filled, false for outline
-//   color: 'black' or 'white'
-api.drawEllipse(95, 135, 15, 8, false, 'black');
-api.drawText('Ellipse', 115, 132);
-
-// Draw filled ellipse
-api.drawEllipse(95, 155, 10, 6, true, 'black');
-api.drawText('Filled', 110, 152);
-
-// ========================================
-// 8. TEXT DRAWING
-// ========================================
-// api.drawText(text, x, y, color)
-//   text: String to draw
-//   x, y: Top-left corner coordinates
-//   color: 'black' or 'white'
-api.drawText('Text!', 80, 85, 'black');
-
-// ========================================
-// 9. PIXEL READING
-// ========================================
-// api.getPixel(x, y)
-//   x, y: Coordinates to read
-//   Returns: 'black', 'white', or 'transparent'
-var pixelColor = api.getPixel(10, 70);
-api.drawText('Read: ' + pixelColor, 10, 150);
-
-// ========================================
-// 10. CLEAR CANVAS
-// ========================================
-// api.clear()
-//   No arguments - clears entire canvas to white
-// api.clear(); // Uncomment to clear canvas
-
-// ========================================
-// 11. INTERACTIVE CLICK HANDLER
-// ========================================
-// api.onClick(callback)
-//   callback: Function that receives (x, y) when canvas is clicked
-//   Only one click handler can be active at a time
+// Interactive
 api.onClick(function(x, y) {
-    // Draw a small circle at clicked position
     api.drawCircle(x, y, 3, true, 'black');
 });
 
-// Draw instruction at bottom
-api.drawText('Click anywhere!', 10, height - 10);
-
-// ========================================
-// NOTES:
-// ========================================
-// - Coordinates are automatically floored to integers
-// - Only 'black' and 'white' colors are allowed
-// - Invalid colors default to current color
-// - onClick() replaces any previous click handler
-// - Text is binarized (no anti-aliasing)
-// ========================================`,
+// Frame/Layer API: getCurrentFrame, setCurrentFrame,
+// getFrameCount, addFrame, deleteFrame, duplicateFrame,
+// getCurrentLayer, setCurrentLayer, getLayerCount, 
+// addLayer, deleteLayer, setLayerVisibility, 
+// getLayerVisibility, setLayerOpacity, getLayerOpacity`,
         bresenham: `// Bresenham's Circle Algorithm
 // This algorithm is a classic method for drawing circles in computer graphics.
 api.clear();
@@ -17544,7 +17885,79 @@ api.onClick(function(x, y) {
 });
 
 // Instructions
-api.drawText('Click to draw!', 10, 20);`
+api.drawText('Click to draw!', 10, 20);`,
+        animation: `// Create Multi-Frame Animation
+// This example creates a bouncing ball animation
+
+const frames = 8; // Number of frames
+const w = api.getWidth();
+const h = api.getHeight();
+
+// Create frames if we don't have enough
+while (api.getFrameCount() < frames) {
+    api.addFrame();
+}
+
+// Draw each frame
+for (let i = 0; i < frames; i++) {
+    api.setCurrentFrame(i);
+    api.clear();
+    
+    // Calculate ball position (bouncing motion)
+    const t = i / frames;
+    const x = w / 2;
+    const bounce = Math.abs(Math.sin(t * Math.PI));
+    const y = h - 20 - (bounce * (h - 40));
+    
+    // Draw ground
+    api.drawLine(10, h - 10, w - 10, h - 10, 'black');
+    
+    // Draw ball
+    api.drawCircle(x, y, 8, true, 'black');
+    
+    // Frame number
+    api.drawText('Frame ' + (i + 1), 10, 10, 'black');
+}
+
+// Return to first frame
+api.setCurrentFrame(0);`,
+        layers: `// Multi-Layer Drawing
+// This example uses layers for different elements
+
+// Ensure we have 3 layers
+while (api.getLayerCount() < 3) {
+    api.addLayer();
+}
+
+// Layer 0 - Background
+api.setCurrentLayer(0);
+api.clear();
+api.drawText('Background', 10, 10, 'black');
+for (let i = 0; i < 50; i++) {
+    const x = api.random(0, api.getWidth());
+    const y = api.random(20, api.getHeight());
+    api.setPixel(x, y, 'black');
+}
+
+// Layer 1 - Shapes
+api.setCurrentLayer(1);
+api.clear();
+api.drawText('Shapes', 10, 30, 'black');
+api.drawCircle(40, 70, 15, false, 'black');
+api.drawRect(70, 55, 30, 30, false, 'black');
+
+// Layer 2 - Foreground
+api.setCurrentLayer(2);
+api.clear();
+api.drawText('Foreground', 10, 50, 'black');
+api.drawLine(10, api.getHeight() - 20, 
+             api.getWidth() - 10, api.getHeight() - 20, 'black');
+
+// Show layer info
+api.drawText('Layers: ' + api.getLayerCount(), 10, 70, 'black');
+
+// Return to layer 0
+api.setCurrentLayer(0);`
     };
     
     // Load example script
