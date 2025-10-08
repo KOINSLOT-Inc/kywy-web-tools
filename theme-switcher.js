@@ -28,11 +28,6 @@ class ThemeSwitcher {
                 stylesheets: ['nes-theme.css']
             },
             {
-                name: 'AMIGA',
-                id: 'amiga',
-                stylesheets: ['amiga-theme.css']
-            },
-            {
                 name: 'Windows XP',
                 id: 'windowsxp',
                 stylesheets: ['windowsxp-theme.css']
@@ -126,7 +121,7 @@ class ThemeSwitcher {
         this.removeThemeStylesheets();
         
         // Remove existing theme classes from body
-        document.body.classList.remove('dark-theme', 'windows95-theme', 'nes-theme', 'windowsxp-theme', 'apple2-theme', 'amiga-theme');
+        document.body.classList.remove('dark-theme', 'windows95-theme', 'nes-theme', 'windowsxp-theme', 'apple2-theme');
         
         // Apply new theme stylesheets
         theme.stylesheets.forEach(stylesheet => {

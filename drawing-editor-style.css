@@ -3243,22 +3243,41 @@ button:focus-visible, .toggle-btn:focus-visible, .collapsible-btn:focus-visible,
     border-radius: 8px;
 }
 
-/* CodeMirror 5 styling */
+/* CodeMirror 5 styling - Light theme by default */
 .code-editor-wrapper .CodeMirror {
     height: 100%;
     font-size: 13px;
     font-family: 'Fira Code', 'Consolas', 'Monaco', 'Courier New', monospace;
     border-radius: 8px;
+    background-color: #ffffff;
+    color: #000000;
+    line-height: 1.4;
 }
 
 .code-editor-wrapper .CodeMirror-gutters {
-    border-right: 1px solid #3e4451;
-    background-color: #21252b;
+    border-right: 1px solid #d0d0d0;
+    background-color: #f5f5f5;
+    padding-left: 4px;
 }
 
 .code-editor-wrapper .CodeMirror-linenumber {
-    padding: 0 8px;
-    color: #bbbdc0;
+    padding: 0 8px 0 0;
+    color: #858585;
+    text-align: right;
+}
+
+.code-editor-wrapper .CodeMirror-cursor {
+    border-left-color: #000000;
+}
+
+.code-editor-wrapper .CodeMirror-selected {
+    background-color: #add6ff;
+}
+
+.code-editor-wrapper .CodeMirror-line::selection,
+.code-editor-wrapper .CodeMirror-line > span::selection,
+.code-editor-wrapper .CodeMirror-line > span > span::selection {
+    background-color: #add6ff;
 }
 
 .code-editor-wrapper .CodeMirror-scroll {
@@ -3266,13 +3285,72 @@ button:focus-visible, .toggle-btn:focus-visible, .collapsible-btn:focus-visible,
 }
 
 .code-editor-wrapper .CodeMirror-lines {
-    padding: 4px 0;
+    padding: 4px 0 4px 8px;
 }
 
-/* Make comments more readable */
+.code-editor-wrapper .CodeMirror pre {
+    line-height: 1.4 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    border-bottom: none !important;
+    border-top: none !important;
+    background: transparent !important;
+    outline: none !important;
+    box-shadow: none !important;
+}
+
+.code-editor-wrapper .CodeMirror-line {
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    border-bottom: none !important;
+    border-top: none !important;
+    background: transparent !important;
+    outline: none !important;
+    box-shadow: none !important;
+}
+
+.code-editor-wrapper .CodeMirror pre.CodeMirror-line {
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    border-bottom: none !important;
+    border-top: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+}
+
+/* Light theme syntax highlighting */
 .code-editor-wrapper .cm-comment {
-    color: #7f848e !important;
+    color: #008000;
     font-style: italic;
+}
+
+.code-editor-wrapper .cm-keyword {
+    color: #0000ff;
+    font-weight: bold;
+}
+
+.code-editor-wrapper .cm-string {
+    color: #a31515;
+}
+
+.code-editor-wrapper .cm-number {
+    color: #098658;
+}
+
+.code-editor-wrapper .cm-variable {
+    color: #001080;
+}
+
+.code-editor-wrapper .cm-def {
+    color: #795e26;
+    font-weight: bold;
+}
+
+.code-editor-wrapper .cm-operator {
+    color: #000000;
 }
 
 /* Fallback textarea for when CodeMirror isn't loaded */
@@ -3531,26 +3609,6 @@ body:not([class*="-theme"]) ::-webkit-scrollbar-button:hover {
     background-color: #000000 !important;
 }
 
-/* Amiga theme scrollbar */
-.amiga-theme ::-webkit-scrollbar {
-    width: 16px !important;
-}
-
-.amiga-theme ::-webkit-scrollbar-track {
-    background: linear-gradient(to right, #dddddd 0%, #cccccc 100%) !important;
-    border: 1px inset #cccccc !important;
-}
-
-.amiga-theme ::-webkit-scrollbar-thumb {
-    background: linear-gradient(to right, #bbbbbb 0%, #aaaaaa 50%, #999999 100%) !important;
-    border: 1px outset #bbbbbb !important;
-}
-
-.amiga-theme ::-webkit-scrollbar-button {
-    background: linear-gradient(to bottom, #bbbbbb 0%, #aaaaaa 50%, #999999 100%) !important;
-    border: 1px outset #bbbbbb !important;
-}
-
 /* Firefox scrollbar support for all themes */
 /* Original/Default theme Firefox */
 body:not([class*="-theme"]) {
@@ -3586,12 +3644,6 @@ body:not([class*="-theme"]) {
 .apple2-theme {
     scrollbar-width: auto !important;
     scrollbar-color: #ffffff #888888 !important;
-}
-
-/* Amiga theme Firefox */
-.amiga-theme {
-    scrollbar-width: auto !important;
-    scrollbar-color: #aaaaaa #dddddd !important;
 }
 
 .layer-item {

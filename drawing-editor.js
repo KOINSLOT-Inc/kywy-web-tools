@@ -16884,7 +16884,7 @@ function initializeScriptEditor(editor) {
         codeMirrorInstance = CodeMirror(container, {
             value: initialCode,
             mode: 'javascript',
-            theme: 'material-darker',
+            theme: 'default',
             lineNumbers: true,
             indentUnit: 2,
             tabSize: 2,

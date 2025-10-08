@@ -967,5 +967,64 @@ body:not(.menu-page) .onion-skin-control .opacity-display {
     color: #e0e0e0 !important;
 }
 
+/* CodeMirror Script Editor Theming - Dark Version */
+.dark-theme .code-editor-wrapper .CodeMirror {
+    background-color: #1e1e1e !important;
+    color: #d4d4d4 !important;
+}
+
+.dark-theme .code-editor-wrapper .CodeMirror-gutters {
+    background-color: #1e1e1e !important;
+    border-right: 1px solid #3e3e3e !important;
+}
+
+.dark-theme .code-editor-wrapper .CodeMirror-linenumber {
+    color: #858585 !important;
+}
+
+.dark-theme .code-editor-wrapper .CodeMirror-cursor {
+    border-left-color: #d4d4d4 !important;
+}
+
+.dark-theme .code-editor-wrapper .CodeMirror-selected {
+    background-color: #264f78 !important;
+}
+
+.dark-theme .code-editor-wrapper .CodeMirror-line::selection,
+.dark-theme .code-editor-wrapper .CodeMirror-line > span::selection,
+.dark-theme .code-editor-wrapper .CodeMirror-line > span > span::selection {
+    background-color: #264f78 !important;
+}
+
+/* Dark theme syntax highlighting */
+.dark-theme .code-editor-wrapper .cm-comment {
+    color: #6a9955 !important;
+}
+
+.dark-theme .code-editor-wrapper .cm-keyword {
+    color: #569cd6 !important;
+}
+
+.dark-theme .code-editor-wrapper .cm-string {
+    color: #ce9178 !important;
+}
+
+.dark-theme .code-editor-wrapper .cm-number {
+    color: #b5cea8 !important;
+}
+
+.dark-theme .code-editor-wrapper .cm-variable {
+    color: #9cdcfe !important;
+}
+
+.dark-theme .code-editor-wrapper .cm-def {
+    color: #dcdcaa !important;
+}
+
+
+
+
+
+
 
 
