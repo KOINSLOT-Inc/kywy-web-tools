@@ -3184,6 +3184,7 @@ button:focus-visible, .toggle-btn:focus-visible, .collapsible-btn:focus-visible,
     align-items: center;
     flex-shrink: 0;
     min-height: 20px;
+    position: relative;
 }
 
 .script-editor-header h3 {
@@ -3391,6 +3392,11 @@ button:focus-visible, .toggle-btn:focus-visible, .collapsible-btn:focus-visible,
     font-size: 13px;
     font-family: 'Courier New', monospace;
     max-width: 300px;
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    top: 8px;
+    z-index: 10;
 }
 
 .script-editor-panel .script-output.success {

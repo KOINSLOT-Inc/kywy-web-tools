@@ -16860,7 +16860,6 @@ document.addEventListener('DOMContentLoaded', () => {
 function initializeScriptEditor(editor) {
     const scriptOutput = document.getElementById('scriptOutput');
     const runScriptBtn = document.getElementById('runScriptBtn');
-    const clearScriptBtn = document.getElementById('clearScriptBtn');
     const fullscreenScriptBtn = document.getElementById('fullscreenScriptBtn');
     const scriptExamples = document.getElementById('scriptExamples');
     const scriptEditorPanel = document.getElementById('scriptEditorPanel');
@@ -17056,13 +17055,9 @@ for (let i = 0; i < count; i++) {
             }, 2000);
         } catch (error) {
             showScriptOutput('Error: ' + error.message, 'error');
+            // Show error in popup/alert
+            alert('Script Error:\n\n' + error.message);
         }
-    });
-    
-    // Clear script
-    clearScriptBtn.addEventListener('click', function() {
-        setCode('');
-        scriptOutput.style.display = 'none';
     });
     
     // Toggle fullscreen
