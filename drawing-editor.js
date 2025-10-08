@@ -18020,6 +18020,62 @@ function initializeScriptEditor(editor) {
             autoCloseBrackets: true
         });
         
+        // Add accessibility attributes to all textarea elements
+        const addAccessibilityAttributes = () => {
+            // Find all textarea elements in the CodeMirror wrapper and document
+            const wrapper = codeMirrorInstance.getWrapperElement();
+            const allTextareas = wrapper.querySelectorAll('textarea');
+            
+            allTextareas.forEach((textarea, index) => {
+                // Always ensure id and name are present
+                if (!textarea.id) {
+                    textarea.id = `codemirror-textarea-${index}`;
+                }
+                if (!textarea.name) {
+                    textarea.name = `codemirror-input-${index}`;
+                }
+                if (!textarea.getAttribute('aria-label')) {
+                    textarea.setAttribute('aria-label', 'Code editor input');
+                }
+            });
+        };
+        
+        // Apply attributes multiple times to catch all textarea creation
+        setTimeout(addAccessibilityAttributes, 50);
+        setTimeout(addAccessibilityAttributes, 100);
+        setTimeout(addAccessibilityAttributes, 200);
+        setTimeout(addAccessibilityAttributes, 500);
+        
+        // Also observe for new textarea elements being added
+        const observer = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                mutation.addedNodes.forEach((node) => {
+                    if (node.nodeType === Node.ELEMENT_NODE) {
+                        if (node.tagName === 'TEXTAREA') {
+                            if (!node.id) node.id = `codemirror-textarea-${Date.now()}`;
+                            if (!node.name) node.name = `codemirror-input-${Date.now()}`;
+                            if (!node.getAttribute('aria-label')) node.setAttribute('aria-label', 'Code editor input');
+                        }
+                        // Also check child textareas
+                        const childTextareas = node.querySelectorAll && node.querySelectorAll('textarea');
+                        if (childTextareas) {
+                            childTextareas.forEach((textarea, index) => {
+                                if (!textarea.id) textarea.id = `codemirror-textarea-${Date.now()}-${index}`;
+                                if (!textarea.name) textarea.name = `codemirror-input-${Date.now()}-${index}`;
+                                if (!textarea.getAttribute('aria-label')) textarea.setAttribute('aria-label', 'Code editor input');
+                            });
+                        }
+                    }
+                });
+            });
+        });
+        
+        // Start observing the wrapper for new nodes
+        observer.observe(codeMirrorInstance.getWrapperElement(), {
+            childList: true,
+            subtree: true
+        });
+        
         // Disable warning suppression after initialization
         suppressWarnings = false;
         
