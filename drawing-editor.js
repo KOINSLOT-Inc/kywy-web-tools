@@ -3093,7 +3093,10 @@ class DrawingEditor {
         
         this.frames.forEach((frame, index) => {
             const thumbDiv = document.createElement('div');
-            thumbDiv.className = `frame-thumb ${index === this.currentFrameIndex ? 'active' : ''}`;
+            thumbDiv.className = 'frame-thumb';
+            if (index === this.currentFrameIndex) {
+                thumbDiv.classList.add('active');
+            }
             thumbDiv.dataset.frame = index;
             
             const canvas = document.createElement('canvas');
@@ -3218,8 +3221,8 @@ class DrawingEditor {
             this.updateAnimationUI();
         }
         
-        // Update layers UI if layers are enabled
-        if (this.layersEnabled) {
+        // Update layers UI if layers panel is visible
+        if (this.layersPanelVisible) {
             this.updateLayersUI();
         }
     }
@@ -10513,13 +10516,18 @@ class DrawingEditor {
         if (this.animationEnabled) {
             this.updateAnimationUI();
         }
-    }    updateFrameList() {
+    }
+    
+    updateFrameList() {
         const frameList = document.getElementById('frameList');
         frameList.innerHTML = '';
         
         this.frames.forEach((frame, index) => {
             const thumbDiv = document.createElement('div');
-            thumbDiv.className = `frame-thumb ${index === this.currentFrameIndex ? 'active' : ''}`;
+            thumbDiv.className = 'frame-thumb';
+            if (index === this.currentFrameIndex) {
+                thumbDiv.classList.add('active');
+            }
             thumbDiv.dataset.frame = index;
             
             const canvas = document.createElement('canvas');
@@ -10545,12 +10553,9 @@ class DrawingEditor {
                 this.setCurrentFrame(index);
                 this.soloLayerIndex = null; // Exit solo mode when switching frames
                 
-                // Initialize layers for this frame if layers are enabled and not already initialized
-                if (this.layersEnabled && (!this.frameLayers[index] || !this.frameLayers[index].layers)) {
-                    this.initializeLayersForFrame(index);
-                }
-                
-                if (this.layersEnabled) {
+                // Layers are always active internally, no need to check or initialize
+                // Just update UI if panel is visible
+                if (this.layersPanelVisible) {
                     this.updateLayersUI();
                 }
             });
@@ -16412,14 +16417,6 @@ Instructions:
      * Set the current frame index
      * @param {number} frameIndex - Frame index to switch to (0-based)
      */
-    setCurrentFrame(frameIndex) {
-        const index = Math.floor(frameIndex);
-        if (index >= 0 && index < this.frames.length) {
-            this.currentFrameIndex = index;
-            this.redrawCanvas();
-        }
-    }
-    
     /**
      * Get the total number of frames
      * @returns {number} Total number of frames
