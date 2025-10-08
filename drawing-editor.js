@@ -12209,6 +12209,9 @@ class DrawingEditor {
                     this.redrawCanvas();
                     this.generateCode();
                     
+                    // Set export format based on loaded data
+                    this.setExportFormatFromLoadedData(data);
+                    
                     // Load script if it exists
                     this.loadScript(data);
                 });
@@ -12217,6 +12220,9 @@ class DrawingEditor {
                 this.updateUI();
                 this.redrawCanvas();
                 this.generateCode();
+                
+                // Set export format based on loaded data
+                this.setExportFormatFromLoadedData(data);
                 
                 // Load script if it exists
                 this.loadScript(data);
@@ -12233,6 +12239,34 @@ class DrawingEditor {
                 }
             } catch (e) {
                 console.warn('Could not load script:', e);
+            }
+        }
+    }
+    
+    // Set export format based on loaded data structure
+    setExportFormatFromLoadedData(data) {
+        const exportFormatSelect = document.getElementById('exportFormat');
+        if (!exportFormatSelect) return;
+        
+        // Check if data has layer information
+        const hasLayers = data.layerData && data.layerData.length > 0;
+        
+        // Check if data has multiple frames
+        const hasMultipleFrames = (data.frames && data.frames.length > 1) || 
+                                  (data.frameData && data.frameData.length > 1);
+        
+        // Determine export format based on structure
+        if (hasLayers) {
+            if (hasMultipleFrames) {
+                exportFormatSelect.value = 'animation'; // Multi-frame animation with layers
+            } else {
+                exportFormatSelect.value = 'layers'; // Single frame with layers
+            }
+        } else {
+            if (hasMultipleFrames) {
+                exportFormatSelect.value = 'animation'; // Multi-frame animation
+            } else {
+                exportFormatSelect.value = 'single'; // Single frame
             }
         }
     }
