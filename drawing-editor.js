@@ -17124,14 +17124,15 @@ Instructions:
         // Always push to undo stack (snapshot was captured before execution)
         this.pushUndo();
         
-        // If layers were added, composite them to frame so the result is visible
-        if (this._layersAddedInScript) {
-            this.compositeLayersToFrame(this.currentFrameIndex);
+        // Composite all frames to ensure layers are reflected in frame canvases
+        // This is necessary because scripts can draw on any frame/layer
+        for (let i = 0; i < this.frames.length; i++) {
+            this.compositeLayersToFrame(i);
         }
         this._layersAddedInScript = false; // Reset flag
         
         this.redrawCanvas();
-        this.generateThumbnail(this.currentFrameIndex);
+        this.regenerateAllThumbnails();
         this.generateCode();
         
         // Return collected print statements
