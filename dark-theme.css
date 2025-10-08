@@ -1,5 +1,21 @@
 /* Dark Theme for Kywy Web Tools */
 
+/* Dark Theme CSS Variables */
+.dark-theme {
+    --code-editor-bg: #0d0d0d;
+    --code-editor-bg-focus: #1a1a1a;
+    --code-editor-text: #d4d4d4;
+    --code-editor-placeholder: #6a737d;
+    --script-button-bg: #333333;
+    --script-button-hover: #444444;
+    --success-bg: #0d4d2f;
+    --success-text: #6ee7b7;
+    --success-border: #34d399;
+    --error-bg: #4d0d0d;
+    --error-text: #fca5a5;
+    --error-border: #ef4444;
+}
+
 /* Font size standardization - preserve original sizes */
 header h1 {
     font-size: 1.5rem !important;

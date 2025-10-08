@@ -1,5 +1,21 @@
 /* Apple II Theme for Kywy Web Tools */
 
+/* Apple II Theme CSS Variables */
+.apple2-theme {
+    --code-editor-bg: #000000;
+    --code-editor-bg-focus: #0a0a0a;
+    --code-editor-text: #33ff33;
+    --code-editor-placeholder: #228822;
+    --script-button-bg: #003300;
+    --script-button-hover: #004400;
+    --success-bg: #003300;
+    --success-text: #00ff00;
+    --success-border: #00aa00;
+    --error-bg: #330000;
+    --error-text: #ff3333;
+    --error-border: #aa0000;
+}
+
 /* Font size standardization - preserve original sizes */
 header h1 {
     font-size: 1.5rem !important;

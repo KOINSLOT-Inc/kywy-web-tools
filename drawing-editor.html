@@ -588,13 +588,16 @@
                     </div>
                     <div class="grid-controls">
                         <label>
-                            <input type="checkbox" id="pixelGrid"> Show Grid
+                            <input type="checkbox" id="pixelGrid"> Grid
                         </label>
                         <label>
-                            <input type="checkbox" id="layersEnabled"> Show Layers
+                            <input type="checkbox" id="layersEnabled"> Layers
                         </label>
                         <label>
-                            <input type="checkbox" id="animationEnabled"> Show Animations
+                            <input type="checkbox" id="animationEnabled"> Animations
+                        </label>
+                        <label>
+                            <input type="checkbox" id="scriptEditorEnabled"> Scripts
                         </label>
                     </div>
                     <div class="canvas-info">
@@ -1106,6 +1109,77 @@
         </div>
     </div>
     
+    <!-- Script Editor Panel (bottom of screen) -->
+    <div class="script-editor-panel" id="scriptEditorPanel" style="display: none;">
+        <div class="script-editor-header">
+            <h3>💻 Script Editor</h3>
+            <div class="script-editor-actions">
+                <select id="scriptExamples" class="script-examples-select">
+                    <option value="">-- Load Example --</option>
+                    <option value="bresenham">Bresenham's Circle</option>
+                    <option value="spiral">Spiral Pattern</option>
+                    <option value="grid">Grid Pattern</option>
+                    <option value="checkerboard">Checkerboard</option>
+                    <option value="circle">Concentric Circles</option>
+                    <option value="random">Random Pixels</option>
+                </select>
+                <button id="runScriptBtn" class="script-btn" title="Run Script">▶️ Run</button>
+                <button id="clearScriptBtn" class="script-btn" title="Clear Editor">🗑️ Clear</button>
+                <button id="fullscreenScriptBtn" class="script-btn" title="Toggle Fullscreen">⛶ Fullscreen</button>
+                <div class="script-output" id="scriptOutput" style="display: none;"></div>
+            </div>
+        </div>
+        <div class="script-editor-content">
+            <div id="codeEditorContainer" class="code-editor-wrapper">
+                <!-- CodeMirror will be initialized here -->
+                <textarea id="scriptInput" class="script-textarea" spellcheck="false" style="display: block;">// Bresenham's Circle Algorithm
+// This algorithm draws circles using integer arithmetic only
+api.clear();
+
+function bresenhamCircle(cx, cy, radius) {
+  let x = 0;
+  let y = radius;
+  let d = 3 - 2 * radius;
+  
+  // Draw 8 symmetric points
+  function drawCirclePoints(cx, cy, x, y) {
+    api.setPixel(cx + x, cy + y);
+    api.setPixel(cx - x, cy + y);
+    api.setPixel(cx + x, cy - y);
+    api.setPixel(cx - x, cy - y);
+    api.setPixel(cx + y, cy + x);
+    api.setPixel(cx - y, cy + x);
+    api.setPixel(cx + y, cy - x);
+    api.setPixel(cx - y, cy - x);
+  }
+  
+  drawCirclePoints(cx, cy, x, y);
+  
+  while (y >= x) {
+    x++;
+    
+    if (d > 0) {
+      y--;
+      d = d + 4 * (x - y) + 10;
+    } else {
+      d = d + 4 * x + 6;
+    }
+    
+    drawCirclePoints(cx, cy, x, y);
+  }
+}
+
+// Draw multiple concentric circles
+const centerX = api.getWidth() / 2;
+const centerY = api.getHeight() / 2;
+
+for (let r = 10; r <= 60; r += 10) {
+  bresenhamCircle(centerX, centerY, r);
+}</textarea>
+            </div>
+        </div>
+    </div>
+    
     <!-- Mobile Bottom Bar -->
     <div class="mobile-bottom-bar">
         <div class="mobile-bottom-controls">
@@ -1140,6 +1214,12 @@
             <!-- Content will be populated dynamically based on selected tool -->
         </div>
     </div>
+
+    <!-- CodeMirror 5 for syntax highlighting (classic version, more stable) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/material-darker.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/javascript/javascript.min.js"></script>
 
     <script src="theme-switcher.js"></script>
     <script src="drawing-editor.js"></script>

@@ -1,5 +1,21 @@
 /* Windows XP Theme - Luna blue with rounded corners */
 
+/* Windows XP Theme CSS Variables */
+.windowsxp-theme {
+    --code-editor-bg: #e3f2ff;
+    --code-editor-bg-focus: #d9ecff;
+    --code-editor-text: #000080;
+    --code-editor-placeholder: #6699cc;
+    --script-button-bg: #759dcb;
+    --script-button-hover: #5a8ac4;
+    --success-bg: #d4edda;
+    --success-text: #155724;
+    --success-border: #c3e6cb;
+    --error-bg: #f8d7da;
+    --error-text: #721c24;
+    --error-border: #f5c6cb;
+}
+
 /* Font size standardization - preserve original sizes */
 header h1 {
     font-size: 1.5rem !important;

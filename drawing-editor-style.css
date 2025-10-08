@@ -17,6 +17,20 @@
     --layers-panel-height: 245px;
     --panel-header-height: 55px; /* Fixed header height for both panels */
     --panel-content-height: 190px; /* Remaining height for content area */
+    
+    /* Code Editor Colors (default light theme with dark editor) */
+    --code-editor-bg: #2d2d2d;
+    --code-editor-bg-focus: #353535;
+    --code-editor-text: #d4d4d4;
+    --code-editor-placeholder: #6a737d;
+    --script-button-bg: #e0e0e0;
+    --script-button-hover: #d0d0d0;
+    --success-bg: #d1fae5;
+    --success-text: #065f46;
+    --success-border: #6ee7b7;
+    --error-bg: #fee2e2;
+    --error-text: #991b1b;
+    --error-border: #fca5a5;
 }
 
 * {
@@ -2194,7 +2208,7 @@ textarea::placeholder {
         background: var(--panel-bg);
         border: 1px solid var(--border-color);
         color: var(--text-color);
-        padding: 8px 12px; s
+        padding: 8px 12px;
         border-radius: 6px;
         font-size: 16px;
         cursor: pointer;
@@ -3132,6 +3146,208 @@ button:focus-visible, .toggle-btn:focus-visible, .collapsible-btn:focus-visible,
     font-size: 11px;
     color: var(--text-secondary);
     margin-top: 4px;
+}
+
+/* Script Editor Panel (bottom of screen) */
+.script-editor-panel {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 300px;
+    background: var(--panel-bg);
+    border-top: 2px solid var(--border-color);
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* Adjust main canvas area for script editor panel */
+.canvas-area.with-script-editor {
+    padding-bottom: 300px;
+}
+
+/* Adjust sidebars when script editor panel is visible */
+.tools-panel.with-script-editor,
+.export-panel.with-script-editor {
+    bottom: calc(300px + var(--canvas-controls-height));
+}
+
+.script-editor-header {
+    padding: 1px 12px;
+    background: var(--panel-bg);
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+    min-height: 20px;
+}
+
+.script-editor-header h3 {
+    margin: 0;
+    font-size: 14px;
+    color: var(--text-color);
+}
+
+.script-editor-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.script-examples-select {
+    padding: 6px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: var(--panel-bg);
+    color: var(--text-color);
+    font-size: 14px;
+    cursor: pointer;
+    outline: none;
+}
+
+.script-examples-select:focus {
+    border-color: var(--accent-color);
+}
+
+.script-btn {
+    padding: 6px 12px;
+    background: var(--script-button-bg, #4a90e2);
+    color: var(--text-color, #333);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.script-btn:hover {
+    background: var(--script-button-hover, #357abd);
+}
+
+.script-editor-content {
+    flex: 1;
+    padding: 12px 16px;
+    overflow: hidden;
+}
+
+.code-editor-wrapper {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+}
+
+/* CodeMirror 5 styling */
+.code-editor-wrapper .CodeMirror {
+    height: 100%;
+    font-size: 13px;
+    font-family: 'Fira Code', 'Consolas', 'Monaco', 'Courier New', monospace;
+    border-radius: 8px;
+}
+
+.code-editor-wrapper .CodeMirror-gutters {
+    border-right: 1px solid #3e4451;
+    background-color: #21252b;
+}
+
+.code-editor-wrapper .CodeMirror-linenumber {
+    padding: 0 8px;
+    color: #bbbdc0;
+}
+
+.code-editor-wrapper .CodeMirror-scroll {
+    overflow: auto !important;
+}
+
+.code-editor-wrapper .CodeMirror-lines {
+    padding: 4px 0;
+}
+
+/* Make comments more readable */
+.code-editor-wrapper .cm-comment {
+    color: #7f848e !important;
+    font-style: italic;
+}
+
+/* Fallback textarea for when CodeMirror isn't loaded */
+.script-editor-panel .script-textarea {
+    width: 100%;
+    height: 100%;
+    min-height: 200px;
+    padding: 12px;
+    margin: 0;
+    border: none;
+    background: var(--code-editor-bg, #282c34);
+    color: var(--code-editor-text, #abb2bf);
+    outline: none;
+    resize: none;
+    font-size: 13px;
+    font-family: 'Fira Code', 'Consolas', 'Monaco', 'Courier New', monospace;
+    line-height: 1.6;
+    tab-size: 2;
+    letter-spacing: 0.5px;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    z-index: 2;
+}
+
+.script-editor-panel .script-textarea::selection {
+    background: rgba(82, 230, 121, 0.4);
+}
+
+.script-editor-panel .script-textarea::-moz-selection {
+    background: rgba(82, 230, 121, 0.4);
+}
+
+.script-editor-panel .script-output {
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-family: 'Courier New', monospace;
+    max-width: 300px;
+}
+
+.script-editor-panel .script-output.success {
+    background: var(--success-bg, #d1fae5);
+    color: var(--success-text, #065f46);
+    border: 1px solid var(--success-border, #6ee7b7);
+}
+
+.script-editor-panel .script-output.error {
+    background: var(--error-bg, #fee2e2);
+    color: var(--error-text, #991b1b);
+    border: 1px solid var(--error-border, #fca5a5);
+}
+
+/* Fullscreen script editor */
+.script-editor-panel.fullscreen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 10000;
+    background: var(--panel-bg);
+}
+
+.script-editor-panel.fullscreen .script-editor-content {
+    height: calc(100% - 60px); /* Account for header */
+}
+
+.script-editor-panel.fullscreen .script-textarea {
+    height: 100%;
+    min-height: unset;
+    max-height: unset;
+    font-size: 14px;
 }
 
 /* Scrollbar styling for different themes */

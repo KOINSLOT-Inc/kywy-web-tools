@@ -879,6 +879,7 @@ class DrawingEditor {
         // Layer system
         this.layersEnabled = false;
         this.animationEnabled = false;
+        this.scriptEditorEnabled = false;
         this.layers = []; // Array of layers for current frame: [{name, canvas, visible}, ...]
         this.currentLayerIndex = 0;
         this.frameLayers = {}; // Store layers per frame: {frameIndex: {layers: [...], currentLayerIndex: 0}}
@@ -2902,10 +2903,14 @@ class DrawingEditor {
         const exportPanel = document.querySelector('.export-panel');
         
         if (this.layersEnabled) {
-            // If animation panel is open, close it first
+            // If animation or script editor panel is open, close them first
             if (this.animationEnabled) {
                 document.getElementById('animationEnabled').checked = false;
                 this.toggleAnimationMode();
+            }
+            if (this.scriptEditorEnabled) {
+                document.getElementById('scriptEditorEnabled').checked = false;
+                this.toggleScriptEditorMode();
             }
             
             // Show layers panel
@@ -2960,10 +2965,14 @@ class DrawingEditor {
         const exportPanel = document.querySelector('.export-panel');
         
         if (this.animationEnabled) {
-            // If layers panel is open, close it first
+            // If layers or script editor panel is open, close them first
             if (this.layersEnabled) {
                 document.getElementById('layersEnabled').checked = false;
                 this.toggleLayersMode();
+            }
+            if (this.scriptEditorEnabled) {
+                document.getElementById('scriptEditorEnabled').checked = false;
+                this.toggleScriptEditorMode();
             }
             
             // Show animation panel
@@ -2986,6 +2995,54 @@ class DrawingEditor {
             if (mobileToolbar) mobileToolbar.classList.remove('with-animation');
             if (toolsPanel) toolsPanel.classList.remove('with-animation');
             if (exportPanel) exportPanel.classList.remove('with-animation');
+        }
+        
+        this.redrawCanvas();
+    }
+    
+    toggleScriptEditorMode() {
+        this.scriptEditorEnabled = document.getElementById('scriptEditorEnabled').checked;
+        const scriptEditorPanel = document.getElementById('scriptEditorPanel');
+        const canvasArea = document.querySelector('.canvas-area');
+        const mobileToolbar = document.querySelector('.mobile-bottom-toolbar');
+        const toolsPanel = document.querySelector('.tools-panel');
+        const exportPanel = document.querySelector('.export-panel');
+        
+        if (this.scriptEditorEnabled) {
+            // If layers or animation panel is open, close them first
+            if (this.layersEnabled) {
+                document.getElementById('layersEnabled').checked = false;
+                this.toggleLayersMode();
+            }
+            if (this.animationEnabled) {
+                document.getElementById('animationEnabled').checked = false;
+                this.toggleAnimationMode();
+            }
+            
+            // Show script editor panel
+            scriptEditorPanel.style.display = 'flex';
+            
+            // Add classes to adjust layout
+            if (canvasArea) canvasArea.classList.add('with-script-editor');
+            if (mobileToolbar) mobileToolbar.classList.add('with-script-editor');
+            if (toolsPanel) toolsPanel.classList.add('with-script-editor');
+            if (exportPanel) exportPanel.classList.add('with-script-editor');
+            
+            // Refresh CodeMirror when panel becomes visible
+            setTimeout(() => {
+                if (window.scriptEditorCodeMirror) {
+                    window.scriptEditorCodeMirror.refresh();
+                }
+            }, 100);
+        } else {
+            // Hide script editor panel
+            scriptEditorPanel.style.display = 'none';
+            
+            // Remove layout adjustment classes
+            if (canvasArea) canvasArea.classList.remove('with-script-editor');
+            if (mobileToolbar) mobileToolbar.classList.remove('with-script-editor');
+            if (toolsPanel) toolsPanel.classList.remove('with-script-editor');
+            if (exportPanel) exportPanel.classList.remove('with-script-editor');
         }
         
         this.redrawCanvas();
@@ -4453,6 +4510,9 @@ class DrawingEditor {
         
         // Animation panel system
         document.getElementById('animationEnabled').addEventListener('change', () => this.toggleAnimationMode());
+        
+        // Script Editor panel system
+        document.getElementById('scriptEditorEnabled').addEventListener('change', () => this.toggleScriptEditorMode());
         
         // Animation panel buttons - connect to existing functions
         document.getElementById('animAddFrame').addEventListener('click', () => this.addFrame());
@@ -15933,6 +15993,119 @@ Instructions:
             return intensity > 0.5 ? '#ffffff' : '#000000';
         }
     }
+    
+    // ============================================
+    // SCRIPTING API - Programmatic Drawing
+    // ============================================
+    
+    // Set a pixel at the given coordinates
+    drawPixelAt(x, y, color = null) {
+        const ctx = this.getCurrentFrameContext();
+        const drawColor = color || this.currentColor;
+        
+        if (x >= 0 && x < this.canvasWidth && y >= 0 && y < this.canvasHeight) {
+            ctx.fillStyle = drawColor;
+            ctx.fillRect(x, y, 1, 1);
+        }
+    }
+    
+    // Draw a line from (x1, y1) to (x2, y2)
+    drawLineAt(x1, y1, x2, y2, color = null) {
+        const savedColor = this.currentColor;
+        if (color) this.currentColor = color;
+        
+        this.startPixelTracking();
+        this.drawLine(Math.floor(x1), Math.floor(y1), Math.floor(x2), Math.floor(y2));
+        this.endPixelTracking();
+        
+        if (color) this.currentColor = savedColor;
+        
+        this.redrawCanvas();
+        this.generateThumbnail(this.currentFrameIndex);
+        this.generateCode();
+    }
+    
+    // Draw a rectangle
+    drawRectAt(x, y, width, height, filled = true, color = null) {
+        const ctx = this.getCurrentFrameContext();
+        const drawColor = color || this.currentColor;
+        
+        ctx.fillStyle = drawColor;
+        ctx.strokeStyle = drawColor;
+        
+        if (filled) {
+            ctx.fillRect(x, y, width, height);
+        } else {
+            ctx.strokeRect(x, y, width, height);
+        }
+        
+        this.redrawCanvas();
+        this.generateThumbnail(this.currentFrameIndex);
+        this.generateCode();
+    }
+    
+    // Draw a circle
+    drawCircleAt(x, y, radius, filled = true, color = null) {
+        const ctx = this.getCurrentFrameContext();
+        const drawColor = color || this.currentColor;
+        
+        ctx.fillStyle = drawColor;
+        ctx.strokeStyle = drawColor;
+        ctx.beginPath();
+        ctx.arc(x, y, radius, 0, Math.PI * 2);
+        
+        if (filled) {
+            ctx.fill();
+        } else {
+            ctx.stroke();
+        }
+        
+        this.redrawCanvas();
+        this.generateThumbnail(this.currentFrameIndex);
+        this.generateCode();
+    }
+    
+    // Draw text at position
+    drawTextAt(text, x, y, color = null) {
+        const ctx = this.getCurrentFrameContext();
+        const drawColor = color || this.currentColor;
+        
+        ctx.fillStyle = drawColor;
+        ctx.font = '16px Arial';
+        ctx.fillText(text, x, y);
+        
+        this.redrawCanvas();
+        this.generateThumbnail(this.currentFrameIndex);
+        this.generateCode();
+    }
+    
+    // Execute a drawing function - useful for complex patterns
+    executeDrawing(drawFunction) {
+        this.captureSnapshot();
+        
+        try {
+            // Call the user's drawing function with API access
+            drawFunction({
+                setPixel: (x, y, color) => this.drawPixelAt(x, y, color),
+                drawLine: (x1, y1, x2, y2, color) => this.drawLineAt(x1, y1, x2, y2, color),
+                drawRect: (x, y, w, h, filled, color) => this.drawRectAt(x, y, w, h, filled, color),
+                drawCircle: (x, y, r, filled, color) => this.drawCircleAt(x, y, r, filled, color),
+                drawText: (text, x, y, color) => this.drawTextAt(text, x, y, color),
+                getWidth: () => this.canvasWidth,
+                getHeight: () => this.canvasHeight,
+                clear: () => this.clearCurrentFrame(),
+                setColor: (color) => { this.currentColor = color; },
+                getColor: () => this.currentColor
+            });
+        } catch (error) {
+            console.error('Drawing function error:', error);
+        }
+        
+        this.pushUndo();
+        this.redrawCanvas();
+        this.generateThumbnail(this.currentFrameIndex);
+        this.generateCode();
+    }
 }
 
 // Mobile Interface Management
@@ -16664,6 +16837,9 @@ function initializeSidebarToggles() {
 document.addEventListener('DOMContentLoaded', () => {
     const editor = new DrawingEditor();
     
+    // Expose editor globally for scripting
+    window.editor = editor;
+    
     // Initialize sidebar toggles
     initializeSidebarToggles();
     
@@ -16671,4 +16847,252 @@ document.addEventListener('DOMContentLoaded', () => {
     if (window.innerWidth <= 768) {
         new MobileInterface(editor);
     }
+    
+    // Initialize Script Editor
+    initializeScriptEditor(editor);
+    
+    // Log scripting API availability
+    console.log('Drawing Editor loaded! Use window.editor to access the API.');
+    console.log('Example: editor.executeDrawing(api => { api.drawCircle(50, 50, 20, true, "black"); });');
 });
+
+// Script Editor functionality
+function initializeScriptEditor(editor) {
+    const scriptOutput = document.getElementById('scriptOutput');
+    const runScriptBtn = document.getElementById('runScriptBtn');
+    const clearScriptBtn = document.getElementById('clearScriptBtn');
+    const fullscreenScriptBtn = document.getElementById('fullscreenScriptBtn');
+    const scriptExamples = document.getElementById('scriptExamples');
+    const scriptEditorPanel = document.getElementById('scriptEditorPanel');
+    const container = document.getElementById('codeEditorContainer');
+    const textarea = document.getElementById('scriptInput');
+    
+    // Initialize CodeMirror 5
+    let codeMirrorInstance = null;
+    
+    // Wait for CodeMirror to be loaded
+    function initCodeMirror() {
+        if (!window.CodeMirror) {
+            setTimeout(initCodeMirror, 100);
+            return;
+        }
+        
+        // Get initial code from textarea
+        const initialCode = textarea.value || textarea.textContent || '';
+        
+        // Create CodeMirror instance
+        codeMirrorInstance = CodeMirror(container, {
+            value: initialCode,
+            mode: 'javascript',
+            theme: 'material-darker',
+            lineNumbers: true,
+            indentUnit: 2,
+            tabSize: 2,
+            lineWrapping: true,
+            styleActiveLine: true,
+            matchBrackets: true,
+            autoCloseBrackets: true
+        });
+        
+        // Store globally for refresh when panel opens
+        window.scriptEditorCodeMirror = codeMirrorInstance;
+        
+        // Hide the textarea after CodeMirror is initialized
+        textarea.style.display = 'none';
+        
+        console.log('CodeMirror initialized with', initialCode.length, 'characters');
+    }
+    
+    // Start initialization
+    initCodeMirror();
+    
+    // Helper to get current code
+    function getCode() {
+        if (codeMirrorInstance) {
+            return codeMirrorInstance.getValue();
+        }
+        return textarea.value;
+    }
+    
+    // Helper to set code
+    function setCode(code) {
+        if (codeMirrorInstance) {
+            codeMirrorInstance.setValue(code);
+        } else {
+            textarea.value = code;
+        }
+    }
+    
+    // Example scripts
+    const examples = {
+        bresenham: `// Bresenham's Circle Algorithm
+// This is a classic algorithm in computer graphics for drawing circles.
+api.clear();
+
+function bresenhamCircle(cx, cy, radius) {
+  let x = 0;
+  let y = radius;
+  let d = 3 - 2 * radius;
+  
+  // Draw 8 symmetric points
+  function drawCirclePoints(cx, cy, x, y) {
+    api.setPixel(cx + x, cy + y);
+    api.setPixel(cx - x, cy + y);
+    api.setPixel(cx + x, cy - y);
+    api.setPixel(cx - x, cy - y);
+    api.setPixel(cx + y, cy + x);
+    api.setPixel(cx - y, cy + x);
+    api.setPixel(cx + y, cy - x);
+    api.setPixel(cx - y, cy - x);
+  }
+  
+  drawCirclePoints(cx, cy, x, y);
+  
+  while (y >= x) {
+    x++;
+    
+    if (d > 0) {
+      y--;
+      d = d + 4 * (x - y) + 10;
+    } else {
+      d = d + 4 * x + 6;
+    }
+    
+    drawCirclePoints(cx, cy, x, y);
+  }
+}
+
+// Draw multiple concentric circles
+const centerX = api.getWidth() / 2;
+const centerY = api.getHeight() / 2;
+
+for (let r = 10; r <= 60; r += 10) {
+  bresenhamCircle(centerX, centerY, r);
+}`,
+        spiral: `// Spiral Pattern
+api.clear();
+api.setColor('black');
+const centerX = api.getWidth() / 2;
+const centerY = api.getHeight() / 2;
+for (let i = 0; i < 360; i += 5) {
+    const angle = i * Math.PI / 180;
+    const radius = i / 4;
+    const x = Math.floor(centerX + Math.cos(angle) * radius);
+    const y = Math.floor(centerY + Math.sin(angle) * radius);
+    api.setPixel(x, y);
+}`,
+        grid: `// Grid Pattern
+api.clear();
+api.setColor('black');
+const spacing = 10;
+for (let x = 0; x < api.getWidth(); x += spacing) {
+    api.drawLine(x, 0, x, api.getHeight());
+}
+for (let y = 0; y < api.getHeight(); y += spacing) {
+    api.drawLine(0, y, api.getWidth(), y);
+}`,
+        checkerboard: `// Checkerboard Pattern
+api.clear();
+api.setColor('black');
+const size = 8;
+for (let y = 0; y < api.getHeight(); y += size) {
+    for (let x = 0; x < api.getWidth(); x += size) {
+        if ((Math.floor(x / size) + Math.floor(y / size)) % 2 === 0) {
+            api.drawRect(x, y, size, size, true);
+        }
+    }
+}`,
+        circle: `// Concentric Circles
+api.clear();
+api.setColor('black');
+const centerX = api.getWidth() / 2;
+const centerY = api.getHeight() / 2;
+for (let r = 10; r < 80; r += 10) {
+    api.drawCircle(centerX, centerY, r, false);
+}`,
+        random: `// Random Pixels
+api.clear();
+api.setColor('black');
+const count = 500;
+for (let i = 0; i < count; i++) {
+    const x = Math.floor(Math.random() * api.getWidth());
+    const y = Math.floor(Math.random() * api.getHeight());
+    api.setPixel(x, y);
+}`
+    };
+    
+    // Load example script
+    scriptExamples.addEventListener('change', function() {
+        if (this.value && examples[this.value]) {
+            setCode(examples[this.value]);
+            scriptOutput.style.display = 'none';
+        }
+        this.value = ''; // Reset dropdown
+    });
+    
+    // Run script
+    runScriptBtn.addEventListener('click', function() {
+        const code = getCode().trim();
+        if (!code) {
+            showScriptOutput('No script to run', 'error');
+            return;
+        }
+        
+        try {
+            // Execute the drawing script
+            editor.executeDrawing(function(api) {
+                // Create a function from the code and execute it
+                const userFunction = new Function('api', code);
+                userFunction(api);
+            });
+            
+            showScriptOutput('✓ Script executed successfully', 'success');
+            
+            // Auto-hide success message after 2 seconds
+            setTimeout(() => {
+                if (scriptOutput.classList.contains('success')) {
+                    scriptOutput.style.display = 'none';
+                }
+            }, 2000);
+        } catch (error) {
+            showScriptOutput('Error: ' + error.message, 'error');
+        }
+    });
+    
+    // Clear script
+    clearScriptBtn.addEventListener('click', function() {
+        setCode('');
+        scriptOutput.style.display = 'none';
+    });
+    
+    // Toggle fullscreen
+    fullscreenScriptBtn.addEventListener('click', function() {
+        const isFullscreen = scriptEditorPanel.classList.toggle('fullscreen');
+        
+        // Update button text
+        if (isFullscreen) {
+            this.innerHTML = '⛶ Exit Fullscreen';
+            this.title = 'Exit Fullscreen';
+        } else {
+            this.innerHTML = '⛶ Fullscreen';
+            this.title = 'Toggle Fullscreen';
+        }
+    });
+    
+    // Also allow Escape key to exit fullscreen
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && scriptEditorPanel.classList.contains('fullscreen')) {
+            scriptEditorPanel.classList.remove('fullscreen');
+            fullscreenScriptBtn.innerHTML = '⛶ Fullscreen';
+            fullscreenScriptBtn.title = 'Toggle Fullscreen';
+        }
+    });
+    
+    // Helper function to show output
+    function showScriptOutput(message, type) {
+        scriptOutput.textContent = message;
+        scriptOutput.className = 'script-output ' + type;
+        scriptOutput.style.display = 'block';
+    }
+}
+

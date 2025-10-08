@@ -2,6 +2,22 @@
 
 /* Amiga Theme for Kywy Web Tools */
 
+/* Amiga Theme CSS Variables */
+.amiga-theme {
+    --code-editor-bg: #555555;
+    --code-editor-bg-focus: #666666;
+    --code-editor-text: #ffffff;
+    --code-editor-placeholder: #aaaaaa;
+    --script-button-bg: #ff8800;
+    --script-button-hover: #ffaa00;
+    --success-bg: #00aa44;
+    --success-text: #ffffff;
+    --success-border: #00ff66;
+    --error-bg: #aa0000;
+    --error-text: #ffff00;
+    --error-border: #ff0000;
+}
+
 /* Font size standardization - preserve original sizes */
 header h1 {
     font-size: 1.5rem !important;

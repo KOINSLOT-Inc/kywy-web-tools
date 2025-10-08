@@ -2,6 +2,22 @@
 
 /* NES Theme for Kywy Web Tools */
 
+/* NES Theme CSS Variables */
+.nes-theme {
+    --code-editor-bg: #7c0000;
+    --code-editor-bg-focus: #8c0000;
+    --code-editor-text: #ffffff;
+    --code-editor-placeholder: #cc8888;
+    --script-button-bg: #e03c28;
+    --script-button-hover: #ff6b6b;
+    --success-bg: #00d800;
+    --success-text: #000000;
+    --success-border: #00ff00;
+    --error-bg: #e03c28;
+    --error-text: #ffffff;
+    --error-border: #ff6b6b;
+}
+
 /* Font size standardization - preserve original sizes */
 header h1 {
     font-size: 1.5rem !important;
