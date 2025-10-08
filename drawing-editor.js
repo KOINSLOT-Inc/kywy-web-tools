@@ -4556,11 +4556,9 @@ class DrawingEditor {
         // Animation panel mode buttons
         document.getElementById('animCycleMode').addEventListener('click', () => {
             this.setAnimationMode('cycle');
-            this.updateAnimationControls();
         });
         document.getElementById('animBoomerangMode').addEventListener('click', () => {
             this.setAnimationMode('boomerang');
-            this.updateAnimationControls();
         });
         
         // Animation panel frame rate
@@ -10145,37 +10143,24 @@ class DrawingEditor {
         // Capture snapshot before clearing
         this.captureSnapshot();
         
-        // If layers are enabled, clear the current layer
-        if (this.layersEnabled) {
-            const frameData = this.frameLayers && this.frameLayers[this.currentFrameIndex];
-            if (frameData) {
-                const currentLayer = frameData.layers[frameData.currentLayerIndex];
-                const ctx = currentLayer.canvas.getContext('2d', { willReadFrequently: true });
-                
-                // All layers should be cleared to white
-                ctx.fillStyle = 'white';
-                ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
-                
-                // Composite and redraw
-                this.compositeLayersToFrame(this.currentFrameIndex);
-                this.redrawCanvas();
-                
-                // Push undo
-                this.pushUndo();
-                return;
-            }
+        // Clear the current layer (layers are always active)
+        const frameData = this.frameLayers && this.frameLayers[this.currentFrameIndex];
+        if (frameData) {
+            const currentLayer = frameData.layers[frameData.currentLayerIndex];
+            const ctx = currentLayer.canvas.getContext('2d', { willReadFrequently: true });
+            
+            // Clear layer to white
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
+            
+            // Composite and redraw
+            this.compositeLayersToFrame(this.currentFrameIndex);
+            this.redrawCanvas();
+            this.generateThumbnail(this.currentFrameIndex);
+            
+            // Push undo
+            this.pushUndo();
         }
-        
-        // Normal frame clearing (no layers)
-        const frame = this.frames[this.currentFrameIndex];
-        const ctx = frame.getContext('2d', { willReadFrequently: true });
-        ctx.fillStyle = 'white';
-        ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
-        
-        this.redrawCanvas();
-        
-        // Push undo
-        this.pushUndo();
     }
 
     // Frame management methods will be added in the next part
@@ -10458,13 +10443,20 @@ class DrawingEditor {
         this.animationMode = mode;
         this.animationDirection = 1; // Reset direction
         
-        // Update button states - only for animation mode buttons
+        // Update button states for both main and animation panel buttons
         const cycleBtn = document.getElementById('cycleMode');
         const boomerangBtn = document.getElementById('boomerangMode');
+        const animCycleBtn = document.getElementById('animCycleMode');
+        const animBoomerangBtn = document.getElementById('animBoomerangMode');
         
         if (cycleBtn && boomerangBtn) {
             cycleBtn.classList.toggle('active', mode === 'cycle');
             boomerangBtn.classList.toggle('active', mode === 'boomerang');
+        }
+        
+        if (animCycleBtn && animBoomerangBtn) {
+            animCycleBtn.classList.toggle('active', mode === 'cycle');
+            animBoomerangBtn.classList.toggle('active', mode === 'boomerang');
         }
     }
     
