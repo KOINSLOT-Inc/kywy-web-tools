@@ -2832,7 +2832,7 @@ class DrawingEditor {
                 if (Math.abs(testWidth - baselineWidth) > 0.1) {
                     availableFonts.push(font);
                 } else {
-                    // Additional check using font face API if available
+                    // Additional check using font face kde if available
                     if ('fonts' in document) {
                         try {
                             const fontFace = new FontFace(font, `local("${font}")`);
@@ -11926,7 +11926,7 @@ class DrawingEditor {
     }
     
     // Internal method that performs the new drawing reset without confirmation
-    // Used by both the UI button and the scripting API
+    // Used by both the UI button and the scripting kde
     performNewDrawing() {
         // Create command to store current state before clearing
         const command = new NewDrawingCommand(this);
@@ -16044,7 +16044,7 @@ Instructions:
     }
     
     // ============================================
-    // SCRIPTING API - Programmatic Drawing
+    // SCRIPTING kde - Programmatic Drawing
     // ============================================
     
     /**
@@ -16464,10 +16464,10 @@ Instructions:
     }
     
     /**
-     * Add a new layer to the current frame (API wrapper)
+     * Add a new layer to the current frame (kde wrapper)
      * @returns {number} Index of the new layer
      */
-    addLayerAPI() {
+    addLayerkde() {
         const frameData = this.frameLayers[this.currentFrameIndex];
         if (!frameData || !frameData.layers) return 0; // Return 0 if no layer system
         
@@ -16475,7 +16475,7 @@ Instructions:
         // Call the real addLayer method from line 3432
         // We need to temporarily save this method reference
         const realAddLayer = Object.getPrototypeOf(this).addLayer;
-        if (realAddLayer && realAddLayer !== this.addLayerAPI) {
+        if (realAddLayer && realAddLayer !== this.addLayerkde) {
             realAddLayer.call(this);
         }
         return newIndex;
@@ -16572,7 +16572,7 @@ Instructions:
         this.captureSnapshot();
         
         // Set flag to indicate we're executing a script
-        // This prevents individual API calls from creating their own undo entries
+        // This prevents individual kde calls from creating their own undo entries
         this._executingScript = true;
         
         // Clear any previous script click handler
@@ -16582,7 +16582,7 @@ Instructions:
         this._printBuffer = [];
         
         try {
-            // Call the user's drawing function with API access
+            // Call the user's drawing function with kde access
             drawFunction({
                 /**
                  * Draw a single pixel
@@ -17953,9 +17953,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialize Script Editor
     initializeScriptEditor(editor);
     
-    // Log scripting API availability
-    // console.log('Drawing Editor loaded! Use window.editor to access the API.');
-    // console.log('Example: editor.executeDrawing(api => { api.drawCircle(50, 50, 20, true, "black"); });');
+    // Log scripting kde availability
+    // console.log('Drawing Editor loaded! Use window.editor to access the kde.');
+    // console.log('Example: editor.executeDrawing(kde => { kde.drawCircle(50, 50, 20, true, "black"); });');
 });
 
 // Script Editor functionality
@@ -18053,20 +18053,20 @@ function initializeScriptEditor(editor) {
     
     // Example scripts
     const examples = {
-        apiReference: `// ============================================
-// KYWY Drawing Script API Reference & Examples
+        kdeReference: `// ============================================
+// KYWY Drawing Script kde Reference & Examples
 // ============================================
-// This example demonstrates all available API functions
+// This example demonstrates all available kde functions
 
 // Clear the canvas to start fresh
-api.clear();
+kde.clear();
 
 // Create a new file from scratch
-api.new();
+kde.new();
 
 // Get canvas dimensions
-const w = api.getWidth();   // Returns canvas width in pixels
-const h = api.getHeight();  // Returns canvas height in pixels
+const w = kde.getWidth();   // Returns canvas width in pixels
+const h = kde.getHeight();  // Returns canvas height in pixels
 
 // ============================================
 // BASIC DRAWING FUNCTIONS
@@ -18074,16 +18074,16 @@ const h = api.getHeight();  // Returns canvas height in pixels
 
 // Draw text at a position
 // drawText(text, x, y, color)
-api.drawText('API Demo', 10, 10, 'black');
+kde.drawText('kde Demo', 10, 10, 'black');
 
 // Draw a line between two points
 // drawLine(x1, y1, x2, y2, color)
-api.drawLine(10, 25, w - 10, 25, 'black');
+kde.drawLine(10, 25, w - 10, 25, 'black');
 
 // Set individual pixels
 // setPixel(x, y, color)
-api.setPixel(15, 35, 'black');
-api.drawText('setPixel', 20, 33);
+kde.setPixel(15, 35, 'black');
+kde.drawText('setPixel', 20, 33);
 
 // ============================================
 // RECTANGLES
@@ -18091,11 +18091,11 @@ api.drawText('setPixel', 20, 33);
 
 // Draw rectangle outline
 // drawRect(x, y, width, height, filled, color)
-api.drawRect(10, 45, 25, 15, false, 'black');  // false = outline
+kde.drawRect(10, 45, 25, 15, false, 'black');  // false = outline
 
 // Draw filled rectangle
-api.drawRect(10, 65, 25, 15, true, 'black');   // true = filled
-api.drawText('Rectangles', 40, 55);
+kde.drawRect(10, 65, 25, 15, true, 'black');   // true = filled
+kde.drawText('Rectangles', 40, 55);
 
 // ============================================
 // CIRCLES & ELLIPSES
@@ -18103,12 +18103,12 @@ api.drawText('Rectangles', 40, 55);
 
 // Draw circle
 // drawCircle(centerX, centerY, radius, filled, color)
-api.drawCircle(20, 95, 8, false, 'black');
+kde.drawCircle(20, 95, 8, false, 'black');
 
 // Draw ellipse with different horizontal/vertical radii
 // drawEllipse(centerX, centerY, radiusX, radiusY, filled, color)
-api.drawEllipse(70, 55, 12, 8, false, 'black');
-api.drawText('Circles', 35, 93);
+kde.drawEllipse(70, 55, 12, 8, false, 'black');
+kde.drawText('Circles', 35, 93);
 
 // ============================================
 // POLYGONS
@@ -18116,37 +18116,37 @@ api.drawText('Circles', 35, 93);
 
 // Draw regular polygon
 // drawPolygon(centerX, centerY, radius, sides, rotation, filled, color)
-api.drawPolygon(70, 95, 10, 5, 0, true, 'black');  // 5 sides = pentagon
-api.drawText('Pentagon', 85, 93);
+kde.drawPolygon(70, 95, 10, 5, 0, true, 'black');  // 5 sides = pentagon
+kde.drawText('Pentagon', 85, 93);
 
 // ============================================
 // LAYERS DEMONSTRATION
 // ============================================
 
 // Ensure we have at least 2 layers for the demo
-if (api.getLayerCount() < 2) {
+if (kde.getLayerCount() < 2) {
     // addLayer() - Create new layer, returns new layer index
-    api.addLayer();
+    kde.addLayer();
 }
 
 // Layer 0 (current layer) - Main content
-api.drawText('Layer 0', 10, 115, 'black');
+kde.drawText('Layer 0', 10, 115, 'black');
 
 // Switch to layer 1 for additional content
 // setCurrentLayer(index) - Switch to layer at index (0-based)
-api.setCurrentLayer(1);
-api.drawText('Layer 1', 10, 128, 'black');
-api.drawCircle(40, 140, 5, true, 'black');
+kde.setCurrentLayer(1);
+kde.drawText('Layer 1', 10, 128, 'black');
+kde.drawCircle(40, 140, 5, true, 'black');
 
 // Get layer information
 // getCurrentLayer() - Get current layer index
 // getLayerCount() - Get total number of layers
-const currentLayer = api.getCurrentLayer();
-const totalLayers = api.getLayerCount();
-api.drawText('Layers: ' + totalLayers, 10, 155, 'black');
+const currentLayer = kde.getCurrentLayer();
+const totalLayers = kde.getLayerCount();
+kde.drawText('Layers: ' + totalLayers, 10, 155, 'black');
 
 // Return to layer 0
-api.setCurrentLayer(0);
+kde.setCurrentLayer(0);
 
 // ============================================
 // FRAMES & ANIMATION INFO
@@ -18155,7 +18155,7 @@ api.setCurrentLayer(0);
 // Get current frame information
 // getCurrentFrame() - Get current frame index (0-based)
 // getFrameCount() - Get total number of frames
-api.drawText('Frame: ' + (api.getCurrentFrame() + 1) + '/' + api.getFrameCount(), w - 60, 10, 'black');
+kde.drawText('Frame: ' + (kde.getCurrentFrame() + 1) + '/' + kde.getFrameCount(), w - 60, 10, 'black');
 
 // ============================================
 // UTILITY FUNCTIONS
@@ -18163,17 +18163,17 @@ api.drawText('Frame: ' + (api.getCurrentFrame() + 1) + '/' + api.getFrameCount()
 
 // Generate random integer
 // random(min, max) - returns integer between min and max (inclusive)
-const randomNum = api.random(1, 10);
-api.drawText('random: ' + randomNum, 10, 170, 'black');
+const randomNum = kde.random(1, 10);
+kde.drawText('random: ' + randomNum, 10, 170, 'black');
 
 // Print values for debugging (displays in script output AND browser console)
 // print(...args) - Accepts any number of arguments, objects shown as JSON
-api.print('Random number generated:', randomNum);
-api.print('Canvas dimensions:', {width: w, height: h});
+kde.print('Random number generated:', randomNum);
+kde.print('Canvas dimensions:', {width: w, height: h});
 
 // Show alert popup (for important messages)
 // alert(...args) - Shows browser alert dialog with message
-// api.alert('This is an alert!', 'Value:', 123);
+// kde.alert('This is an alert!', 'Value:', 123);
 
 // map(value, inMin, inMax, outMin, outMax) - map value from one range to another
 // constrain(value, min, max) - clamp value between min and max
@@ -18184,8 +18184,8 @@ api.print('Canvas dimensions:', {width: w, height: h});
 
 // Handle mouse clicks on canvas
 // onClick(callback) - callback receives (x, y) coordinates
-api.onClick(function(x, y) {
-    api.drawCircle(x, y, 3, true, 'black');
+kde.onClick(function(x, y) {
+    kde.drawCircle(x, y, 3, true, 'black');
 });
 
 // ============================================
@@ -18194,74 +18194,74 @@ api.onClick(function(x, y) {
 
 // Create a rectangular selection
 // selectRect(x1, y1, x2, y2) - Select area from (x1,y1) to (x2,y2)
-api.drawRect(50, 10, 30, 20, true, 'black');
-api.selectRect(50, 10, 80, 30);
+kde.drawRect(50, 10, 30, 20, true, 'black');
+kde.selectRect(50, 10, 80, 30);
 
 // Check if selection exists
 // hasSelection() - Returns true if a selection is active
-if (api.hasSelection()) {
+if (kde.hasSelection()) {
     // Get selection bounds
     // getSelection() - Returns {x1, y1, x2, y2}
-    const sel = api.getSelection();
-    api.print('Selection:', sel);
+    const sel = kde.getSelection();
+    kde.print('Selection:', sel);
     
     // Copy selection to clipboard
     // copySelection() - Copy selected area
-    api.copySelection();
+    kde.copySelection();
     
     // Clear the selection (not the content)
     // clearSelection() - Remove selection border
-    api.clearSelection();
+    kde.clearSelection();
     
     // Paste clipboard at new position
     // paste(x, y) - Paste at specified coordinates
-    api.paste(90, 10);
+    kde.paste(90, 10);
 }
 
 // Cut example - select, cut, then paste elsewhere
-api.selectRect(50, 40, 80, 60);
+kde.selectRect(50, 40, 80, 60);
 // cutSelection() - Cut selected area to clipboard
-api.cutSelection();
-api.paste(90, 40);
+kde.cutSelection();
+kde.paste(90, 40);
 
 // Rotation example
-api.drawRect(10, 80, 20, 20, true, 'black');
-api.selectRect(10, 80, 30, 100);
-api.copySelection();
-api.clearSelection();
-api.paste(40, 80);
+kde.drawRect(10, 80, 20, 20, true, 'black');
+kde.selectRect(10, 80, 30, 100);
+kde.copySelection();
+kde.clearSelection();
+kde.paste(40, 80);
 // Select the pasted content
-api.selectRect(40, 80, 60, 100);
+kde.selectRect(40, 80, 60, 100);
 // rotateSelection(degrees) - Rotate selection (-180 to 180)
-api.rotateSelection(45);
-api.clearSelection();
+kde.rotateSelection(45);
+kde.clearSelection();
 
 // Mirror operations
-api.drawText('ABC', 10, 110, 'black');
-api.selectRect(10, 110, 35, 120);
-api.copySelection();
-api.clearSelection();
+kde.drawText('ABC', 10, 110, 'black');
+kde.selectRect(10, 110, 35, 120);
+kde.copySelection();
+kde.clearSelection();
 // Paste and mirror horizontally
-api.paste(40, 110);
-api.selectRect(40, 110, 65, 120);
+kde.paste(40, 110);
+kde.selectRect(40, 110, 65, 120);
 // mirrorSelectionH() - Mirror horizontally
-api.mirrorSelectionH();
-api.clearSelection();
+kde.mirrorSelectionH();
+kde.clearSelection();
 // Paste and mirror vertically
-api.paste(70, 110);
-api.selectRect(70, 110, 95, 120);
+kde.paste(70, 110);
+kde.selectRect(70, 110, 95, 120);
 // mirrorSelectionV() - Mirror vertically
-api.mirrorSelectionV();
-api.clearSelection();
+kde.mirrorSelectionV();
+kde.clearSelection();
 
 // ============================================
 // FILL PATTERNS - ALL OPTIONS
 // ============================================
 
 // Create a new frame to demonstrate all fill patterns
-api.addFrame();
+kde.addFrame();
 
-api.drawText('Fill Patterns', 5, 5, 'black');
+kde.drawText('Fill Patterns', 5, 5, 'black');
 
 // All available fill patterns:
 const patterns = [
@@ -18271,10 +18271,10 @@ const patterns = [
 
 let x = 5, y = 15;
 patterns.forEach((pat, i) => {
-    api.setFillPattern(pat);
-    api.drawRect(x, y, 15, 15, true, 'black');
-    api.setFillPattern('solid'); // Reset for text
-    api.drawText(pat, x, y + 18, 'black');
+    kde.setFillPattern(pat);
+    kde.drawRect(x, y, 15, 15, true, 'black');
+    kde.setFillPattern('solid'); // Reset for text
+    kde.drawText(pat, x, y + 18, 'black');
     
     x += 35;
     if ((i + 1) % 4 === 0) {
@@ -18283,135 +18283,135 @@ patterns.forEach((pat, i) => {
     }
 });
 
-api.setFillPattern('solid'); // Reset to default
+kde.setFillPattern('solid'); // Reset to default
 
 // getFillPattern() - Get current pattern name
-api.print('Current fill pattern:', api.getFillPattern());
+kde.print('Current fill pattern:', kde.getFillPattern());
 
 // ============================================
 // LAYER OPERATIONS
 // ============================================
 
 // Create a new frame for layer demonstrations
-api.addFrame();
-api.clear();
+kde.addFrame();
+kde.clear();
 
-api.drawText('Layer Demo', 5, 5, 'black');
+kde.drawText('Layer Demo', 5, 5, 'black');
 
 // Check initial layer state (before adding layers)
-api.print('Starting layers:', api.getLayerCount());
-api.print('Current layer:', api.getCurrentLayer());
+kde.print('Starting layers:', kde.getLayerCount());
+kde.print('Current layer:', kde.getCurrentLayer());
 
 // Create multiple layers
 // addLayer() - Create new layer, returns new layer index
-api.print('Adding layer 1...');
-const layer1 = api.addLayer();
-api.print('Created layer index:', layer1);
+kde.print('Adding layer 1...');
+const layer1 = kde.addLayer();
+kde.print('Created layer index:', layer1);
 
-api.print('Adding layer 2...');
-const layer2 = api.addLayer();
-api.print('Created layer index:', layer2);
+kde.print('Adding layer 2...');
+const layer2 = kde.addLayer();
+kde.print('Created layer index:', layer2);
 
-api.print('Total layers now:', api.getLayerCount());
+kde.print('Total layers now:', kde.getLayerCount());
 
 // Draw on layer 0 (background)
-api.print('Drawing on layer 0...');
-api.setCurrentLayer(0);
-api.drawRect(10, 20, 40, 40, true, 'black');
-api.drawText('Layer 0', 15, 35, 'white');
+kde.print('Drawing on layer 0...');
+kde.setCurrentLayer(0);
+kde.drawRect(10, 20, 40, 40, true, 'black');
+kde.drawText('Layer 0', 15, 35, 'white');
 
 // Draw on layer 1 (middle)
-api.print('Drawing on layer 1...');
-api.setCurrentLayer(1);
-api.drawCircle(50, 40, 20, true, 'black');
-api.drawText('Layer 1', 40, 38, 'white');
+kde.print('Drawing on layer 1...');
+kde.setCurrentLayer(1);
+kde.drawCircle(50, 40, 20, true, 'black');
+kde.drawText('Layer 1', 40, 38, 'white');
 
 // Draw on layer 2 (top)
-api.print('Drawing on layer 2...');
-api.setCurrentLayer(2);
-api.drawPolygon(90, 40, 15, 5, 0, true, 'black');
-api.drawText('Layer 2', 80, 38, 'white');
+kde.print('Drawing on layer 2...');
+kde.setCurrentLayer(2);
+kde.drawPolygon(90, 40, 15, 5, 0, true, 'black');
+kde.drawText('Layer 2', 80, 38, 'white');
 
 // Go back to layer 0 for UI text
-api.setCurrentLayer(0);
+kde.setCurrentLayer(0);
 
 // Demonstrate layer visibility
 // setLayerVisibility(index, visible) - Show/hide layer
-api.print('Hiding layer 1...');
-api.setLayerVisibility(1, false);
+kde.print('Hiding layer 1...');
+kde.setLayerVisibility(1, false);
 
 // getLayerVisibility(index) - Check if layer is visible
-const isVisible1 = api.getLayerVisibility(1);
-api.print('Layer 1 visible?', isVisible1);
+const isVisible1 = kde.getLayerVisibility(1);
+kde.print('Layer 1 visible?', isVisible1);
 
 // Show it again
-api.print('Showing layer 1 again...');
-api.setLayerVisibility(1, true);
-const isVisible2 = api.getLayerVisibility(1);
-api.print('Layer 1 visible now?', isVisible2);
+kde.print('Showing layer 1 again...');
+kde.setLayerVisibility(1, true);
+const isVisible2 = kde.getLayerVisibility(1);
+kde.print('Layer 1 visible now?', isVisible2);
 
 // Demonstrate deleteLayer
 // Create a temporary layer to delete
-api.print('Adding temporary layer 3...');
-const layer3 = api.addLayer();
-api.setCurrentLayer(layer3);
-api.drawText('Temp', 10, 80, 'black');
-api.print('Created temporary layer:', layer3);
-api.print('Total layers:', api.getLayerCount());
+kde.print('Adding temporary layer 3...');
+const layer3 = kde.addLayer();
+kde.setCurrentLayer(layer3);
+kde.drawText('Temp', 10, 80, 'black');
+kde.print('Created temporary layer:', layer3);
+kde.print('Total layers:', kde.getLayerCount());
 
 // Delete it
-api.print('Deleting layer', layer3);
-api.deleteLayer(layer3);
-api.print('Total layers after delete:', api.getLayerCount());
+kde.print('Deleting layer', layer3);
+kde.deleteLayer(layer3);
+kde.print('Total layers after delete:', kde.getLayerCount());
 
 // Return to layer 0
-api.setCurrentLayer(0);
+kde.setCurrentLayer(0);
 
 // Layer info summary
-api.drawText('Total Layers: ' + api.getLayerCount(), 5, 90, 'black');
-api.drawText('Current: ' + api.getCurrentLayer(), 5, 100, 'black');
-api.drawText('Current: ' + api.getCurrentLayer(), 5, 80, 'black');
+kde.drawText('Total Layers: ' + kde.getLayerCount(), 5, 90, 'black');
+kde.drawText('Current: ' + kde.getCurrentLayer(), 5, 100, 'black');
+kde.drawText('Current: ' + kde.getCurrentLayer(), 5, 80, 'black');
 
 // ============================================
 // CANVAS OPERATIONS
 // ============================================
 
 // Create new frame for canvas operations
-api.addFrame();
+kde.addFrame();
 
-api.drawText('Canvas Ops', 5, 5, 'black');
+kde.drawText('Canvas Ops', 5, 5, 'black');
 
 // setColor and getColor
-api.setColor('black');
-api.print('Current color:', api.getColor());
+kde.setColor('black');
+kde.print('Current color:', kde.getColor());
 
 // Draw something to test getPixel
-api.drawRect(10, 20, 30, 30, true, 'black');
-api.drawRect(15, 25, 20, 20, true, 'white');
+kde.drawRect(10, 20, 30, 30, true, 'black');
+kde.drawRect(15, 25, 20, 20, true, 'white');
 
 // getPixel(x, y) - Get color at pixel as hex string
-const blackPixel = api.getPixel(12, 22);
-const whitePixel = api.getPixel(25, 35);
-api.print('Black pixel:', blackPixel);
-api.print('White pixel:', whitePixel);
+const blackPixel = kde.getPixel(12, 22);
+const whitePixel = kde.getPixel(25, 35);
+kde.print('Black pixel:', blackPixel);
+kde.print('White pixel:', whitePixel);
 
 // Flood fill demonstration
-api.drawRect(50, 20, 40, 40, false, 'black');
-api.drawCircle(70, 40, 10, false, 'black');
+kde.drawRect(50, 20, 40, 40, false, 'black');
+kde.drawCircle(70, 40, 10, false, 'black');
 // floodFill(x, y, color) - Fill connected region
-api.floodFill(70, 40, 'black'); // Fill the circle
-api.floodFill(52, 22, 'black'); // Fill the ring area
-api.drawText('Flood filled', 50, 65, 'black');
+kde.floodFill(70, 40, 'black'); // Fill the circle
+kde.floodFill(52, 22, 'black'); // Fill the ring area
+kde.drawText('Flood filled', 50, 65, 'black');
 
 // Canvas-wide operations (demonstrated at end)
-api.drawText('Try fillCanvas()', 5, 90, 'black');
-api.drawText('or invert()', 5, 100, 'black');
+kde.drawText('Try fillCanvas()', 5, 90, 'black');
+kde.drawText('or invert()', 5, 100, 'black');
 
 // fillCanvas(color) - Fills entire canvas
-// api.fillCanvas('black');
+// kde.fillCanvas('black');
 
 // invert() - Inverts all colors (black <-> white)
-// api.invert();
+// kde.invert();
 
 // ============================================
 // FRAME & ANIMATION OPERATIONS
@@ -18419,8 +18419,8 @@ api.drawText('or invert()', 5, 100, 'black');
 
 // Already created multiple frames above
 // Summary of frame functions:
-api.print('Total frames created:', api.getFrameCount());
-api.print('Current frame:', api.getCurrentFrame());
+kde.print('Total frames created:', kde.getFrameCount());
+kde.print('Current frame:', kde.getCurrentFrame());
 
 // Other frame functions available:
 // setCurrentFrame(index) - Switch to different frame
@@ -18428,7 +18428,7 @@ api.print('Current frame:', api.getCurrentFrame());
 // deleteFrame() - Remove current frame`,
         bresenham: `// Bresenham's Circle Algorithm
 // This algorithm is a classic method for drawing circles in computer graphics.
-api.clear();
+kde.clear();
 
 function bresenhamCircle(cx, cy, radius) {
   let x = 0;
@@ -18437,14 +18437,14 @@ function bresenhamCircle(cx, cy, radius) {
   
   // Draw 8 symmetric points
   function drawCirclePoints(cx, cy, x, y) {
-    api.setPixel(cx + x, cy + y);
-    api.setPixel(cx - x, cy + y);
-    api.setPixel(cx + x, cy - y);
-    api.setPixel(cx - x, cy - y);
-    api.setPixel(cx + y, cy + x);
-    api.setPixel(cx - y, cy + x);
-    api.setPixel(cx + y, cy - x);
-    api.setPixel(cx - y, cy - x);
+    kde.setPixel(cx + x, cy + y);
+    kde.setPixel(cx - x, cy + y);
+    kde.setPixel(cx + x, cy - y);
+    kde.setPixel(cx - x, cy - y);
+    kde.setPixel(cx + y, cy + x);
+    kde.setPixel(cx - y, cy + x);
+    kde.setPixel(cx + y, cy - x);
+    kde.setPixel(cx - y, cy - x);
   }
   
   drawCirclePoints(cx, cy, x, y);
@@ -18464,95 +18464,95 @@ function bresenhamCircle(cx, cy, radius) {
 }
 
 // Draw multiple concentric circles
-const centerX = api.getWidth() / 2;
-const centerY = api.getHeight() / 2;
+const centerX = kde.getWidth() / 2;
+const centerY = kde.getHeight() / 2;
 
 for (let r = 10; r <= 60; r += 10) {
   bresenhamCircle(centerX, centerY, r);
 }`,
         spiral: `// Spiral Pattern
-api.clear();
-api.setColor('black');
-const centerX = api.getWidth() / 2;
-const centerY = api.getHeight() / 2;
+kde.clear();
+kde.setColor('black');
+const centerX = kde.getWidth() / 2;
+const centerY = kde.getHeight() / 2;
 for (let i = 0; i < 360; i += .1) {
     const angle = i * Math.PI / 180;
     const radius = i / 4;
     const x = Math.floor(centerX + Math.cos(angle) * radius);
     const y = Math.floor(centerY + Math.sin(angle) * radius);
-    api.setPixel(x, y);
+    kde.setPixel(x, y);
 }`,
         grid: `// Grid Pattern
-api.clear();
-api.setColor('black');
+kde.clear();
+kde.setColor('black');
 const spacing = 8;
-for (let x = 0; x < api.getWidth(); x += spacing) {
-    api.drawLine(x, 0, x, api.getHeight());
+for (let x = 0; x < kde.getWidth(); x += spacing) {
+    kde.drawLine(x, 0, x, kde.getHeight());
 }
-for (let y = 0; y < api.getHeight(); y += spacing) {
-    api.drawLine(0, y, api.getWidth(), y);
+for (let y = 0; y < kde.getHeight(); y += spacing) {
+    kde.drawLine(0, y, kde.getWidth(), y);
 }`,
         checkerboard: `// Checkerboard Pattern
-api.clear();
-api.setColor('black');
+kde.clear();
+kde.setColor('black');
 const size = 8;
-for (let y = 0; y < api.getHeight(); y += size) {
-    for (let x = 0; x < api.getWidth(); x += size) {
+for (let y = 0; y < kde.getHeight(); y += size) {
+    for (let x = 0; x < kde.getWidth(); x += size) {
         if ((Math.floor(x / size) + Math.floor(y / size)) % 2 === 0) {
-            api.drawRect(x, y, size, size, true);
+            kde.drawRect(x, y, size, size, true);
         }
     }
 }`,
         circle: `// Concentric Circles
-api.clear();
-api.setColor('black');
-const centerX = api.getWidth() / 2;
-const centerY = api.getHeight() / 2;
+kde.clear();
+kde.setColor('black');
+const centerX = kde.getWidth() / 2;
+const centerY = kde.getHeight() / 2;
 for (let r = 10; r < 80; r += 10) {
-    api.drawCircle(centerX, centerY, r, false);
+    kde.drawCircle(centerX, centerY, r, false);
 }`,
         random: `// Random Pixels
-api.clear();
-api.setColor('black');
+kde.clear();
+kde.setColor('black');
 const count = 500;
 for (let i = 0; i < count; i++) {
-    const x = Math.floor(Math.random() * api.getWidth());
-    const y = Math.floor(Math.random() * api.getHeight());
-    api.setPixel(x, y);
+    const x = Math.floor(Math.random() * kde.getWidth());
+    const y = Math.floor(Math.random() * kde.getHeight());
+    kde.setPixel(x, y);
 }`,
         interactive: `// Interactive Click Drawing
 // Click anywhere on the canvas to draw!
-api.clear();
-api.setColor('black');
+kde.clear();
+kde.setColor('black');
 
 // Set up click handler
-api.onClick(function(x, y) {
+kde.onClick(function(x, y) {
     // Draw a small cross at click position
-    api.drawLine(x - 3, y, x + 3, y);
-    api.drawLine(x, y - 3, x, y + 3);
+    kde.drawLine(x - 3, y, x + 3, y);
+    kde.drawLine(x, y - 3, x, y + 3);
     
     // Draw a circle around it
-    api.drawCircle(x, y, 5, false);
+    kde.drawCircle(x, y, 5, false);
 });
 
 // Instructions
-api.drawText('Click to draw!', 10, 20);`,
+kde.drawText('Click to draw!', 10, 20);`,
         animation: `// Create Multi-Frame Animation
 // This example creates a bouncing ball animation
 
 const frames = 8; // Number of frames
-const w = api.getWidth();
-const h = api.getHeight();
+const w = kde.getWidth();
+const h = kde.getHeight();
 
 // Create frames if we don't have enough
-while (api.getFrameCount() < frames) {
-    api.addFrame();
+while (kde.getFrameCount() < frames) {
+    kde.addFrame();
 }
 
 // Draw each frame
 for (let i = 0; i < frames; i++) {
-    api.setCurrentFrame(i);
-    api.clear();
+    kde.setCurrentFrame(i);
+    kde.clear();
     
     // Calculate ball position (bouncing motion)
     const t = i / frames;
@@ -18561,104 +18561,104 @@ for (let i = 0; i < frames; i++) {
     const y = h - 20 - (bounce * (h - 40));
     
     // Draw ground
-    api.drawLine(10, h - 10, w - 10, h - 10, 'black');
+    kde.drawLine(10, h - 10, w - 10, h - 10, 'black');
     
     // Draw ball
-    api.drawCircle(x, y, 8, true, 'black');
+    kde.drawCircle(x, y, 8, true, 'black');
     
     // Frame number
-    api.drawText('Frame ' + (i + 1), 10, 10, 'black');
+    kde.drawText('Frame ' + (i + 1), 10, 10, 'black');
 }
 
 // Return to first frame
-api.setCurrentFrame(0);`,
+kde.setCurrentFrame(0);`,
         layers: `// Multi-Layer Drawing Example
 // This script creates 3 additional layers and draws on each
 
 // Create 3 new layers (plus Layer 0 = 4 total)
-api.addLayer(); // Layer 1
-api.addLayer(); // Layer 2
-api.addLayer(); // Layer 3
+kde.addLayer(); // Layer 1
+kde.addLayer(); // Layer 2
+kde.addLayer(); // Layer 3
 
-const w = api.getWidth();
-const h = api.getHeight();
+const w = kde.getWidth();
+const h = kde.getHeight();
 
 // Layer 0 - Background grid pattern
-api.setCurrentLayer(0);
-api.drawText('Layer 0: Grid', 5, 10, 'black');
+kde.setCurrentLayer(0);
+kde.drawText('Layer 0: Grid', 5, 10, 'black');
 for (let x = 0; x < w; x += 10) {
     for (let y = 30; y < h; y += 10) {
-        api.setPixel(x, y, 'black');
+        kde.setPixel(x, y, 'black');
     }
 }
 
 // Layer 1 - Large circles
-api.setCurrentLayer(1);
-api.drawText('Layer 1: Circles', 5, 25, 'black');
-api.drawCircle(w/4, h/2, 20, false, 'black');
-api.drawCircle(3*w/4, h/2, 20, false, 'black');
+kde.setCurrentLayer(1);
+kde.drawText('Layer 1: Circles', 5, 25, 'black');
+kde.drawCircle(w/4, h/2, 20, false, 'black');
+kde.drawCircle(3*w/4, h/2, 20, false, 'black');
 
 // Layer 2 - Filled rectangles
-api.setCurrentLayer(2);
-api.drawText('Layer 2: Boxes', 5, 40, 'black');
-api.drawRect(w/2 - 15, h/2 - 15, 30, 30, true, 'black');
+kde.setCurrentLayer(2);
+kde.drawText('Layer 2: Boxes', 5, 40, 'black');
+kde.drawRect(w/2 - 15, h/2 - 15, 30, 30, true, 'black');
 
 // Layer 3 - Diagonal lines
-api.setCurrentLayer(3);
-api.drawText('Layer 3: Lines', 5, 55, 'black');
-api.drawLine(10, 70, w-10, h-10, 'black');
-api.drawLine(w-10, 70, 10, h-10, 'black');
+kde.setCurrentLayer(3);
+kde.drawText('Layer 3: Lines', 5, 55, 'black');
+kde.drawLine(10, 70, w-10, h-10, 'black');
+kde.drawLine(w-10, 70, 10, h-10, 'black');
 
 // Show info
-api.drawText(api.getLayerCount() + ' layers total', 5, h-10, 'black');`,
+kde.drawText(kde.getLayerCount() + ' layers total', 5, h-10, 'black');`,
         selection: `// Selection Operations Example
 // Demonstrates copy, paste, rotate, and mirror
 
-const w = api.getWidth();
-const h = api.getHeight();
+const w = kde.getWidth();
+const h = kde.getHeight();
 
-api.clear();
+kde.clear();
 
 // Draw a simple pattern
-api.drawText('Original', 10, 10, 'black');
-api.drawRect(10, 20, 30, 30, false, 'black');
-api.drawCircle(25, 35, 8, true, 'black');
+kde.drawText('Original', 10, 10, 'black');
+kde.drawRect(10, 20, 30, 30, false, 'black');
+kde.drawCircle(25, 35, 8, true, 'black');
 
 // Select the pattern area
-api.selectRect(10, 10, 40, 50);
+kde.selectRect(10, 10, 40, 50);
 
 // Copy it
-api.copySelection();
+kde.copySelection();
 
 // Clear selection
-api.clearSelection();
+kde.clearSelection();
 
 // Paste and rotate at different positions
-api.paste(50, 10);
-api.selectRect(50, 10, 90, 50);
-api.rotateSelection(90);
-api.clearSelection();
+kde.paste(50, 10);
+kde.selectRect(50, 10, 90, 50);
+kde.rotateSelection(90);
+kde.clearSelection();
 
-api.drawText('Rotated 90°', 50, 55, 'black');
+kde.drawText('Rotated 90°', 50, 55, 'black');
 
 // Paste and mirror horizontally
-api.paste(10, 70);
-api.selectRect(10, 70, 50, 110);
-api.mirrorSelectionH();
-api.clearSelection();
+kde.paste(10, 70);
+kde.selectRect(10, 70, 50, 110);
+kde.mirrorSelectionH();
+kde.clearSelection();
 
-api.drawText('Mirrored H', 10, 115, 'black');
+kde.drawText('Mirrored H', 10, 115, 'black');
 
 // Paste and mirror vertically
-api.paste(50, 70);
-api.selectRect(50, 70, 90, 110);
-api.mirrorSelectionV();
-api.clearSelection();
+kde.paste(50, 70);
+kde.selectRect(50, 70, 90, 110);
+kde.mirrorSelectionV();
+kde.clearSelection();
 
-api.drawText('Mirrored V', 50, 115, 'black');
+kde.drawText('Mirrored V', 50, 115, 'black');
 
 // Show that selection is cleared
-api.drawText('All done!', 10, h-10, 'black');`
+kde.drawText('All done!', 10, h-10, 'black');`
     };
     
     // Load example script
@@ -18680,10 +18680,10 @@ api.drawText('All done!', 10, h-10, 'black');`
         
         try {
             // Execute the drawing script
-            const prints = editor.executeDrawing(function(api) {
+            const prints = editor.executeDrawing(function(kde) {
                 // Create a function from the code and execute it
-                const userFunction = new Function('api', code);
-                userFunction(api);
+                const userFunction = new Function('kde', code);
+                userFunction(kde);
             });
             
             // Display print statements if any

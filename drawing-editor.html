@@ -1116,7 +1116,7 @@
             <div class="script-editor-actions">
                 <select id="scriptExamples" class="script-examples-select">
                     <option value="">-- Load Example --</option>
-                    <option value="apiReference">API Reference (All Functions)</option>
+                    <option value="kdeReference">kde Reference (All Functions)</option>
                     <option value="bresenham">Bresenham's Circle</option>
                     <option value="spiral">Spiral Pattern</option>
                     <option value="grid">Grid Pattern</option>
@@ -1138,7 +1138,7 @@
                 <!-- CodeMirror will be initialized here -->
                 <textarea id="scriptInput" class="script-textarea" spellcheck="false" style="display: block;">// Bresenham's Circle Algorithm
 // This algorithm is a classic method for drawing circles in computer graphics.
-api.clear();
+kde.clear();
 
 function bresenhamCircle(cx, cy, radius) {
   let x = 0;
@@ -1147,14 +1147,14 @@ function bresenhamCircle(cx, cy, radius) {
   
   // Draw 8 symmetric points
   function drawCirclePoints(cx, cy, x, y) {
-    api.setPixel(cx + x, cy + y);
-    api.setPixel(cx - x, cy + y);
-    api.setPixel(cx + x, cy - y);
-    api.setPixel(cx - x, cy - y);
-    api.setPixel(cx + y, cy + x);
-    api.setPixel(cx - y, cy + x);
-    api.setPixel(cx + y, cy - x);
-    api.setPixel(cx - y, cy - x);
+    kde.setPixel(cx + x, cy + y);
+    kde.setPixel(cx - x, cy + y);
+    kde.setPixel(cx + x, cy - y);
+    kde.setPixel(cx - x, cy - y);
+    kde.setPixel(cx + y, cy + x);
+    kde.setPixel(cx - y, cy + x);
+    kde.setPixel(cx + y, cy - x);
+    kde.setPixel(cx - y, cy - x);
   }
   
   drawCirclePoints(cx, cy, x, y);
@@ -1174,8 +1174,8 @@ function bresenhamCircle(cx, cy, radius) {
 }
 
 // Draw multiple concentric circles
-const centerX = api.getWidth() / 2;
-const centerY = api.getHeight() / 2;
+const centerX = kde.getWidth() / 2;
+const centerY = kde.getHeight() / 2;
 
 for (let r = 10; r <= 60; r += 10) {
   bresenhamCircle(centerX, centerY, r);
