@@ -17464,6 +17464,9 @@ Instructions:
             const prints = this._printBuffer || [];
             this._printBuffer = [];
             this._executingScript = false;
+            
+            // Attach prints to error object so they can be accessed by caller
+            error.scriptPrints = prints;
             throw error; // Re-throw to be caught by caller
         }
         
@@ -18460,14 +18463,8 @@ function initializeScriptEditor(editor) {
     
     // Example scripts
     const examples = {
-        kdeReference: `// ============================================
-// KYWY Drawing Script kde Reference & Examples
-// ============================================
-// This example demonstrates all available kde functions
-
-// Clear the canvas to start fresh
-kde.clear();
-
+        kdeReference: `// Drawing Editor Scripting Reference
+// Access the editor via the 'kde' (Koinslot drawing editor) variable
 // Create a new file from scratch
 kde.new();
 
@@ -18834,7 +18831,10 @@ kde.setCurrentFrame(0);
 // duplicateFrame() - Copy current frame
 kde.duplicateFrame();
 // deleteFrame() - Remove current frame
-kde.deleteFrame();` ,
+kde.deleteFrame();
+// Errors are caught and displayed in the script output panel, as well as notifed
+// heres an example where we call a function that does not exist
+kde.nonExistentFunction(); // This will trigger an error message`,
         bresenham: `// Bresenham's Circle Algorithm
 // This algorithm is a classic method for drawing circles in computer graphics.
 kde.clear();
@@ -19111,7 +19111,18 @@ kde.drawText('All done!', 10, h-10, 'black');`
                 }, 2000);
             }
         } catch (error) {
-            showScriptOutput('Error: ' + error.message, 'error');
+            // Check if there were any prints before the error occurred
+            const prints = error.scriptPrints || [];
+            let errorMessage = 'Error: ' + error.message;
+            
+            // If there were prints before the error, include them in the output
+            if (prints && prints.length > 0) {
+                errorMessage = 'Script executed partially with prints, then encountered an error:\n\n' + 
+                              prints.join('\n') + '\n\n' +
+                              '❌ ERROR: ' + error.message;
+            }
+            
+            showScriptOutput(errorMessage, 'error');
             // Show error in popup/alert
             alert('Script Error:\n\n' + error.message);
         }
