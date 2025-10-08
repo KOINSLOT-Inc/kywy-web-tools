@@ -674,3 +674,40 @@ body:not(.menu-page) .onion-skin-control #animOnionOpacityContainer {
     border-left: 1px solid #000000 !important;
     border-left-width: 2px !important;
 }
+
+/* Fullscreen script editor - solid grey background */
+.windows95-theme .script-editor-panel.fullscreen {
+    background: #c0c0c0 !important;
+}
+
+/* Windows 95 themed syntax highlighting */
+.windows95-theme .code-editor-wrapper .cm-comment {
+    color: #008000 !important;
+    font-style: italic !important;
+}
+
+.windows95-theme .code-editor-wrapper .cm-keyword {
+    color: #0000ff !important;
+    font-weight: bold !important;
+}
+
+.windows95-theme .code-editor-wrapper .cm-string {
+    color: #a31515 !important;
+}
+
+.windows95-theme .code-editor-wrapper .cm-number {
+    color: #098658 !important;
+}
+
+.windows95-theme .code-editor-wrapper .cm-variable {
+    color: #001080 !important;
+}
+
+.windows95-theme .code-editor-wrapper .cm-def {
+    color: #795e26 !important;
+    font-weight: bold !important;
+}
+
+.windows95-theme .code-editor-wrapper .cm-operator {
+    color: #000000 !important;
+}
