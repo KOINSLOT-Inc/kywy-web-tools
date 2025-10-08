@@ -2834,7 +2834,7 @@ class DrawingEditor {
             fontSelect.value = fonts.includes(currentFont) ? currentFont : fontSelect.options[0].value;
         }
         
-        console.log(`Auto-detected ${filteredFonts.length} system fonts`);
+        // console.log(`Auto-detected ${filteredFonts.length} system fonts`);
     }
 
     updateTextPreview() {
@@ -5019,9 +5019,9 @@ class DrawingEditor {
         this.drawBaseOverlays();
         
         if (this.gridModeEnabled && this.showGridLines) {
-            console.log(`Grid enabled: size=${this.gridSize}, zoom=${this.zoom}`); // Debug
+            // console.log(`Grid enabled: size=${this.gridSize}, zoom=${this.zoom}`); // Debug
         } else {
-            console.log('Grid disabled'); // Debug
+            // console.log('Grid disabled'); // Debug
         }
     }
     
@@ -17183,8 +17183,8 @@ document.addEventListener('DOMContentLoaded', () => {
     initializeScriptEditor(editor);
     
     // Log scripting API availability
-    console.log('Drawing Editor loaded! Use window.editor to access the API.');
-    console.log('Example: editor.executeDrawing(api => { api.drawCircle(50, 50, 20, true, "black"); });');
+    // console.log('Drawing Editor loaded! Use window.editor to access the API.');
+    // console.log('Example: editor.executeDrawing(api => { api.drawCircle(50, 50, 20, true, "black"); });');
 });
 
 // Script Editor functionality
@@ -17200,6 +17200,27 @@ function initializeScriptEditor(editor) {
     // Initialize CodeMirror 5
     let codeMirrorInstance = null;
     
+    // Suppress passive event listener warnings from CodeMirror
+    // These are performance hints but don't affect functionality
+    const originalAddEventListener = EventTarget.prototype.addEventListener;
+    let suppressWarnings = false;
+    
+    EventTarget.prototype.addEventListener = function(type, listener, options) {
+        // Only apply passive defaults during CodeMirror initialization
+        if (suppressWarnings && (type === 'touchstart' || type === 'touchmove' || type === 'mousewheel' || type === 'wheel')) {
+            if (typeof options === 'boolean') {
+                options = { capture: options, passive: false };
+            } else if (typeof options === 'object' && options !== null) {
+                if (options.passive === undefined) {
+                    options = { ...options, passive: false };
+                }
+            } else {
+                options = { passive: false };
+            }
+        }
+        return originalAddEventListener.call(this, type, listener, options);
+    };
+    
     // Wait for CodeMirror to be loaded
     function initCodeMirror() {
         if (!window.CodeMirror) {
@@ -17209,6 +17230,9 @@ function initializeScriptEditor(editor) {
         
         // Get initial code from textarea
         const initialCode = textarea.value || textarea.textContent || '';
+        
+        // Enable warning suppression during CodeMirror initialization
+        suppressWarnings = true;
         
         // Create CodeMirror instance
         codeMirrorInstance = CodeMirror(container, {
@@ -17224,13 +17248,16 @@ function initializeScriptEditor(editor) {
             autoCloseBrackets: true
         });
         
+        // Disable warning suppression after initialization
+        suppressWarnings = false;
+        
         // Store globally for refresh when panel opens
         window.scriptEditorCodeMirror = codeMirrorInstance;
         
         // Hide the textarea after CodeMirror is initialized
         textarea.style.display = 'none';
         
-        console.log('CodeMirror initialized with', initialCode.length, 'characters');
+        // console.log('CodeMirror initialized with', initialCode.length, 'characters');
     }
     
     // Start initialization
