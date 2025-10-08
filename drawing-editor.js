@@ -16923,6 +16923,11 @@ Instructions:
         // This prevents individual kde calls from creating their own undo entries
         this._executingScript = true;
         
+        // Pause animation during script execution
+        if (this.isPlaying) {
+            this.stopAnimation();
+        }
+        
         // Clear any previous script click handler
         this.scriptClickHandler = null;
         
@@ -17374,16 +17379,8 @@ Instructions:
                 paste: (x, y) => {
                     if (!this.clipboard) return false;
                     
-                    // Enable paste mode
-                    this.isPasteModeActive = true;
-                    this.pasteX = Math.floor(x);
-                    this.pasteY = Math.floor(y);
-                    
-                    // Perform the paste
-                    this.performPaste();
-                    
-                    // Disable paste mode
-                    this.isPasteModeActive = false;
+                    // Call the existing paste function
+                    this.pasteAtPosition(x, y);
                     
                     return true;
                 },
