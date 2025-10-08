@@ -5034,13 +5034,9 @@ class DrawingEditor {
         
         // When mouse leaves, restore the proper overlay state without cursor highlights
         // This will preserve grids, selections, and other overlays
+        // Note: restoreOverlayState() already handles drawing the selection overlay if needed,
+        // so we don't need to call drawSelectionOverlay() again
         this.restoreOverlayState();
-        
-        // If we're using the select tool and have an active selection, redraw the selection overlay
-        // to keep the selection preview visible even when mouse is outside canvas
-        if (this.currentTool === 'select' && this.selection && this.selection.active) {
-            this.drawSelectionOverlay();
-        }
     }
     
     onMouseWheel(e) {
@@ -5547,6 +5543,8 @@ class DrawingEditor {
                 this.selection.lassoPoints.push({x: firstPoint.x, y: firstPoint.y});
             }
             
+            // Recalculate selected pixels now that the lasso is closed
+            this.updateLassoSelectedPixels();
             this.drawSelectionOverlay();
         }
         
@@ -9097,7 +9095,13 @@ class DrawingEditor {
         
         // 2. Selection overlay (if active and using select tool) - but NOT in paste mode
         if (this.selection && this.selection.active && this.currentTool === 'select' && !this.isPasteModeActive) {
-            this.drawSelectionInOverlay();
+            if (this.selection.mode === 'lasso') {
+                // Use pixel-perfect rendering for lasso
+                this.drawPixelPerfectLassoSelection();
+            } else {
+                // Use regular rendering for rectangle
+                this.drawSelectionInOverlay();
+            }
         }
     }
     
@@ -9111,32 +9115,8 @@ class DrawingEditor {
         this.overlayCtx.msImageSmoothingEnabled = false;
         
         if (this.selection.mode === 'lasso') {
-            const lassoPoints = this.selection.lassoPoints;
-            if (lassoPoints && lassoPoints.length > 2) {
-                // Round all coordinates to nearest pixel for pixel-perfect selection
-                const roundedPoints = lassoPoints.map(point => ({
-                    x: Math.round(point.x),
-                    y: Math.round(point.y)
-                }));
-                
-                // Draw lasso path with pixel-perfect coordinates
-                this.overlayCtx.strokeStyle = 'rgba(255, 100, 100, 0.8)';
-                this.overlayCtx.lineWidth = 1;
-                this.overlayCtx.beginPath();
-                this.overlayCtx.moveTo(roundedPoints[0].x + 0.5, roundedPoints[0].y + 0.5);
-                
-                for (let i = 1; i < roundedPoints.length; i++) {
-                    this.overlayCtx.lineTo(roundedPoints[i].x + 0.5, roundedPoints[i].y + 0.5);
-                }
-                
-                // Close the path
-                this.overlayCtx.closePath();
-                this.overlayCtx.stroke();
-                
-                // Fill the lasso area
-                this.overlayCtx.fillStyle = 'rgba(255, 100, 100, 0.3)';
-                this.overlayCtx.fill();
-            }
+            // For lasso, don't draw anything here - pixel-perfect rendering handles it
+            // This avoids any anti-aliased stroke/fill operations
         } else {
             // Rectangle selection
             const { startX, startY, endX, endY } = this.selection;
@@ -12920,6 +12900,8 @@ Instructions:
                 // Only add point if it's far enough from the last point (prevents too many points)
                 if (distance > 2) {
                     this.selection.lassoPoints.push({x: Math.round(x), y: Math.round(y)});
+                    // Recalculate selected pixels in real-time as we draw
+                    this.updateLassoSelectedPixels();
                 }
             } else {
                 // Normal rectangle selection resizing
@@ -12939,41 +12921,14 @@ Instructions:
             this.overlayCtx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
             this.drawBaseOverlays();
             
-            // Draw the selection overlay
-            this.drawSelectionInOverlay();
-            
             if (this.selection.mode === 'lasso') {
-                const lassoPoints = this.selection.lassoPoints;
-                if (lassoPoints && lassoPoints.length > 2) {
-                    // Round all coordinates to nearest pixel for pixel-perfect selection
-                    const roundedPoints = lassoPoints.map(point => ({
-                        x: Math.round(point.x),
-                        y: Math.round(point.y)
-                    }));
-                    
-                    // Draw lasso path with pixel-perfect coordinates
-                    this.overlayCtx.strokeStyle = 'rgba(255, 100, 100, 0.8)';
-                    this.overlayCtx.lineWidth = 1;
-                    this.overlayCtx.beginPath();
-                    this.overlayCtx.moveTo(roundedPoints[0].x + 0.5, roundedPoints[0].y + 0.5);
-                    
-                    for (let i = 1; i < roundedPoints.length; i++) {
-                        this.overlayCtx.lineTo(roundedPoints[i].x + 0.5, roundedPoints[i].y + 0.5);
-                    }
-                    
-                    // Close the path
-                    this.overlayCtx.closePath();
-                    this.overlayCtx.stroke();
-                    
-                    // Fill the lasso area
-                    this.overlayCtx.fillStyle = 'rgba(255, 100, 100, 0.3)';
-                    this.overlayCtx.fill();
-                    
-                    // If we have cut content, draw it (would need to be implemented for lasso)
-                    if (this.selection.cutContent) {
-                        // For lasso selections, we'd need to determine bounds and position
-                        // This is more complex and would require additional implementation
-                    }
+                // Use ONLY pixel-perfect lasso rendering (skip drawSelectionInOverlay for lasso)
+                this.drawPixelPerfectLassoSelection();
+                
+                // If we have cut content, draw it (would need to be implemented for lasso)
+                if (this.selection.cutContent) {
+                    // For lasso selections, we'd need to determine bounds and position
+                    // This is more complex and would require additional implementation
                 }
             } else {
                 // Rectangle selection
@@ -13003,6 +12958,135 @@ Instructions:
         }
         // Note: When there's no active selection, we don't clear the overlay
         // to preserve other overlay elements like grids
+    }
+    
+    updateLassoSelectedPixels() {
+        // Calculate which pixels are inside the lasso selection
+        if (!this.selection || !this.selection.lassoPoints || this.selection.lassoPoints.length < 3) {
+            this.selection.selectedPixels = new Set();
+            return;
+        }
+        
+        const points = this.selection.lassoPoints.map(p => ({
+            x: Math.round(p.x),
+            y: Math.round(p.y)
+        }));
+        
+        // Find bounding box
+        let minX = points[0].x, maxX = points[0].x;
+        let minY = points[0].y, maxY = points[0].y;
+        
+        for (let i = 1; i < points.length; i++) {
+            if (points[i].x < minX) minX = points[i].x;
+            if (points[i].x > maxX) maxX = points[i].x;
+            if (points[i].y < minY) minY = points[i].y;
+            if (points[i].y > maxY) maxY = points[i].y;
+        }
+        
+        // Clamp to canvas bounds
+        minX = Math.max(0, minX);
+        maxX = Math.min(this.canvasWidth - 1, maxX);
+        minY = Math.max(0, minY);
+        maxY = Math.min(this.canvasHeight - 1, maxY);
+        
+        // Use scanline algorithm to find all pixels inside the lasso
+        const selectedPixels = new Set();
+        
+        for (let y = minY; y <= maxY; y++) {
+            const intersections = [];
+            
+            for (let i = 0; i < points.length; i++) {
+                const p1 = points[i];
+                const p2 = points[(i + 1) % points.length];
+                
+                const y1 = p1.y;
+                const y2 = p2.y;
+                
+                // Skip horizontal edges
+                if (y1 === y2) continue;
+                
+                // Check if scanline intersects this edge
+                const yMin = Math.min(y1, y2);
+                const yMax = Math.max(y1, y2);
+                
+                if (y >= yMin && y < yMax) {
+                    // Calculate x intersection
+                    const t = (y - y1) / (y2 - y1);
+                    const x = Math.round(p1.x + t * (p2.x - p1.x));
+                    intersections.push(x);
+                }
+            }
+            
+            // Sort intersections
+            intersections.sort((a, b) => a - b);
+            
+            // Fill between pairs of intersections
+            for (let i = 0; i < intersections.length - 1; i += 2) {
+                const x1 = Math.max(0, intersections[i]);
+                const x2 = Math.min(this.canvasWidth - 1, intersections[i + 1]);
+                
+                for (let x = x1; x <= x2; x++) {
+                    selectedPixels.add(`${x},${y}`);
+                }
+            }
+        }
+        
+        this.selection.selectedPixels = selectedPixels;
+    }
+    
+    drawPixelPerfectLassoSelection() {
+        // Ensure we have selected pixels calculated
+        if (!this.selection.selectedPixels) {
+            this.updateLassoSelectedPixels();
+        }
+        
+        if (!this.selection.selectedPixels || this.selection.selectedPixels.size === 0) {
+            return;
+        }
+        
+        const overlayData = this.overlayCtx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
+        const data = overlayData.data;
+        
+        // Fill color: match rectangle selection exactly - rgba(255, 100, 100, 0.3)
+        const fillR = 255, fillG = 100, fillB = 100, fillA = 77; // 0.3 * 255 ≈ 77
+        
+        // Outline color: darker red for visibility
+        const outlineR = 200, outlineG = 50, outlineB = 50, outlineA = 155;
+        
+        // First pass: Fill all selected pixels
+        for (const pixelKey of this.selection.selectedPixels) {
+            const [x, y] = pixelKey.split(',').map(Number);
+            const idx = (y * this.canvasWidth + x) * 4;
+            
+            // Set fill color directly (matching rectangle selection rendering)
+            data[idx] = fillR;
+            data[idx + 1] = fillG;
+            data[idx + 2] = fillB;
+            data[idx + 3] = fillA;
+        }
+        
+        // Second pass: Draw outline by finding edge pixels
+        // An edge pixel is selected but has at least one neighbor that is NOT selected
+        for (const pixelKey of this.selection.selectedPixels) {
+            const [x, y] = pixelKey.split(',').map(Number);
+            
+            // Check 4-connected neighbors
+            const isEdge = 
+                !this.selection.selectedPixels.has(`${x-1},${y}`) ||
+                !this.selection.selectedPixels.has(`${x+1},${y}`) ||
+                !this.selection.selectedPixels.has(`${x},${y-1}`) ||
+                !this.selection.selectedPixels.has(`${x},${y+1}`);
+            
+            if (isEdge) {
+                const idx = (y * this.canvasWidth + x) * 4;
+                data[idx] = outlineR;
+                data[idx + 1] = outlineG;
+                data[idx + 2] = outlineB;
+                data[idx + 3] = outlineA;
+            }
+        }
+        
+        this.overlayCtx.putImageData(overlayData, 0, 0);
     }
     
     drawHandle(x, y, size) {
