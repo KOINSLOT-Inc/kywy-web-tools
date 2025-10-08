@@ -3919,9 +3919,9 @@ class DrawingEditor {
             canvas.addEventListener('touchend', (e) => this.onTouchEnd(e), { passive: false });
             canvas.addEventListener('touchcancel', (e) => this.onTouchEnd(e), { passive: false });
             
-            // Prevent middle and right mouse button default behavior
+            // Prevent middle mouse button default behavior
             canvas.addEventListener('mousedown', (e) => {
-                if (e.button === 1 || e.button === 2) {
+                if (e.button === 1) {
                     e.preventDefault();
                 }
             });
@@ -3947,8 +3947,8 @@ class DrawingEditor {
                 if (e.button === 0 && e.target === canvasContainer) {
                     this.onMouseDown(e);
                 }
-                // Handle middle or right click for panning
-                else if (e.button === 1 || (e.button === 2 && !this.isDrawing)) {
+                // Handle middle click for panning
+                else if (e.button === 1) {
                     e.preventDefault();
                     this.startPanning(e);
                 }
@@ -3962,7 +3962,7 @@ class DrawingEditor {
             });
             
             canvasContainer.addEventListener('mouseup', (e) => {
-                if (this.isPanning && (e.button === 1 || e.button === 2)) {
+                if (this.isPanning && e.button === 1) {
                     this.endPanning();
                 }
             });
@@ -5078,8 +5078,8 @@ class DrawingEditor {
     onMouseDown(e) {
         this.lastMouseEvent = e; // Store for panning
         
-        // Handle middle mouse button (button 1) or right mouse button (button 2) for panning regardless of current tool
-        if (e.button === 1 || e.button === 2) {
+        // Handle middle mouse button (button 1) for panning regardless of current tool
+        if (e.button === 1) {
             e.preventDefault(); // Prevent browser's default behavior
             const pos = this.getMousePos(e);
             this.startPanning(pos);
