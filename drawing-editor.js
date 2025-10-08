@@ -12721,6 +12721,7 @@ class DrawingEditor {
                         const frameLayers = frameLayersData[frameIdx].sort((a, b) => a.layerIndex - b.layerIndex);
                         
                         // Convert each layer data to canvas
+                        let visibleLayerIndex = 0; // Track position in transparency array (only counts visible layers)
                         frameLayers.forEach((layerInfo) => {
                             const layerCanvas = document.createElement('canvas');
                             layerCanvas.width = width;
@@ -12767,9 +12768,9 @@ class DrawingEditor {
                             // Add layer to frame
                             // Determine transparency mode from parsed array
                             let transparencyMode = 'white'; // default
-                            const frameTransparencyKey = `${Object.keys(transparencyArrays).find(key => key.includes(`frame${arrayIdx}_transparency`))}`;
-                            if (transparencyArrays[frameTransparencyKey] && transparencyArrays[frameTransparencyKey][layerInfo.layerIndex]) {
-                                transparencyMode = transparencyArrays[frameTransparencyKey][layerInfo.layerIndex] ? 'white' : 'black';
+                            const frameTransparencyKey = Object.keys(transparencyArrays).find(key => key.includes(`frame${arrayIdx}_transparency`));
+                            if (frameTransparencyKey && transparencyArrays[frameTransparencyKey] && transparencyArrays[frameTransparencyKey][visibleLayerIndex] !== undefined) {
+                                transparencyMode = transparencyArrays[frameTransparencyKey][visibleLayerIndex] ? 'white' : 'black';
                             }
                             
                             this.frameLayers[arrayIdx].layers.push({
@@ -12778,6 +12779,8 @@ class DrawingEditor {
                                 name: layerInfo.name,
                                 transparencyMode: transparencyMode
                             });
+                            
+                            visibleLayerIndex++; // Increment for next visible layer
                         });
                         
                         // Composite this frame's layers
@@ -12815,6 +12818,7 @@ class DrawingEditor {
                     };
                     
                     // Convert each layer data to canvas
+                    let visibleLayerIndex = 0; // Track position in transparency array (only counts visible layers)
                     allLayerData.forEach((layerInfo, layerIndex) => {
                         const layerCanvas = document.createElement('canvas');
                         layerCanvas.width = width;
@@ -12864,10 +12868,9 @@ class DrawingEditor {
                         // Determine transparency mode from parsed array
                         let transparencyMode = 'white'; // default
                         const singleFrameTransparencyKey = Object.keys(transparencyArrays).find(key => key.endsWith('_transparency') && !key.includes('frame'));
-                        if (transparencyArrays[singleFrameTransparencyKey]) {
-                            const layerIndex = this.frameLayers[0].layers.length; // Current layer index
-                            if (transparencyArrays[singleFrameTransparencyKey][layerIndex] !== undefined) {
-                                transparencyMode = transparencyArrays[singleFrameTransparencyKey][layerIndex] ? 'white' : 'black';
+                        if (singleFrameTransparencyKey && transparencyArrays[singleFrameTransparencyKey]) {
+                            if (transparencyArrays[singleFrameTransparencyKey][visibleLayerIndex] !== undefined) {
+                                transparencyMode = transparencyArrays[singleFrameTransparencyKey][visibleLayerIndex] ? 'white' : 'black';
                             }
                         }
                         
@@ -12877,6 +12880,8 @@ class DrawingEditor {
                             name: layerInfo.name,
                             transparencyMode: transparencyMode
                         });
+                        
+                        visibleLayerIndex++; // Increment for next visible layer
                     });
                     
                     // Composite layers to frame
