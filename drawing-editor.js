@@ -930,6 +930,7 @@ class DrawingEditor {
         this.animationDirection = 1; // 1 for forward, -1 for backward (boomerang)
         
         // Layer system - ALWAYS ACTIVE internally
+        this.layersEnabled = true; // Internal layer system is always enabled
         this.layersPanelVisible = false; // UI state - whether layers panel is shown
         this.animationEnabled = false;
         this.scriptEditorEnabled = false;
@@ -1159,8 +1160,8 @@ class DrawingEditor {
             });
         }
         
-        // Resize all layer canvases if layers are enabled
-        if (this.layersEnabled && this.frameLayers) {
+        // Resize all layer canvases - layers are always active internally
+        if (this.frameLayers) {
             Object.keys(this.frameLayers).forEach(frameIndex => {
                 const frameData = this.frameLayers[frameIndex];
                 if (frameData && frameData.layers) {
@@ -8563,10 +8564,8 @@ class DrawingEditor {
         // Perform flood fill (mirroring disabled for flood fill tool)
         this.performFloodFill(x, y, ctx);
         
-        // Composite layers if needed and redraw
-        if (this.layersEnabled) {
-            this.compositeLayersToFrame(this.currentFrameIndex);
-        }
+        // Composite layers and redraw - layers are always active internally
+        this.compositeLayersToFrame(this.currentFrameIndex);
         this.redrawCanvas();
         
         // Push undo snapshot
@@ -10263,9 +10262,9 @@ class DrawingEditor {
         const ctx = clonedFrame.getContext('2d', { willReadFrequently: true });
         ctx.drawImage(frameToDelete, 0, 0);
         
-        // Clone layer data if layers are enabled
+        // Clone layer data - layers are always active internally
         let clonedLayerData = null;
-        if (this.layersEnabled && this.frameLayers && this.frameLayers[this.currentFrameIndex]) {
+        if (this.frameLayers && this.frameLayers[this.currentFrameIndex]) {
             const originalLayerData = this.frameLayers[this.currentFrameIndex];
             clonedLayerData = {
                 layers: [],
@@ -10361,8 +10360,8 @@ class DrawingEditor {
             this.soloLayerIndex = null; // Exit solo mode when switching frames
             this.setCurrentFrame(this.currentFrameIndex - 1);
             
-            // Initialize layers for this frame if layers are enabled and not already initialized
-            if (this.layersEnabled && (!this.frameLayers[this.currentFrameIndex] || !this.frameLayers[this.currentFrameIndex].layers)) {
+            // Initialize layers for this frame if not already initialized - layers are always active internally
+            if (!this.frameLayers[this.currentFrameIndex] || !this.frameLayers[this.currentFrameIndex].layers) {
                 this.initializeLayersForFrame(this.currentFrameIndex);
             }
         }
@@ -10373,8 +10372,8 @@ class DrawingEditor {
             this.soloLayerIndex = null; // Exit solo mode when switching frames
             this.setCurrentFrame(this.currentFrameIndex + 1);
             
-            // Initialize layers for this frame if layers are enabled and not already initialized
-            if (this.layersEnabled && (!this.frameLayers[this.currentFrameIndex] || !this.frameLayers[this.currentFrameIndex].layers)) {
+            // Initialize layers for this frame if not already initialized - layers are always active internally
+            if (!this.frameLayers[this.currentFrameIndex] || !this.frameLayers[this.currentFrameIndex].layers) {
                 this.initializeLayersForFrame(this.currentFrameIndex);
             }
         }
@@ -10866,8 +10865,9 @@ class DrawingEditor {
     }
     
     generateLayersHPP() {
-        if (!this.layersEnabled) {
-            // Fallback to single frame or animation export if layers not enabled
+        // Layers are always active internally, but check if we have layer data
+        if (!this.frameLayers || Object.keys(this.frameLayers).length === 0) {
+            // Fallback to single frame or animation export if no layer data
             if (this.frames.length > 1) {
                 return this.generateAnimationHPP();
             }
@@ -12864,8 +12864,8 @@ class DrawingEditor {
             tempCtx.fillStyle = 'white';
             tempCtx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
             
-            // If layers are enabled, composite them for this frame
-            if (this.layersEnabled && this.frameLayers[i]) {
+            // Composite layers for this frame - layers are always active internally
+            if (this.frameLayers[i]) {
                 const frameData = this.frameLayers[i];
                 frameData.layers.forEach(layer => {
                     if (layer.visible) {
