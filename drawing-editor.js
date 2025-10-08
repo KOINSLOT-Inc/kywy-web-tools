@@ -3389,6 +3389,19 @@ class DrawingEditor {
         document.getElementById('totalFrames').textContent = this.frames.length;
     }
 
+    // Helper function to initialize a layer canvas with transparent white background
+    initializeLayerCanvas(canvas, width, height) {
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        
+        // Fill entire canvas with white (transparent in our system)
+        ctx.fillStyle = 'white';
+        ctx.fillRect(0, 0, width, height);
+        
+        return ctx;
+    }
+
     initializeLayersForFrame(frameIndex) {
         const frameCanvas = this.frames[frameIndex];
         
@@ -3399,15 +3412,9 @@ class DrawingEditor {
             visible: true,
             transparencyMode: 'white' // 'white' or 'black' - white by default
         };
-        layer1.canvas.width = this.canvasWidth;
-        layer1.canvas.height = this.canvasHeight;
         
-        // Copy current frame content to layer 1
-        const ctx = layer1.canvas.getContext('2d', { willReadFrequently: true });
-        
-        // First fill with white
-        ctx.fillStyle = 'white';
-        ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
+        // Initialize layer canvas with transparent white background
+        const ctx = this.initializeLayerCanvas(layer1.canvas, this.canvasWidth, this.canvasHeight);
         
         // Then draw frame content on top
         ctx.drawImage(frameCanvas, 0, 0);
@@ -3625,13 +3632,9 @@ class DrawingEditor {
             visible: true,
             transparencyMode: 'white' // Default to white transparency
         };
-        newLayer.canvas.width = this.canvasWidth;
-        newLayer.canvas.height = this.canvasHeight;
         
-        // Fill new layer with white by default
-        const ctx = newLayer.canvas.getContext('2d', { willReadFrequently: true });
-        ctx.fillStyle = 'white';
-        ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
+        // Initialize layer canvas with transparent white background
+        this.initializeLayerCanvas(newLayer.canvas, this.canvasWidth, this.canvasHeight);
         
         // Use command pattern for undo support
         const command = new AddLayerCommand(this, this.currentFrameIndex, newLayer);
@@ -12312,15 +12315,18 @@ class DrawingEditor {
                             const img = new Image();
                             img.onload = () => {
                                 const layerCanvas = document.createElement('canvas');
-                                layerCanvas.width = this.canvasWidth;
-                                layerCanvas.height = this.canvasHeight;
-                                const layerCtx = layerCanvas.getContext('2d', { willReadFrequently: true });
+                                
+                                // Initialize layer canvas with transparent white background
+                                const layerCtx = this.initializeLayerCanvas(layerCanvas, this.canvasWidth, this.canvasHeight);
+                                
+                                // Draw the loaded image on top of the white background
                                 layerCtx.drawImage(img, 0, 0);
                                 
                                 this.frameLayers[frameIndex].layers[layerIndex] = {
                                     canvas: layerCanvas,
                                     visible: layerData.visible !== undefined ? layerData.visible : true,
-                                    name: layerData.name || `${layerIndex + 1}`
+                                    name: layerData.name || `${layerIndex + 1}`,
+                                    transparencyMode: layerData.transparencyMode || 'white'
                                 };
                                 resolve();
                             };
@@ -12678,14 +12684,13 @@ class DrawingEditor {
                             for (let pixelIndex = 0; pixelIndex < totalPixels; pixelIndex++) {
                                 const byteIndex = Math.floor(pixelIndex / 8);
                                 const bitIndex = 7 - (pixelIndex % 8); // MSB first
+                                const dataIndex = pixelIndex * 4;
                                 
                                 if (byteIndex < layerInfo.data.length) {
                                     const byte = layerInfo.data[byteIndex];
                                     const bitValue = (byte >> bitIndex) & 1;
                                     // Bit = 1 means WHITE, bit = 0 means BLACK
                                     const isWhite = bitValue === 1;
-                                    
-                                    const dataIndex = pixelIndex * 4;
                                     
                                     if (isWhite) {
                                         data[dataIndex] = 255;     // R
@@ -12698,6 +12703,12 @@ class DrawingEditor {
                                         data[dataIndex + 2] = 0;   // B
                                         data[dataIndex + 3] = 255; // A
                                     }
+                                } else {
+                                    // Default to white (transparent) for uninitialized pixels
+                                    data[dataIndex] = 255;     // R
+                                    data[dataIndex + 1] = 255; // G
+                                    data[dataIndex + 2] = 255; // B
+                                    data[dataIndex + 3] = 255; // A
                                 }
                             }
                             
@@ -12707,7 +12718,8 @@ class DrawingEditor {
                             this.frameLayers[arrayIdx].layers.push({
                                 canvas: layerCanvas,
                                 visible: true,
-                                name: layerInfo.name
+                                name: layerInfo.name,
+                                transparencyMode: 'white'
                             });
                         });
                         
@@ -12759,14 +12771,13 @@ class DrawingEditor {
                         for (let pixelIndex = 0; pixelIndex < totalPixels; pixelIndex++) {
                             const byteIndex = Math.floor(pixelIndex / 8);
                             const bitIndex = 7 - (pixelIndex % 8); // MSB first
+                            const dataIndex = pixelIndex * 4;
                             
                             if (byteIndex < layerInfo.data.length) {
                                 const byte = layerInfo.data[byteIndex];
                                 const bitValue = (byte >> bitIndex) & 1;
                                 // Bit = 1 means WHITE, bit = 0 means BLACK
                                 const isWhite = bitValue === 1;
-                                
-                                const dataIndex = pixelIndex * 4;
                                 
                                 if (isWhite) {
                                     // White pixel
@@ -12781,6 +12792,12 @@ class DrawingEditor {
                                     data[dataIndex + 2] = 0;   // B
                                     data[dataIndex + 3] = 255; // A (fully opaque)
                                 }
+                            } else {
+                                // Default to white (transparent) for uninitialized pixels
+                                data[dataIndex] = 255;     // R
+                                data[dataIndex + 1] = 255; // G
+                                data[dataIndex + 2] = 255; // B
+                                data[dataIndex + 3] = 255; // A
                             }
                         }
                         
@@ -12826,6 +12843,7 @@ class DrawingEditor {
                         for (let pixelIndex = 0; pixelIndex < totalPixels; pixelIndex++) {
                             const byteIndex = Math.floor(pixelIndex / 8);
                             const bitIndex = 7 - (pixelIndex % 8); // MSB first
+                            const dataIndex = pixelIndex * 4;
                             
                             if (byteIndex < pixelData.length) {
                                 const byte = pixelData[byteIndex];
@@ -12833,13 +12851,18 @@ class DrawingEditor {
                                 // Bit = 1 means WHITE, bit = 0 means BLACK
                                 const isWhite = bitValue === 1;
                                 
-                                const dataIndex = pixelIndex * 4;
                                 const colorValue = isWhite ? 255 : 0; // White or black
                                 
                                 data[dataIndex] = colorValue;     // R
                                 data[dataIndex + 1] = colorValue; // G
                                 data[dataIndex + 2] = colorValue; // B
                                 data[dataIndex + 3] = 255;        // A (fully opaque)
+                            } else {
+                                // Default to white for uninitialized pixels
+                                data[dataIndex] = 255;     // R
+                                data[dataIndex + 1] = 255; // G
+                                data[dataIndex + 2] = 255; // B
+                                data[dataIndex + 3] = 255; // A (fully opaque)
                             }
                         }
                         
@@ -12854,9 +12877,9 @@ class DrawingEditor {
                         
                         // Create a layer with the loaded data
                         const layerCanvas = document.createElement('canvas');
-                        layerCanvas.width = width;
-                        layerCanvas.height = height;
-                        const layerCtx = layerCanvas.getContext('2d', { willReadFrequently: true });
+                        
+                        // Initialize layer canvas with transparent white background, then draw frame content
+                        const layerCtx = this.initializeLayerCanvas(layerCanvas, width, height);
                         layerCtx.drawImage(frameCanvas, 0, 0);
                         
                         this.frameLayers[frameIndex].layers.push({
