@@ -818,6 +818,9 @@ class DrawingEditor {
         this.penMode = 'freehand'; // 'freehand', 'line', 'grid', 'spray'
         this.sprayFlow = 3; // Particles per movement unit (1-10)
         this.sprayInterval = null; // Timer for continuous spray
+        
+        // Script click handler
+        this.scriptClickHandler = null;
         this.sprayPos = null; // Current spray position
         
         // Fill pattern properties
@@ -5051,6 +5054,16 @@ class DrawingEditor {
         if (e.button !== 0) return; // Only handle left mouse button for drawing tools
         
         const pos = this.getMousePos(e);
+        
+        // Call script click handler if one is set
+        if (this.scriptClickHandler) {
+            try {
+                this.scriptClickHandler(pos.x, pos.y);
+            } catch (error) {
+                console.error('Script click handler error:', error);
+            }
+        }
+        
         this.lastPos = pos;
         this.startPos = pos; // Store start position for straight lines
         this.shiftKey = e.shiftKey;
@@ -14940,6 +14953,9 @@ Instructions:
         
         const item = this.undoStack.pop();
         
+        // Clear any script click handler when undoing
+        this.scriptClickHandler = null;
+        
         // Check if it's a snapshot or a command
         if (item instanceof CanvasStateSnapshot) {
             // Capture current state for redo
@@ -16000,13 +16016,13 @@ Instructions:
     
     // Set a pixel at the given coordinates
     drawPixelAt(x, y, color = null) {
-        const ctx = this.getCurrentFrameContext();
-        const drawColor = color || this.currentColor;
+        const savedColor = this.currentColor;
+        if (color) this.currentColor = color;
         
-        if (x >= 0 && x < this.canvasWidth && y >= 0 && y < this.canvasHeight) {
-            ctx.fillStyle = drawColor;
-            ctx.fillRect(x, y, 1, 1);
-        }
+        const ctx = this.getCurrentFrameContext();
+        this.setPixelInFrame(Math.floor(x), Math.floor(y), ctx);
+        
+        if (color) this.currentColor = savedColor;
     }
     
     // Draw a line from (x1, y1) to (x2, y2)
@@ -16014,88 +16030,177 @@ Instructions:
         const savedColor = this.currentColor;
         if (color) this.currentColor = color;
         
-        this.startPixelTracking();
         this.drawLine(Math.floor(x1), Math.floor(y1), Math.floor(x2), Math.floor(y2));
-        this.endPixelTracking();
         
         if (color) this.currentColor = savedColor;
-        
-        this.redrawCanvas();
-        this.generateThumbnail(this.currentFrameIndex);
-        this.generateCode();
     }
     
     // Draw a rectangle
     drawRectAt(x, y, width, height, filled = true, color = null) {
+        const savedColor = this.currentColor;
+        if (color) this.currentColor = color;
+        
         const ctx = this.getCurrentFrameContext();
-        const drawColor = color || this.currentColor;
+        const x1 = Math.floor(x);
+        const y1 = Math.floor(y);
+        const x2 = Math.floor(x + width - 1);
+        const y2 = Math.floor(y + height - 1);
         
-        ctx.fillStyle = drawColor;
-        ctx.strokeStyle = drawColor;
+        // Save and set fill mode
+        const savedFillMode = this.shapeFillMode;
+        this.shapeFillMode = filled ? 'filled' : 'outline';
         
-        if (filled) {
-            ctx.fillRect(x, y, width, height);
-        } else {
-            ctx.strokeRect(x, y, width, height);
-        }
+        // Use the existing pixel-perfect drawRectangle method
+        this.drawRectangle(x1, y1, x2, y2, ctx);
         
-        this.redrawCanvas();
-        this.generateThumbnail(this.currentFrameIndex);
-        this.generateCode();
+        // Restore fill mode
+        this.shapeFillMode = savedFillMode;
+        
+        if (color) this.currentColor = savedColor;
     }
     
     // Draw a circle
     drawCircleAt(x, y, radius, filled = true, color = null) {
+        const savedColor = this.currentColor;
+        if (color) this.currentColor = color;
+        
         const ctx = this.getCurrentFrameContext();
-        const drawColor = color || this.currentColor;
+        const cx = Math.floor(x);
+        const cy = Math.floor(y);
+        const r = Math.floor(radius);
         
-        ctx.fillStyle = drawColor;
-        ctx.strokeStyle = drawColor;
-        ctx.beginPath();
-        ctx.arc(x, y, radius, 0, Math.PI * 2);
+        // Save and set fill mode
+        const savedFillMode = this.shapeFillMode;
+        this.shapeFillMode = filled ? 'filled' : 'outline';
         
-        if (filled) {
-            ctx.fill();
-        } else {
-            ctx.stroke();
-        }
+        // Use the existing pixel-perfect drawCircle method
+        this.drawCircle(cx, cy, r, ctx);
         
-        this.redrawCanvas();
-        this.generateThumbnail(this.currentFrameIndex);
-        this.generateCode();
+        // Restore fill mode
+        this.shapeFillMode = savedFillMode;
+        
+        if (color) this.currentColor = savedColor;
     }
     
     // Draw text at position
     drawTextAt(text, x, y, color = null) {
+        const savedColor = this.currentColor;
+        if (color) this.currentColor = color;
+        
         const ctx = this.getCurrentFrameContext();
-        const drawColor = color || this.currentColor;
+        const drawColor = this.currentColor;
         
-        ctx.fillStyle = drawColor;
-        ctx.font = '16px Arial';
-        ctx.fillText(text, x, y);
+        // Create temporary canvas for binarization
+        const tempCanvas = document.createElement('canvas');
+        const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
         
-        this.redrawCanvas();
-        this.generateThumbnail(this.currentFrameIndex);
-        this.generateCode();
+        // Measure text to size temp canvas
+        tempCtx.font = '16px Arial';
+        const metrics = tempCtx.measureText(text);
+        const textWidth = Math.ceil(metrics.width) + 10; // Add padding
+        const textHeight = 30; // Approximate height for 16px font
+        
+        tempCanvas.width = textWidth;
+        tempCanvas.height = textHeight;
+        
+        // Draw text to temp canvas
+        tempCtx.font = '16px Arial';
+        tempCtx.fillStyle = 'black';
+        tempCtx.textBaseline = 'top';
+        tempCtx.fillText(text, 5, 5);
+        
+        // Get image data and binarize (same as text tool)
+        const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+        const data = imageData.data;
+        
+        // Binarize with threshold
+        for (let i = 0; i < data.length; i += 4) {
+            const r = data[i];
+            const g = data[i + 1];
+            const b = data[i + 2];
+            const alpha = data[i + 3];
+            
+            const gray = (r + g + b) / 3;
+            const threshold = 200; // Same threshold as text tool
+            
+            if (alpha > 10 && gray < threshold) {
+                // Make it the selected color
+                if (drawColor === 'white') {
+                    data[i] = 255;     // R
+                    data[i + 1] = 255; // G
+                    data[i + 2] = 255; // B
+                } else {
+                    data[i] = 0;     // R
+                    data[i + 1] = 0; // G
+                    data[i + 2] = 0; // B
+                }
+                data[i + 3] = 255; // A
+            } else {
+                // Make it transparent
+                data[i + 3] = 0; // A
+            }
+        }
+        
+        // Put binarized data back
+        tempCtx.putImageData(imageData, 0, 0);
+        
+        // Draw binarized text to main canvas
+        ctx.save();
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(tempCanvas, Math.floor(x) - 5, Math.floor(y) - 5);
+        ctx.restore();
+        
+        if (color) this.currentColor = savedColor;
     }
     
     // Execute a drawing function - useful for complex patterns
     executeDrawing(drawFunction) {
         this.captureSnapshot();
         
+        // Clear any previous script click handler
+        this.scriptClickHandler = null;
+        
         try {
             // Call the user's drawing function with API access
             drawFunction({
-                setPixel: (x, y, color) => this.drawPixelAt(x, y, color),
-                drawLine: (x1, y1, x2, y2, color) => this.drawLineAt(x1, y1, x2, y2, color),
-                drawRect: (x, y, w, h, filled, color) => this.drawRectAt(x, y, w, h, filled, color),
-                drawCircle: (x, y, r, filled, color) => this.drawCircleAt(x, y, r, filled, color),
-                drawText: (text, x, y, color) => this.drawTextAt(text, x, y, color),
+                setPixel: (x, y, color) => {
+                    const coords = this.validateCoords(x, y);
+                    const validColor = this.validateColor(color);
+                    return this.drawPixelAt(coords.x, coords.y, validColor);
+                },
+                drawLine: (x1, y1, x2, y2, color) => {
+                    const c1 = this.validateCoords(x1, y1);
+                    const c2 = this.validateCoords(x2, y2);
+                    const validColor = this.validateColor(color);
+                    return this.drawLineAt(c1.x, c1.y, c2.x, c2.y, validColor);
+                },
+                drawRect: (x, y, w, h, filled, color) => {
+                    const coords = this.validateCoords(x, y);
+                    w = Math.floor(w);
+                    h = Math.floor(h);
+                    const validColor = this.validateColor(color);
+                    return this.drawRectAt(coords.x, coords.y, w, h, filled, validColor);
+                },
+                drawCircle: (x, y, r, filled, color) => {
+                    const coords = this.validateCoords(x, y);
+                    r = Math.floor(r);
+                    const validColor = this.validateColor(color);
+                    return this.drawCircleAt(coords.x, coords.y, r, filled, validColor);
+                },
+                drawText: (text, x, y, color) => {
+                    const coords = this.validateCoords(x, y);
+                    const validColor = this.validateColor(color);
+                    return this.drawTextAt(text, coords.x, coords.y, validColor);
+                },
+                getPixel: (x, y) => this.getPixelAt(x, y),
                 getWidth: () => this.canvasWidth,
                 getHeight: () => this.canvasHeight,
                 clear: () => this.clearCurrentFrame(),
-                setColor: (color) => { this.currentColor = color; },
-                getColor: () => this.currentColor
+                setColor: (color) => { 
+                    this.currentColor = this.validateColor(color);
+                },
+                getColor: () => this.currentColor,
+                onClick: (callback) => this.setScriptClickHandler(callback)
             });
         } catch (error) {
             console.error('Drawing function error:', error);
@@ -16105,6 +16210,71 @@ Instructions:
         this.redrawCanvas();
         this.generateThumbnail(this.currentFrameIndex);
         this.generateCode();
+    }
+    
+    // Set a click handler for scripts (limited to one)
+    setScriptClickHandler(callback) {
+        if (typeof callback !== 'function') {
+            console.error('onClick requires a function');
+            return;
+        }
+        this.scriptClickHandler = callback;
+    }
+    
+    // Get pixel color at coordinates for scripts
+    getPixelAt(x, y) {
+        // Validate integer coordinates
+        x = Math.floor(x);
+        y = Math.floor(y);
+        
+        // Check bounds
+        if (x < 0 || x >= this.canvasWidth || y < 0 || y >= this.canvasHeight) {
+            return null; // Out of bounds
+        }
+        
+        const ctx = this.getCurrentFrameContext();
+        const imageData = ctx.getImageData(x, y, 1, 1);
+        const data = imageData.data;
+        
+        // Return color as hex string
+        const r = data[0].toString(16).padStart(2, '0');
+        const g = data[1].toString(16).padStart(2, '0');
+        const b = data[2].toString(16).padStart(2, '0');
+        const a = data[3];
+        
+        // Return hex color or 'transparent' if fully transparent
+        if (a === 0) return 'transparent';
+        return `#${r}${g}${b}`;
+    }
+    
+    // Validate and floor coordinates for drawing functions
+    validateCoords(x, y) {
+        return {
+            x: Math.floor(x),
+            y: Math.floor(y)
+        };
+    }
+    
+    // Validate color to only allow black or white
+    validateColor(color) {
+        if (!color) return this.currentColor;
+        
+        // Normalize the color string
+        const normalized = String(color).toLowerCase().trim();
+        
+        // Check if it's black
+        if (normalized === 'black' || normalized === '#000000' || normalized === '#000') {
+            return 'black';
+        }
+        
+        // Check if it's white
+        if (normalized === 'white' || normalized === '#ffffff' || normalized === '#fff') {
+            return 'white';
+        }
+        
+        // Default to current color if invalid
+        console.warn('Only black and white colors are allowed. Defaulting to current color.');
+        return this.currentColor;
     }
 }
 
@@ -16925,7 +17095,7 @@ function initializeScriptEditor(editor) {
     // Example scripts
     const examples = {
         bresenham: `// Bresenham's Circle Algorithm
-// This is a classic algorithm in computer graphics for drawing circles.
+// This algorithm is a classic method for drawing circles in computer graphics.
 api.clear();
 
 function bresenhamCircle(cx, cy, radius) {
@@ -17017,7 +17187,24 @@ for (let i = 0; i < count; i++) {
     const x = Math.floor(Math.random() * api.getWidth());
     const y = Math.floor(Math.random() * api.getHeight());
     api.setPixel(x, y);
-}`
+}`,
+        interactive: `// Interactive Click Drawing
+// Click anywhere on the canvas to draw!
+api.clear();
+api.setColor('black');
+
+// Set up click handler
+api.onClick(function(x, y) {
+    // Draw a small cross at click position
+    api.drawLine(x - 3, y, x + 3, y);
+    api.drawLine(x, y - 3, x, y + 3);
+    
+    // Draw a circle around it
+    api.drawCircle(x, y, 5, false);
+});
+
+// Instructions
+api.drawText('Click to draw!', 10, 20);`
     };
     
     // Load example script

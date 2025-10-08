@@ -1122,6 +1122,7 @@
                     <option value="checkerboard">Checkerboard</option>
                     <option value="circle">Concentric Circles</option>
                     <option value="random">Random Pixels</option>
+                    <option value="interactive">Interactive Click Drawing</option>
                 </select>
                 <button id="runScriptBtn" class="script-btn" title="Run Script">▶️ Run</button>
                 <button id="fullscreenScriptBtn" class="script-btn" title="Toggle Fullscreen">⛶ Fullscreen</button>
@@ -1132,7 +1133,7 @@
             <div id="codeEditorContainer" class="code-editor-wrapper">
                 <!-- CodeMirror will be initialized here -->
                 <textarea id="scriptInput" class="script-textarea" spellcheck="false" style="display: block;">// Bresenham's Circle Algorithm
-// This algorithm draws circles using integer arithmetic only
+// This algorithm is a classic method for drawing circles in computer graphics.
 api.clear();
 
 function bresenhamCircle(cx, cy, radius) {
