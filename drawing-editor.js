@@ -16439,15 +16439,20 @@ Instructions:
     }
     
     /**
-     * Add a new layer to the current frame
+     * Add a new layer to the current frame (API wrapper)
      * @returns {number} Index of the new layer
      */
-    addLayer() {
+    addLayerAPI() {
         const frameData = this.frameLayers[this.currentFrameIndex];
         if (!frameData || !frameData.layers) return 0; // Return 0 if no layer system
         
         const newIndex = frameData.layers.length;
-        this.addNewLayer();
+        // Call the real addLayer method from line 3432
+        // We need to temporarily save this method reference
+        const realAddLayer = Object.getPrototypeOf(this).addLayer;
+        if (realAddLayer && realAddLayer !== this.addLayerAPI) {
+            realAddLayer.call(this);
+        }
         return newIndex;
     }
     
@@ -17802,12 +17807,42 @@ api.drawPolygon(70, 95, 10, 5, 0, true, 'black');  // 5 sides = pentagon
 api.drawText('Pentagon', 85, 93);
 
 // ============================================
-// CANVAS INFORMATION
+// LAYERS DEMONSTRATION
 // ============================================
 
-// Get current frame and layer info
-api.drawText('Frame: ' + (api.getCurrentFrame() + 1) + '/' + api.getFrameCount(), 10, 115);
-api.drawText('Layer: ' + (api.getCurrentLayer() + 1) + '/' + api.getLayerCount(), 10, 128);
+// Ensure we have at least 2 layers for the demo
+if (api.getLayerCount() < 2) {
+    // addLayer() - Create new layer, returns new layer index
+    api.addLayer();
+}
+
+// Layer 0 (current layer) - Main content
+api.drawText('Layer 0', 10, 115, 'black');
+
+// Switch to layer 1 for additional content
+// setCurrentLayer(index) - Switch to layer at index (0-based)
+api.setCurrentLayer(1);
+api.drawText('Layer 1', 10, 128, 'black');
+api.drawCircle(40, 140, 5, true, 'black');
+
+// Get layer information
+// getCurrentLayer() - Get current layer index
+// getLayerCount() - Get total number of layers
+const currentLayer = api.getCurrentLayer();
+const totalLayers = api.getLayerCount();
+api.drawText('Layers: ' + totalLayers, 10, 155, 'black');
+
+// Return to layer 0
+api.setCurrentLayer(0);
+
+// ============================================
+// FRAMES & ANIMATION INFO
+// ============================================
+
+// Get current frame information
+// getCurrentFrame() - Get current frame index (0-based)
+// getFrameCount() - Get total number of frames
+api.drawText('Frame: ' + (api.getCurrentFrame() + 1) + '/' + api.getFrameCount(), w - 60, 10, 'black');
 
 // ============================================
 // UTILITY FUNCTIONS
@@ -17815,7 +17850,8 @@ api.drawText('Layer: ' + (api.getCurrentLayer() + 1) + '/' + api.getLayerCount()
 
 // Generate random integer
 // random(min, max) - returns integer between min and max (inclusive)
-api.drawText('random: ' + api.random(1, 10), 10, 145);
+const randomNum = api.random(1, 10);
+api.drawText('random: ' + randomNum, 10, 170, 'black');
 
 // map(value, inMin, inMax, outMin, outMax) - map value from one range to another
 // constrain(value, min, max) - clamp value between min and max
@@ -18017,43 +18053,44 @@ for (let i = 0; i < frames; i++) {
 
 // Return to first frame
 api.setCurrentFrame(0);`,
-        layers: `// Multi-Layer Drawing
-// This example uses layers for different elements
+        layers: `// Multi-Layer Drawing Example
+// This demonstrates how to work with multiple layers
+// Note: Layers work best when created through the UI first
 
-// Ensure we have 3 layers
-while (api.getLayerCount() < 3) {
-    api.addLayer();
+// Simple layer demonstration without creating new layers
+// Works with existing layers in the editor
+
+// Get current layer count
+const layerCount = api.getLayerCount();
+api.drawText('Layers Demo', 10, 10, 'black');
+api.drawText('Total Layers: ' + layerCount, 10, 25, 'black');
+
+// Draw on current layer (Layer 0)
+api.drawText('Layer 0 Content', 10, 45, 'black');
+api.drawCircle(40, 70, 10, false, 'black');
+
+// If we have multiple layers, draw on layer 1
+if (layerCount > 1) {
+    api.setCurrentLayer(1);
+    api.drawText('Layer 1 Content', 10, 45, 'black');
+    api.drawRect(70, 60, 25, 20, false, 'black');
+    
+    // Return to layer 0
+    api.setCurrentLayer(0);
+} else {
+    api.drawText('(Add layers in UI', 10, 95, 'black');
+    api.drawText('to see multi-layer)', 10, 108, 'black');
 }
 
-// Layer 0 - Background
-api.setCurrentLayer(0);
-api.clear();
-api.drawText('Background', 10, 10, 'black');
-for (let i = 0; i < 50; i++) {
+// Draw random dots on current layer
+for (let i = 0; i < 30; i++) {
     const x = api.random(0, api.getWidth());
-    const y = api.random(20, api.getHeight());
+    const y = api.random(125, api.getHeight());
     api.setPixel(x, y, 'black');
 }
 
-// Layer 1 - Shapes
-api.setCurrentLayer(1);
-api.clear();
-api.drawText('Shapes', 10, 30, 'black');
-api.drawCircle(40, 70, 15, false, 'black');
-api.drawRect(70, 55, 30, 30, false, 'black');
-
-// Layer 2 - Foreground
-api.setCurrentLayer(2);
-api.clear();
-api.drawText('Foreground', 10, 50, 'black');
-api.drawLine(10, api.getHeight() - 20, 
-             api.getWidth() - 10, api.getHeight() - 20, 'black');
-
-// Show layer info
-api.drawText('Layers: ' + api.getLayerCount(), 10, 70, 'black');
-
-// Return to layer 0
-api.setCurrentLayer(0);`
+// Show current layer
+api.drawText('Current: Layer ' + api.getCurrentLayer(), 10, 130, 'black');`
     };
     
     // Load example script
