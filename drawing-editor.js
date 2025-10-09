@@ -6270,7 +6270,7 @@ class DrawingEditor {
                 this.onMouseDown(mouseEvent);
             }
         } else if (touches.length === 2) {
-            // Two finger touch - prepare for pinch zoom and pan
+            // Two finger touch
             e.preventDefault();
             const initialDistance = this.getTouchDistance(touches[0], touches[1]);
             const initialCenter = this.getTouchCenter(touches[0], touches[1]);
