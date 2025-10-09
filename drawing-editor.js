@@ -9375,6 +9375,45 @@ class DrawingEditor {
                 this.drawSelectionInOverlay();
             }
         }
+        
+        // 3. Restore tool previews when mouse is off-canvas
+        this.restoreToolPreviews();
+    }
+    
+    restoreToolPreviews() {
+        // Show tool previews when mouse is off the main canvas area
+        if (!this.lastMouseEvent) return;
+        
+        const pos = this.getMousePos(this.lastMouseEvent);
+        const isOnCanvas = this.isWithinCanvas(pos.x, pos.y);
+        
+        // Only show previews if mouse is NOT on the canvas
+        if (isOnCanvas) return;
+        
+        // Show preview at canvas center for off-canvas mouse positions
+        const centerX = Math.floor(this.canvasWidth / 2);
+        const centerY = Math.floor(this.canvasHeight / 2);
+        
+        switch (this.currentTool) {
+            case 'bucket':
+                if (this.fillPattern !== 'solid') {
+                    this.showFillPreview(centerX, centerY);
+                }
+                break;
+                
+            case 'text':
+                if (this.textInput.trim()) {
+                    this.generateTextCanvas();
+                    this.showTextPreview({ x: centerX, y: centerY });
+                }
+                break;
+                
+            case 'select':
+                if (this.isPasteModeActive && this.selection && this.selection.cutContent) {
+                    this.showPastePreview(centerX, centerY);
+                }
+                break;
+        }
     }
     
     drawSelectionInOverlay() {
@@ -16702,11 +16741,11 @@ Instructions:
     }
     
     /**
-     * Set the fill pattern for subsequent drawing operations
+     * Set the fill pattern for subsequent drawing operations (scripting API)
      * @param {string} pattern - Pattern name: 'solid', 'stipple25', 'stipple50', 'stipple75', 
      *                           'checkerboard', 'diagonal', 'crosshatch', 'dots'
      */
-    setFillPattern(pattern) {
+    setScriptFillPattern(pattern) {
         const validPatterns = ['solid', 'stipple25', 'stipple50', 'stipple75', 
                                'checkerboard', 'diagonal', 'crosshatch', 'dots'];
         if (validPatterns.includes(pattern)) {
@@ -17116,7 +17155,7 @@ Instructions:
                  * @param {string} pattern - Pattern name: 'solid', 'stipple25', 'stipple50', 
                  *                           'stipple75', 'checkerboard', 'diagonal', 'crosshatch', 'dots'
                  */
-                setFillPattern: (pattern) => this.setFillPattern(pattern),
+                setFillPattern: (pattern) => this.setScriptFillPattern(pattern),
                 /**
                  * Get the current fill pattern
                  * @returns {string} Current fill pattern name
