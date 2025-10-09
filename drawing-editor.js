@@ -16856,7 +16856,7 @@ Instructions:
     // ============================================
     // SCRIPTING kde - Programmatic Drawing
     // ============================================
-    
+    // definitions for api functions below
     /**
      * Set a pixel at the given coordinates
      * @param {number} x - X coordinate
@@ -17958,6 +17958,41 @@ Instructions:
                 noTimeout: () => {
                     this._timeoutDisabled = true;
                     console.log('[Script] Timeout disabled - script can run indefinitely');
+                },
+                /**
+                 * Invert canvas colors (black/white swap)
+                 */
+                invertCanvas: () => {
+                    this._checkScriptTimeout();
+                    this.invertCanvas();
+                },
+                /**
+                 * Flip canvas horizontally
+                 */
+                hFlipCanvas: () => {
+                    this._checkScriptTimeout();
+                    this.flipCanvasHorizontal();
+                },
+                /**
+                 * Flip canvas vertically
+                 */
+                vFlipCanvas: () => {
+                    this._checkScriptTimeout();
+                    this.flipCanvasVertical();
+                },
+                /**
+                 * Rotate canvas left (counter-clockwise)
+                 */
+                lRotateCanvas: () => {
+                    this._checkScriptTimeout();
+                    this.rotateCanvas(-90);
+                },
+                /**
+                 * Rotate canvas right (clockwise)
+                 */
+                rRotateCanvas: () => {
+                    this._checkScriptTimeout();
+                    this.rotateCanvas(90);
                 }
             });
                     resolve(); // Complete the async execution
@@ -19198,6 +19233,60 @@ const totalLayers = kde.getLayerCount();
 kde.drawText('Layers: ' + totalLayers, 10, 155, 'black');
 
 // ============================================
+// CANVAS TRANSFORMATIONS
+// ============================================
+
+// Draw some content to transform
+kde.drawText('Original', 10, 10, 'black');
+kde.drawRect(10, 20, 30, 20, true, 'black');
+kde.drawCircle(25, 30, 8, false, 'black');
+
+// Create a new frame to show transformations
+kde.addFrame();
+kde.drawText('After invertCanvas()', 10, 10, 'white');
+kde.drawRect(10, 20, 30, 20, true, 'white');
+kde.drawCircle(25, 30, 8, false, 'white');
+// invertCanvas() - Invert all colors (black <-> white)
+kde.invertCanvas();
+
+// Create another frame for horizontal flip
+kde.addFrame();
+kde.drawText('Before hFlipCanvas()', 10, 10, 'black');
+kde.drawRect(10, 20, 30, 20, true, 'black');
+kde.drawCircle(25, 30, 8, false, 'black');
+// hFlipCanvas() - Flip canvas horizontally
+kde.hFlipCanvas();
+kde.drawText('After hFlipCanvas()', 80, 10, 'black');
+
+// Create another frame for vertical flip
+kde.addFrame();
+kde.drawText('Before vFlipCanvas()', 10, 10, 'black');
+kde.drawRect(10, 20, 30, 20, true, 'black');
+kde.drawCircle(25, 30, 8, false, 'black');
+// vFlipCanvas() - Flip canvas vertically
+kde.vFlipCanvas();
+kde.drawText('After vFlipCanvas()', 10, 150, 'black');
+
+// Create another frame for left rotation
+kde.addFrame();
+kde.drawText('Before lRotateCanvas()', 10, 10, 'black');
+kde.drawRect(10, 20, 30, 20, true, 'black');
+kde.drawCircle(25, 30, 8, false, 'black');
+// lRotateCanvas() - Rotate canvas left (counter-clockwise)
+kde.lRotateCanvas();
+kde.drawText('After lRotateCanvas()', 10, 10, 'black');
+
+// Create another frame for right rotation
+kde.addFrame();
+kde.drawText('Before rRotateCanvas()', 10, 10, 'black');
+kde.drawRect(10, 20, 30, 20, true, 'black');
+kde.drawCircle(25, 30, 8, false, 'black');
+// rRotateCanvas() - Rotate canvas right (clockwise)
+kde.rRotateCanvas();
+kde.drawText('After rRotateCanvas()', 10, 10, 'black');
+
+// Return to first frame
+kde.setCurrentFrame(0);
 // LAYER TRANSPARENCY DEMONSTRATION
 // ============================================
 
