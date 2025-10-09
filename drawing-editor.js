@@ -18433,6 +18433,7 @@ Instructions:
     }
     
     // Execute a drawing function - useful for complex patterns
+    // Entry point for user scripts
     async executeDrawing(drawFunction) {
         // Pre-flight check: Ensure we have a valid canvas state
         try {
@@ -18464,7 +18465,9 @@ Instructions:
             }
         }
         
+        // Capture snapshot and push to undo stack before script execution
         this.captureSnapshot();
+        this.pushUndo();
         
         // Validate canvas state before script execution
         this.validateAndRepairCanvasState();
@@ -19154,7 +19157,7 @@ Instructions:
         this._scriptStartTime = null; // Reset timer
         
         // Always push to undo stack (snapshot was captured before execution)
-        this.pushUndo();
+        // this.pushUndo();
         
         // Composite all frames to ensure layers are reflected in frame canvases
         // This is necessary because scripts can draw on any frame/layer
@@ -19966,6 +19969,9 @@ function initializeSidebarToggles() {
 
 // Initialize the drawing editor when the page loads
 document.addEventListener('DOMContentLoaded', () => {
+    // Initialize layerIndex to 0 at page load
+    layerIndex = 0;
+    
     const editor = new DrawingEditor();
     
     // Expose editor globally for scripting
