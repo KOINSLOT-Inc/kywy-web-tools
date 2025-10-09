@@ -11,6 +11,8 @@ class CanvasStateSnapshot {
         this.timestamp = Date.now();
         this.layersEnabled = editor.layersEnabled;
         this.currentFrameIndex = editor.currentFrameIndex;
+        this.canvasWidth = editor.canvasWidth;
+        this.canvasHeight = editor.canvasHeight;
         
         // Capture ALL frames instead of just one
         this.allFrameSnapshots = [];
@@ -68,6 +70,11 @@ class CanvasStateSnapshot {
         // but the core logic simplifies:
         // document.getElementById('layersEnabled').checked = true;
         // document.getElementById('layersPanel').style.display = 'flex';
+        
+        // 0. Restore canvas size first
+        if (this.editor.canvasWidth !== this.canvasWidth || this.editor.canvasHeight !== this.canvasHeight) {
+            this.editor.setCanvasSize(this.canvasWidth, this.canvasHeight);
+        }
         
         // 1. Restore ALL frames (pixel data)
         for (let i = 0; i < this.allFrameSnapshots.length && i < this.editor.frames.length; i++) {
@@ -1027,6 +1034,16 @@ class DrawingEditor {
         this.scriptEditorEnabled = false;
         this.frameLayers = {}; // Store layers per frame: {frameIndex: {layers: [...], currentLayerIndex: 0}}
         this.soloLayerIndex = null; // Index of layer in solo/focus mode, null when not in solo mode
+        
+        // Tile map system
+        this.tileMapEnabled = false; // Whether tile map mode is active
+        this.tileMapPanelVisible = false; // UI state - whether tile map panel is shown
+        this.tileSize = 16; // Size of individual tiles (8, 16, 32, etc.)
+        this.tileMapWidth = 9; // Map width in tiles (144/16 = 9)
+        this.tileMapHeight = 10; // Map height in tiles (160/16 = 10, leaving room for UI)
+        this.tileMapData = []; // 2D array of tile indices for the current map
+        this.selectedTileIndex = 0; // Currently selected tile for painting
+        this.tileSet = []; // Array of tile canvases (stored in frames)
         
         // Create first frame after frames array is initialized
         this.frames.push(this.createEmptyFrame());
@@ -5253,6 +5270,8 @@ class DrawingEditor {
             } else {
                 document.getElementById('customSize').style.display = 'none';
                 const [width, height] = e.target.value.split('x').map(n => parseInt(n));
+                this.captureSnapshot();
+                this.pushUndo();
                 this.setCanvasSize(width, height);
             }
         });
@@ -5261,7 +5280,9 @@ class DrawingEditor {
             const width = parseInt(document.getElementById('customWidth').value);
             const height = parseInt(document.getElementById('customHeight').value);
             if (width > 0 && height > 0) {
+                this.captureSnapshot();
                 this.setCanvasSize(width, height);
+                this.pushUndo();
             }
         });
         
