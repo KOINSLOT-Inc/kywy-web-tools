@@ -17964,35 +17964,45 @@ Instructions:
                  */
                 invertCanvas: () => {
                     this._checkScriptTimeout();
-                    this.invertCanvas();
+                    this.captureSnapshot();
+                    this._invertCanvasInternal();
+                    this.pushUndo();
                 },
                 /**
                  * Flip canvas horizontally
                  */
                 hFlipCanvas: () => {
                     this._checkScriptTimeout();
-                    this.flipCanvasHorizontal();
+                    this.captureSnapshot();
+                    this._flipCanvasHorizontalInternal();
+                    this.pushUndo();
                 },
                 /**
                  * Flip canvas vertically
                  */
                 vFlipCanvas: () => {
                     this._checkScriptTimeout();
-                    this.flipCanvasVertical();
+                    this.captureSnapshot();
+                    this._flipCanvasVerticalInternal();
+                    this.pushUndo();
                 },
                 /**
-                 * Rotate canvas left (counter-clockwise)
+                 * Rotate canvas left (counter-clockwise, 90°)
                  */
                 lRotateCanvas: () => {
                     this._checkScriptTimeout();
-                    this.rotateCanvas(-90);
+                    this.captureSnapshot();
+                    this._rotateCanvasInternal(-90);
+                    this.pushUndo();
                 },
                 /**
-                 * Rotate canvas right (clockwise)
+                 * Rotate canvas right (clockwise, 90°)
                  */
                 rRotateCanvas: () => {
                     this._checkScriptTimeout();
-                    this.rotateCanvas(90);
+                    this.captureSnapshot();
+                    this._rotateCanvasInternal(90);
+                    this.pushUndo();
                 }
             });
                     resolve(); // Complete the async execution
