@@ -17276,7 +17276,7 @@ Instructions:
     }
     
     // Execute a drawing function - useful for complex patterns
-    executeDrawing(drawFunction) {
+    async executeDrawing(drawFunction) {
         this.captureSnapshot();
         
         // Set flag to indicate we're executing a script
@@ -17295,8 +17295,10 @@ Instructions:
         this._printBuffer = [];
         
         try {
-            // Call the user's drawing function with kde access
-            drawFunction({
+            // Call the user's drawing function with kde access (wrapped in Promise for async)
+            await new Promise((resolve, reject) => {
+                try {
+                    drawFunction({
                 /**
                  * Draw a single pixel
                  * @param {number} x - X coordinate
@@ -17813,6 +17815,11 @@ Instructions:
                  * @param {function} callback - Function called with (x, y) when canvas is clicked
                  */
                 onClick: (callback) => this.setScriptClickHandler(callback)
+            });
+                    resolve(); // Complete the async execution
+                } catch (error) {
+                    reject(error);
+                }
             });
         } catch (error) {
             console.error('Drawing function error:', error);
@@ -19606,7 +19613,7 @@ kde.drawText('All done!', 10, h-10, 'black');`
     });
     
     // Run script
-    runScriptBtn.addEventListener('click', function() {
+    runScriptBtn.addEventListener('click', async function() {
         const code = getCode().trim();
         if (!code) {
             showScriptOutput('No script to run', 'error');
@@ -19614,8 +19621,8 @@ kde.drawText('All done!', 10, h-10, 'black');`
         }
         
         try {
-            // Execute the drawing script
-            const prints = editor.executeDrawing(function(kde) {
+            // Execute the drawing script asynchronously
+            const prints = await editor.executeDrawing(function(kde) {
                 // Create a function from the code and execute it
                 const userFunction = new Function('kde', code);
                 userFunction(kde);
