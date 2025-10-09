@@ -37,6 +37,13 @@ class CanvasStateSnapshot {
                     for (let layerIdx = 0; layerIdx < frameData.layers.length; layerIdx++) {
                         const layer = frameData.layers[layerIdx];
                         const layerCanvas = layer.canvas;
+                        
+                        // Validate layer canvas before taking snapshot
+                        if (!layerCanvas || typeof layerCanvas.getContext !== 'function') {
+                            console.warn(`Invalid layer canvas at frame ${frameIdx}, layer ${layerIdx}:`, layerCanvas);
+                            continue;
+                        }
+                        
                         const layerSnapshot = layerCanvas.getContext('2d', { willReadFrequently: true })
                             .getImageData(0, 0, editor.canvasWidth, editor.canvasHeight);
                         
@@ -89,6 +96,12 @@ class CanvasStateSnapshot {
                     for (let layerIdx = 0; layerIdx < savedFrameData.layers.length; layerIdx++) {
                         const savedLayer = savedFrameData.layers[layerIdx];
                         
+                        // Validate saved layer data before restoration
+                        if (!savedLayer || !savedLayer.snapshot) {
+                            console.warn(`Invalid saved layer data at frame ${frameIdx}, layer ${layerIdx}:`, savedLayer);
+                            continue;
+                        }
+                        
                         // Create new layer canvas
                         const newCanvas = document.createElement('canvas');
                         newCanvas.width = this.editor.canvasWidth;
@@ -96,28 +109,39 @@ class CanvasStateSnapshot {
                         
                         // Restore layer content
                         const ctx = newCanvas.getContext('2d', { willReadFrequently: true });
-                        ctx.putImageData(savedLayer.snapshot, 0, 0);
+                        try {
+                            ctx.putImageData(savedLayer.snapshot, 0, 0);
+                        } catch (error) {
+                            console.warn(`Failed to restore layer ${layerIdx} at frame ${frameIdx}:`, error);
+                            // Create empty layer instead
+                            ctx.fillStyle = 'white';
+                            ctx.fillRect(0, 0, newCanvas.width, newCanvas.height);
+                        }
                         
                         // Create layer object
                         newLayers.push({
-                            name: savedLayer.name,
+                            name: savedLayer.name || `Layer ${layerIdx}`,
                             canvas: newCanvas,
-                            visible: savedLayer.visible,
-                            transparencyMode: savedLayer.transparencyMode
+                            visible: savedLayer.visible !== false,
+                            transparencyMode: savedLayer.transparencyMode || 'white'
                         });
                     }
                     
                     // Replace frame layers with restored structure
                     this.editor.frameLayers[frameIdx] = {
-                        layers: newLayers,
-                        currentLayerIndex: savedFrameData.currentLayerIndex
+                        layers: newLayers.length > 0 ? newLayers : [this.createDefaultLayer(frameIdx)],
+                        currentLayerIndex: Math.min(savedFrameData.currentLayerIndex || 0, Math.max(0, newLayers.length - 1))
                     };
                     
                     // Composite layers to frame
                     this.editor.compositeLayersToFrame(frameIdx);
                 } else {
                     // Handle case where layers existed for some frames but not this one
-                    // Fall through to the next block, or call an 'init frame layers' utility
+                    // Create default layer structure
+                    this.editor.frameLayers[frameIdx] = {
+                        layers: [this.createDefaultLayer(frameIdx)],
+                        currentLayerIndex: 0
+                    };
                 }
             }
         } else {
@@ -156,6 +180,29 @@ class CanvasStateSnapshot {
         }
         
         return true;
+    }
+    
+    createDefaultLayer(frameIdx) {
+        // Create a default layer with current frame content
+        const newCanvas = document.createElement('canvas');
+        newCanvas.width = this.editor.canvasWidth;
+        newCanvas.height = this.editor.canvasHeight;
+        
+        // Copy frame content to layer
+        const ctx = newCanvas.getContext('2d', { willReadFrequently: true });
+        ctx.fillStyle = 'white';
+        ctx.fillRect(0, 0, newCanvas.width, newCanvas.height);
+        
+        if (this.editor.frames[frameIdx]) {
+            ctx.drawImage(this.editor.frames[frameIdx], 0, 0);
+        }
+        
+        return {
+            name: '0',
+            canvas: newCanvas,
+            visible: true,
+            transparencyMode: 'white'
+        };
     }
 }
 
@@ -1167,6 +1214,12 @@ class DrawingEditor {
                 if (frameData && frameData.layers) {
                     frameData.layers.forEach(layer => {
                         // Save current content
+                        // Validate layer canvas before operations
+                        if (!layer.canvas || typeof layer.canvas.getContext !== 'function') {
+                            console.warn(`Invalid layer canvas during resize at layer ${layerIdx}:`, layer.canvas);
+                            return; // Exit early if layer is invalid
+                        }
+                        
                         const tempCanvas = document.createElement('canvas');
                         tempCanvas.width = layer.canvas.width;
                         tempCanvas.height = layer.canvas.height;
@@ -3460,10 +3513,19 @@ class DrawingEditor {
             const preview = document.createElement('div');
             preview.className = 'layer-preview';
             const previewCanvas = document.createElement('canvas');
-            previewCanvas.width = layer.canvas.width;
-            previewCanvas.height = layer.canvas.height;
-            const previewCtx = previewCanvas.getContext('2d', { willReadFrequently: true });
-            previewCtx.drawImage(layer.canvas, 0, 0);
+            
+            // Validate layer canvas before creating preview
+            if (!layer.canvas || typeof layer.canvas.getContext !== 'function') {
+                console.warn('Invalid layer canvas for preview:', layer.canvas);
+                // Create empty preview canvas
+                previewCanvas.width = this.canvasWidth || 144;
+                previewCanvas.height = this.canvasHeight || 168;
+            } else {
+                previewCanvas.width = layer.canvas.width;
+                previewCanvas.height = layer.canvas.height;
+                const previewCtx = previewCanvas.getContext('2d', { willReadFrequently: true });
+                previewCtx.drawImage(layer.canvas, 0, 0);
+            }
             preview.appendChild(previewCanvas);
             
             // Create layer info
@@ -4010,22 +4072,37 @@ class DrawingEditor {
     getActiveCanvas() {
         // ALWAYS use layer system - it's always active internally
         const frameData = this.frameLayers && this.frameLayers[this.currentFrameIndex];
-        if (frameData && frameData.layers) {
+        if (frameData && frameData.layers && frameData.layers.length > 0) {
             // Validate currentLayerIndex
             if (frameData.currentLayerIndex >= 0 && 
                 frameData.currentLayerIndex < frameData.layers.length &&
-                frameData.layers[frameData.currentLayerIndex]) {
+                frameData.layers[frameData.currentLayerIndex] &&
+                frameData.layers[frameData.currentLayerIndex].canvas) {
                 return frameData.layers[frameData.currentLayerIndex].canvas;
             } else {
-                // Fix invalid index - default to last layer
-                console.warn('[getActiveCanvas] Invalid layer index:', frameData.currentLayerIndex, 'defaulting to last layer');
-                frameData.currentLayerIndex = frameData.layers.length - 1;
-                if (frameData.layers[frameData.currentLayerIndex]) {
-                    return frameData.layers[frameData.currentLayerIndex].canvas;
+                // Fix invalid index - default to last valid layer
+                console.warn('[getActiveCanvas] Invalid layer index:', frameData.currentLayerIndex, 'fixing to valid layer');
+                for (let i = frameData.layers.length - 1; i >= 0; i--) {
+                    if (frameData.layers[i] && frameData.layers[i].canvas) {
+                        frameData.currentLayerIndex = i;
+                        return frameData.layers[i].canvas;
+                    }
                 }
             }
         }
-        console.warn('[getActiveCanvas] No layer data for frame', this.currentFrameIndex, '- falling back to frame canvas');
+        
+        // If no valid layer found, initialize layers for this frame
+        console.warn('[getActiveCanvas] No valid layer data for frame', this.currentFrameIndex, '- initializing layers');
+        this.initializeLayersForFrame(this.currentFrameIndex);
+        
+        // Try again after initialization
+        const newFrameData = this.frameLayers && this.frameLayers[this.currentFrameIndex];
+        if (newFrameData && newFrameData.layers && newFrameData.layers[0] && newFrameData.layers[0].canvas) {
+            return newFrameData.layers[0].canvas;
+        }
+        
+        // Final fallback - return frame canvas
+        console.warn('[getActiveCanvas] Layer initialization failed - falling back to frame canvas');
         return this.frames[this.currentFrameIndex];
     }
     
@@ -14805,6 +14882,11 @@ Instructions:
         const { width, height, data } = this.importedImageData;
         const position = document.getElementById('importPosition').value;
         
+        // Ensure layers are initialized for current frame
+        if (!this.frameLayers || !this.frameLayers[this.currentFrameIndex]) {
+            this.initializeLayersForFrame(this.currentFrameIndex);
+        }
+        
         // Calculate position on canvas
         let startX, startY;
         switch (position) {
@@ -14830,11 +14912,15 @@ Instructions:
                 break;
         }
         
-        // Get current frame context
-        const ctx = this.getCurrentFrameContext();
-        
         // Capture state before importing for undo
         this.captureSnapshot();
+        
+        // Get the proper drawing context (layer-aware)
+        const ctx = this.getCurrentFrameContext();
+        
+        // Save current color and set to black for imported pixels
+        const savedColor = this.currentColor;
+        this.currentColor = 'black';
         
         // Draw the imported image data
         for (let y = 0; y < height; y++) {
@@ -14852,10 +14938,16 @@ Instructions:
             }
         }
         
+        // Restore original color
+        this.currentColor = savedColor;
+        
         // Update display and generate code
         this.redrawCanvas();
         this.generateThumbnail(this.currentFrameIndex);
         this.generateCode();
+        
+        // Push undo state
+        this.pushUndo();
         
         // Close modal
         document.getElementById('imageImportModal').style.display = 'none';
