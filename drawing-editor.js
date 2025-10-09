@@ -1057,7 +1057,7 @@ class DrawingEditor {
         // Undo/Redo system using snapshots
         this.undoStack = [];
         this.redoStack = [];
-        this.maxUndoStackSize = 50;
+        this.maxUndoStackSize = 200;
         this.pendingSnapshot = null; // Snapshot taken before an operation starts
         
         // Unsaved work tracking
@@ -17292,6 +17292,21 @@ Instructions:
     
     // Execute a drawing function - useful for complex patterns
     async executeDrawing(drawFunction) {
+        // Check undo stack length and prompt user to save if there are many unsaved changes
+        if (this.undoStack.length > 10) {
+            const userConfirmed = confirm(
+                `You have ${this.undoStack.length} unsaved changes. Running a script can cause loss of work.\n\n` +
+                "Would you like to save your work first?\n\n" +
+                "Click 'OK' to save first then run script, or 'Cancel' to continue anyway."
+            );
+            
+            if (userConfirmed) {
+                // Save the work first, then continue with script execution
+                this.save();
+                // Continue execution below - don't return early
+            }
+        }
+        
         this.captureSnapshot();
         
         // Set flag to indicate we're executing a script
