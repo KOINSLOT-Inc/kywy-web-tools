@@ -1050,6 +1050,9 @@ class DrawingEditor {
         // Initialize layer system for first frame
         this.initializeLayersForFrame(0);
         
+        // Initialize tile map system
+        this.initializeTileMap();
+        
         // Selection state
         this.clipboard = null;
         this.selection = null;
@@ -3875,7 +3878,7 @@ class DrawingEditor {
         const exportPanel = document.querySelector('.export-panel');
         
         if (this.layersPanelVisible) {
-            // If animation or script editor panel is open, close them first
+            // If animation, script editor, or tile map panel is open, close them first
             if (this.animationEnabled) {
                 document.getElementById('animationEnabled').checked = false;
                 this.toggleAnimationMode();
@@ -3883,6 +3886,10 @@ class DrawingEditor {
             if (this.scriptEditorEnabled) {
                 document.getElementById('scriptEditorEnabled').checked = false;
                 this.toggleScriptEditorMode();
+            }
+            if (this.tileMapEnabled) {
+                document.getElementById('tileMapEnabled').checked = false;
+                this.toggleTileMapMode();
             }
             
             // Show layers panel
@@ -3944,7 +3951,7 @@ class DrawingEditor {
         const exportPanel = document.querySelector('.export-panel');
         
         if (this.animationEnabled) {
-            // If layers panel is open, close it (but layers remain active internally)
+            // If layers panel, script editor, or tile map panel is open, close them first
             if (this.layersPanelVisible) {
                 document.getElementById('layersEnabled').checked = false;
                 this.toggleLayersMode();
@@ -3952,6 +3959,10 @@ class DrawingEditor {
             if (this.scriptEditorEnabled) {
                 document.getElementById('scriptEditorEnabled').checked = false;
                 this.toggleScriptEditorMode();
+            }
+            if (this.tileMapEnabled) {
+                document.getElementById('tileMapEnabled').checked = false;
+                this.toggleTileMapMode();
             }
             
             // Show animation panel
@@ -3988,7 +3999,7 @@ class DrawingEditor {
         const exportPanel = document.querySelector('.export-panel');
         
         if (this.scriptEditorEnabled) {
-            // If layers panel or animation panel is open, close them first
+            // If layers panel, animation panel, or tile map panel is open, close them first
             if (this.layersPanelVisible) {
                 document.getElementById('layersEnabled').checked = false;
                 this.toggleLayersMode();
@@ -3996,6 +4007,10 @@ class DrawingEditor {
             if (this.animationEnabled) {
                 document.getElementById('animationEnabled').checked = false;
                 this.toggleAnimationMode();
+            }
+            if (this.tileMapEnabled) {
+                document.getElementById('tileMapEnabled').checked = false;
+                this.toggleTileMapMode();
             }
             
             // Show script editor panel
@@ -4087,16 +4102,31 @@ class DrawingEditor {
         const layersChecked = document.getElementById('layersEnabled')?.checked || false;
         const animationChecked = document.getElementById('animationEnabled')?.checked || false;
         const scriptChecked = document.getElementById('scriptEditorEnabled')?.checked || false;
+        const tileMapChecked = document.getElementById('tileMapEnabled')?.checked || false;
         
         // Count how many are enabled
-        const enabledCount = [layersChecked, animationChecked, scriptChecked].filter(Boolean).length;
+        const enabledCount = [layersChecked, animationChecked, scriptChecked, tileMapChecked].filter(Boolean).length;
         
         // If more than one is enabled, this is an error state - fix it
         if (enabledCount > 1) {
             console.warn('Multiple modes enabled simultaneously - fixing mutual exclusivity');
             
-            // Priority: keep layers if enabled, otherwise keep animation, otherwise keep script
-            if (layersChecked) {
+            // Priority: keep tile map if enabled, otherwise keep layers, otherwise keep animation, otherwise keep script
+            if (tileMapChecked) {
+                // Keep tile map, disable others
+                if (layersChecked) {
+                    document.getElementById('layersEnabled').checked = false;
+                    this.layersEnabled = false;
+                }
+                if (animationChecked) {
+                    document.getElementById('animationEnabled').checked = false;
+                    this.animationEnabled = false;
+                }
+                if (scriptChecked) {
+                    document.getElementById('scriptEditorEnabled').checked = false;
+                    this.scriptEditorEnabled = false;
+                }
+            } else if (layersChecked) {
                 // Keep layers, disable others
                 if (animationChecked) {
                     document.getElementById('animationEnabled').checked = false;
@@ -4324,6 +4354,324 @@ class DrawingEditor {
         // Clear main frame canvas (will be composited from layers)
         const frameCtx = frameCanvas.getContext('2d', { willReadFrequently: true });
         frameCtx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
+    }
+    
+    initializeTileMap() {
+        // Initialize empty tile map data
+        this.tileMapData = [];
+        for (let y = 0; y < this.tileMapHeight; y++) {
+            this.tileMapData[y] = [];
+            for (let x = 0; x < this.tileMapWidth; x++) {
+                this.tileMapData[y][x] = 0; // Default to tile 0
+            }
+        }
+        
+        // Initialize tile set from existing frames
+        this.updateTileSetFromFrames();
+    }
+    
+    updateTileSetFromFrames() {
+        // Update tile set array from current frames
+        this.tileSet = [];
+        for (let i = 0; i < this.frames.length; i++) {
+            // Create a tile-sized canvas from the frame
+            const tileCanvas = document.createElement('canvas');
+            tileCanvas.width = this.tileSize;
+            tileCanvas.height = this.tileSize;
+            
+            const ctx = tileCanvas.getContext('2d', { willReadFrequently: true });
+            // Scale the frame down to tile size
+            ctx.drawImage(this.frames[i], 0, 0, this.canvasWidth, this.canvasHeight, 
+                         0, 0, this.tileSize, this.tileSize);
+            
+            this.tileSet.push(tileCanvas);
+        }
+    }
+    
+    // Tile map editing methods
+    paintTileAt(x, y, tileIndex) {
+        if (!this.tileMapEnabled) return;
+        
+        const tileX = Math.floor(x / this.tileSize);
+        const tileY = Math.floor(y / this.tileSize);
+        
+        if (tileX >= 0 && tileX < this.tileMapWidth && 
+            tileY >= 0 && tileY < this.tileMapHeight) {
+            this.tileMapData[tileY][tileX] = tileIndex;
+            this.redrawCanvas();
+        }
+    }
+    
+    getTileAt(x, y) {
+        const tileX = Math.floor(x / this.tileSize);
+        const tileY = Math.floor(y / this.tileSize);
+        
+        if (tileX >= 0 && tileX < this.tileMapWidth && 
+            tileY >= 0 && tileY < this.tileMapHeight) {
+            return this.tileMapData[tileY][tileX];
+        }
+        return 0;
+    }
+    
+    renderTileMap() {
+        if (!this.tileMapEnabled) return;
+        
+        const ctx = this.getActiveContext();
+        
+        // Clear canvas first
+        ctx.fillStyle = 'white';
+        ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
+        
+        // Render tiles
+        for (let y = 0; y < this.tileMapHeight; y++) {
+            for (let x = 0; x < this.tileMapWidth; x++) {
+                const tileIndex = this.tileMapData[y][x];
+                if (tileIndex < this.tileSet.length && this.tileSet[tileIndex]) {
+                    ctx.drawImage(this.tileSet[tileIndex], 
+                                x * this.tileSize, y * this.tileSize);
+                }
+            }
+        }
+        
+        // Draw grid if enabled
+        this.drawTileGrid();
+    }
+    
+    drawTileGrid() {
+        if (!this.tileMapEnabled) return;
+        
+        const ctx = this.getActiveContext();
+        ctx.strokeStyle = 'rgba(128, 128, 128, 0.3)';
+        ctx.lineWidth = 1;
+        
+        // Draw vertical lines
+        for (let x = 0; x <= this.tileMapWidth; x++) {
+            ctx.beginPath();
+            ctx.moveTo(x * this.tileSize, 0);
+            ctx.lineTo(x * this.tileSize, this.tileMapHeight * this.tileSize);
+            ctx.stroke();
+        }
+        
+        // Draw horizontal lines
+        for (let y = 0; y <= this.tileMapHeight; y++) {
+            ctx.beginPath();
+            ctx.moveTo(0, y * this.tileSize);
+            ctx.lineTo(this.tileMapWidth * this.tileSize, y * this.tileSize);
+            ctx.stroke();
+        }
+    }
+    
+    // Tile map UI methods
+    toggleTileMapPanel() {
+        this.tileMapPanelVisible = !this.tileMapPanelVisible;
+        const tileMapPanel = document.getElementById('tileMapPanel');
+        const canvasArea = document.querySelector('.canvas-area');
+        const toolsPanel = document.querySelector('.tools-panel');
+        const exportPanel = document.querySelector('.export-panel');
+        const mobileToolbar = document.querySelector('.mobile-bottom-toolbar');
+        
+        if (this.tileMapPanelVisible) {
+            tileMapPanel.style.display = 'flex';
+            canvasArea.classList.add('with-tilemap');
+            toolsPanel.classList.add('with-tilemap');
+            exportPanel.classList.add('with-tilemap');
+            if (mobileToolbar) mobileToolbar.classList.add('with-tilemap');
+            this.updateTilePalette();
+        } else {
+            tileMapPanel.style.display = 'none';
+            canvasArea.classList.remove('with-tilemap');
+            toolsPanel.classList.remove('with-tilemap');
+            exportPanel.classList.remove('with-tilemap');
+            if (mobileToolbar) mobileToolbar.classList.remove('with-tilemap');
+        }
+    }
+    
+    updateTilePalette() {
+        const tilePalette = document.getElementById('tilePalette');
+        tilePalette.innerHTML = '';
+        
+        this.tileSet.forEach((tileCanvas, index) => {
+            const tileThumb = document.createElement('canvas');
+            tileThumb.className = 'tile-thumb';
+            if (index === this.selectedTileIndex) {
+                tileThumb.classList.add('selected');
+            }
+            
+            tileThumb.width = 32;
+            tileThumb.height = 32;
+            const ctx = tileThumb.getContext('2d');
+            ctx.imageSmoothingEnabled = false;
+            ctx.drawImage(tileCanvas, 0, 0, 32, 32);
+            
+            tileThumb.addEventListener('click', () => {
+                this.selectedTileIndex = index;
+                this.updateTilePalette();
+            });
+            
+            tilePalette.appendChild(tileThumb);
+        });
+    }
+    
+    // Tile map functionality
+    toggleTileMapMode() {
+        this.tileMapEnabled = document.getElementById('tileMapEnabled').checked;
+        
+        if (this.tileMapEnabled) {
+            // If other panels are open, close them first
+            if (this.layersPanelVisible) {
+                document.getElementById('layersEnabled').checked = false;
+                this.toggleLayersMode();
+            }
+            if (this.animationEnabled) {
+                document.getElementById('animationEnabled').checked = false;
+                this.toggleAnimationMode();
+            }
+            if (this.scriptEditorEnabled) {
+                document.getElementById('scriptEditorEnabled').checked = false;
+                this.toggleScriptEditorMode();
+            }
+        }
+        
+        this.redrawCanvas();
+        this.updateUI();
+    }
+    
+    createNewTile() {
+        // Create a new frame for the tile
+        this.addFrame();
+        this.updateTileSetFromFrames();
+        this.selectedTileIndex = this.tileSet.length - 1;
+        this.updateTilePalette();
+        this.redrawCanvas();
+    }
+    
+    deleteSelectedTile() {
+        if (this.tileSet.length <= 1) return; // Keep at least one tile
+        
+        const frameIndex = this.selectedTileIndex;
+        if (frameIndex >= 0 && frameIndex < this.frames.length) {
+            // Remove the frame
+            this.frames.splice(frameIndex, 1);
+            this.currentFrameIndex = Math.min(this.currentFrameIndex, this.frames.length - 1);
+            
+            // Update tile set
+            this.updateTileSetFromFrames();
+            this.selectedTileIndex = Math.min(this.selectedTileIndex, this.tileSet.length - 1);
+            this.updateTilePalette();
+            this.redrawCanvas();
+            this.updateFrameList();
+        }
+    }
+    
+    exportTiles() {
+        this.tileSet.forEach((tileCanvas, index) => {
+            const link = document.createElement('a');
+            link.download = `tile_${index.toString().padStart(3, '0')}.png`;
+            link.href = tileCanvas.toDataURL();
+            link.click();
+        });
+    }
+    
+    exportTileMap() {
+        // Create tile map data
+        const tileMapData = {
+            tileSize: this.tileSize,
+            mapWidth: this.tileMapWidth,
+            mapHeight: this.tileMapHeight,
+            tiles: this.tileMapData.flat(),
+            tileFiles: this.tileSet.map((_, i) => `tile_${i.toString().padStart(3, '0')}.png`)
+        };
+        
+        // Export JSON
+        const jsonBlob = new Blob([JSON.stringify(tileMapData, null, 2)], {type: 'application/json'});
+        const jsonLink = document.createElement('a');
+        jsonLink.download = 'tilemap.json';
+        jsonLink.href = URL.createObjectURL(jsonBlob);
+        jsonLink.click();
+        
+        // Export HPP format for C++
+        const hppContent = this.generateTileMapHPP(tileMapData);
+        const hppBlob = new Blob([hppContent], {type: 'text/plain'});
+        const hppLink = document.createElement('a');
+        hppLink.download = 'tilemap.hpp';
+        hppLink.href = URL.createObjectURL(hppBlob);
+        hppLink.click();
+    }
+    
+    generateTileMapHPP(tileMapData) {
+        let hpp = `#ifndef TILEMAP_HPP\n#define TILEMAP_HPP\n\n`;
+        hpp += `#include <vector>\n#include <string>\n\n`;
+        hpp += `struct TileMap {\n`;
+        hpp += `    int tileSize;\n`;
+        hpp += `    int mapWidth;\n`;
+        hpp += `    int mapHeight;\n`;
+        hpp += `    std::vector<int> tiles;\n`;
+        hpp += `    std::vector<std::string> tileFiles;\n`;
+        hpp += `};\n\n`;
+        hpp += `const TileMap tileMap = {\n`;
+        hpp += `    ${tileMapData.tileSize},\n`;
+        hpp += `    ${tileMapData.mapWidth},\n`;
+        hpp += `    ${tileMapData.mapHeight},\n`;
+        hpp += `    {${tileMapData.tiles.join(', ')}},\n`;
+        hpp += `    {${tileMapData.tileFiles.map(f => `"${f}"`).join(', ')}}\n`;
+        hpp += `};\n\n#endif // TILEMAP_HPP\n`;
+        return hpp;
+    }
+    
+    importTiles() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.multiple = true;
+        input.accept = 'image/*';
+        input.addEventListener('change', (e) => {
+            Array.from(e.target.files).forEach(file => {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        // Create new frame from image
+                        const canvas = document.createElement('canvas');
+                        canvas.width = this.canvasWidth;
+                        canvas.height = this.canvasHeight;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, this.canvasWidth, this.canvasHeight);
+                        
+                        this.frames.push(canvas);
+                        this.updateTileSetFromFrames();
+                        this.updateTilePalette();
+                        this.updateFrameList();
+                    };
+                    img.src = event.target.result;
+                };
+                reader.readAsDataURL(file);
+            });
+        });
+        input.click();
+    }
+    
+    resizeTileMap() {
+        const newWidth = parseInt(document.getElementById('mapWidth').value);
+        const newHeight = parseInt(document.getElementById('mapHeight').value);
+        
+        if (newWidth > 0 && newHeight > 0) {
+            this.tileMapWidth = newWidth;
+            this.tileMapHeight = newHeight;
+            
+            // Resize tile map data
+            const newData = [];
+            for (let y = 0; y < newHeight; y++) {
+                newData[y] = [];
+                for (let x = 0; x < newWidth; x++) {
+                    if (y < this.tileMapData.length && x < this.tileMapData[y].length) {
+                        newData[y][x] = this.tileMapData[y][x];
+                    } else {
+                        newData[y][x] = 0;
+                    }
+                }
+            }
+            this.tileMapData = newData;
+            this.redrawCanvas();
+        }
     }
     
     updateLayersUI() {
@@ -5657,6 +6005,23 @@ class DrawingEditor {
         document.getElementById('mergeDown').addEventListener('click', () => this.mergeLayerDown());
         document.getElementById('copyLayerToFrames').addEventListener('click', () => this.copyLayerToFrames());
         
+        // Tile Map system
+        document.getElementById('tileMapEnabled').addEventListener('change', () => {
+            this.toggleTileMapMode();
+            this.validateMutualExclusivity();
+        });
+        document.getElementById('newTile').addEventListener('click', () => this.createNewTile());
+        document.getElementById('deleteTile').addEventListener('click', () => this.deleteSelectedTile());
+        document.getElementById('exportTiles').addEventListener('click', () => this.exportTiles());
+        document.getElementById('exportTileMap').addEventListener('click', () => this.exportTileMap());
+        document.getElementById('importTiles').addEventListener('click', () => this.importTiles());
+        document.getElementById('tileSizeSelect').addEventListener('change', (e) => {
+            this.tileSize = parseInt(e.target.value);
+            this.updateTileSetFromFrames();
+            this.redrawCanvas();
+        });
+        document.getElementById('resizeTileMap').addEventListener('click', () => this.resizeTileMap());
+        
         // Animation panel system
         document.getElementById('animationEnabled').addEventListener('change', () => {
             this.toggleAnimationMode();
@@ -5664,7 +6029,10 @@ class DrawingEditor {
         });
         
         // Script Editor panel system
-        document.getElementById('scriptEditorEnabled').addEventListener('change', () => this.toggleScriptEditorMode());
+        document.getElementById('scriptEditorEnabled').addEventListener('change', () => {
+            this.toggleScriptEditorMode();
+            this.validateMutualExclusivity();
+        });
         
         // Animation panel buttons - connect to existing functions
         document.getElementById('animAddFrame').addEventListener('click', () => this.addFrame());
@@ -6201,6 +6569,12 @@ class DrawingEditor {
         if (e.button !== 0) return; // Only handle left mouse button for drawing tools
         
         const pos = this.getMousePos(e);
+        
+        // Handle tile map mode
+        if (this.tileMapEnabled) {
+            this.paintTileAt(pos.x, pos.y, this.selectedTileIndex);
+            return;
+        }
         
         // Call script click handler if one is set
         if (this.scriptClickHandler) {
@@ -11240,6 +11614,12 @@ class DrawingEditor {
         // Safety check - ensure we have proper context
         if (!this.drawingCtx) return;
         
+        // Handle tile map mode
+        if (this.tileMapEnabled) {
+            this.renderTileMap();
+            return;
+        }
+        
         // ALWAYS composite layers (they're always active internally)
         this.compositeLayersToFrame(this.currentFrameIndex);
         
@@ -11412,6 +11792,11 @@ class DrawingEditor {
         // Update animation panel if it's open
         if (this.animationEnabled) {
             this.updateAnimationUI();
+        }
+        
+        // Update tile map UI if tile map panel is visible
+        if (this.tileMapPanelVisible) {
+            this.updateTilePalette();
         }
         
         // Update edit button states

@@ -576,6 +576,9 @@
                             <input type="checkbox" id="layersEnabled"> Layers
                         </label>
                         <label>
+                            <input type="checkbox" id="tileMapEnabled"> Tile Map
+                        </label>
+                        <label>
                             <input type="checkbox" id="animationEnabled"> Animations
                         </label>
                         <label>
@@ -1223,6 +1226,39 @@
         </div>
         <div class="layers-list" id="layersList">
             <!-- Layers will be added here dynamically -->
+        </div>
+    </div>
+
+    <!-- Tile Map Panel (bottom of screen) -->
+    <div class="tilemap-panel" id="tileMapPanel" style="display: none;">
+        <div class="tilemap-header">
+            <h3>🗺️ Tile Map</h3>
+            <div class="tilemap-actions">
+                <button id="newTile" class="tile-btn" title="Create New Tile">➕ New Tile</button>
+                <button id="deleteTile" class="tile-btn" title="Delete Selected Tile">🗑️ Delete</button>
+                <button id="exportTiles" class="tile-btn" title="Export Tiles">📤 Export Tiles</button>
+                <button id="exportTileMap" class="tile-btn" title="Export Tile Map">🗺️ Export Map</button>
+                <button id="importTiles" class="tile-btn" title="Import Tiles">📥 Import Tiles</button>
+            </div>
+        </div>
+        <div class="tilemap-content">
+            <div class="tile-palette" id="tilePalette">
+                <!-- Tiles will be displayed here -->
+            </div>
+            <div class="tilemap-controls">
+                <label>Tile Size: 
+                    <select id="tileSizeSelect">
+                        <option value="8">8x8</option>
+                        <option value="16" selected>16x16</option>
+                        <option value="32">32x32</option>
+                    </select>
+                </label>
+                <label>Map Size: 
+                    <input type="number" id="mapWidth" value="9" min="1" max="20"> × 
+                    <input type="number" id="mapHeight" value="10" min="1" max="20">
+                </label>
+                <button id="resizeTileMap" class="tile-btn">Resize Map</button>
+            </div>
         </div>
     </div>
 
