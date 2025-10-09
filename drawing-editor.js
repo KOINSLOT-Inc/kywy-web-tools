@@ -747,7 +747,7 @@ class NewDrawingCommand {
                 return canvas;
             }),
             currentFrameIndex: editor.currentFrameIndex,
-            frameLayers: editor.frameLayers ? JSON.parse(JSON.stringify(editor.frameLayers)) : null,
+            frameLayers: editor.frameLayers ? this.cloneFrameLayers(editor.frameLayers) : null,
             layersEnabled: editor.layersEnabled,
             animationEnabled: editor.animationEnabled,
             isPlaying: editor.isPlaying,
@@ -774,6 +774,38 @@ class NewDrawingCommand {
             isBlankCanvas: editor.isBlankCanvas,
             lastSaveTime: editor.lastSaveTime
         };
+    }
+    
+    cloneFrameLayers(frameLayers) {
+        const cloned = {};
+        for (const frameIdx in frameLayers) {
+            if (frameLayers.hasOwnProperty(frameIdx)) {
+                const frameData = frameLayers[frameIdx];
+                cloned[frameIdx] = {
+                    layers: [],
+                    currentLayerIndex: frameData.currentLayerIndex
+                };
+                
+                // Clone each layer
+                for (const layer of frameData.layers) {
+                    const clonedCanvas = document.createElement('canvas');
+                    clonedCanvas.width = layer.canvas.width;
+                    clonedCanvas.height = layer.canvas.height;
+                    
+                    // Copy canvas content
+                    const ctx = clonedCanvas.getContext('2d', { willReadFrequently: true });
+                    ctx.drawImage(layer.canvas, 0, 0);
+                    
+                    cloned[frameIdx].layers.push({
+                        name: layer.name,
+                        canvas: clonedCanvas,
+                        visible: layer.visible,
+                        transparencyMode: layer.transparencyMode
+                    });
+                }
+            }
+        }
+        return cloned;
     }
     
     execute() {
@@ -4305,9 +4337,9 @@ class DrawingEditor {
                 console.warn('Invalid layer canvas for preview:', layer.canvas);
                 // Try to repair this layer
                 const fallbackLayer = this.createFallbackLayer();
-                frameData.layers[layerIndex] = fallbackLayer;
+                frameData.layers[i] = fallbackLayer;
                 layer = fallbackLayer;
-                console.warn('Replaced invalid layer with fallback at index', layerIndex);
+                console.warn('Replaced invalid layer with fallback at index', i);
             }
             
             // Create preview canvas
@@ -18479,6 +18511,7 @@ Instructions:
         this._timeoutDisabled = false; // Reset timeout disable flag for each script
         this._timeoutPaused = false; // Reset timeout pause state
         this._pausedTime = 0; // Reset accumulated pause time
+        this._layersAddedInScript = false; // Reset layers added flag
         
         // Pause animation during script execution
         if (this.isPlaying) {
@@ -19146,6 +19179,7 @@ Instructions:
             this._printBuffer = [];
             this._executingScript = false;
             this._scriptStartTime = null; // Reset timer
+            this._layersAddedInScript = false; // Reset layers flag on error
             
             // Attach prints to error object so they can be accessed by caller
             error.scriptPrints = prints;
@@ -19156,8 +19190,12 @@ Instructions:
         this._executingScript = false;
         this._scriptStartTime = null; // Reset timer
         
-        // Always push to undo stack (snapshot was captured before execution)
-        // this.pushUndo();
+        // Push final state to undo stack if layers were added during script execution
+        // This ensures the undo system captures the complete final state including new layers
+        if (this._layersAddedInScript) {
+            this.captureSnapshot();
+            this.pushUndo();
+        }
         
         // Composite all frames to ensure layers are reflected in frame canvases
         // This is necessary because scripts can draw on any frame/layer
