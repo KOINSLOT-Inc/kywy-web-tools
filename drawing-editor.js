@@ -17285,7 +17285,7 @@ Instructions:
         if (this._executingScript && this._scriptStartTime && !this._timeoutDisabled) {
             const elapsed = Date.now() - this._scriptStartTime;
             if (elapsed > this._scriptTimeout) {
-                throw new Error('Script execution timeout: Script took longer than 15 seconds to complete. If this is intended, use the kde.noTimeout to disable the timeout. You may not be able to recover work if the script enters an infinite loop, saving your work is recomended.');
+                throw new Error('Script execution timeout: Script took longer than 15 seconds to complete. If this is intended, use the kde.noTimeout() to disable the timeout. You may not be able to recover work if the script enters an infinite loop, saving your workis recomended.');
             }
         }
     }
@@ -19415,6 +19415,19 @@ kde.setCurrentFrame(0);
 kde.duplicateFrame();
 // deleteFrame() - Remove current frame
 kde.deleteFrame();
+
+// ============================================
+// ADVANCED FEATURES
+// ============================================
+
+// Disable script timeout for long-running scripts
+// kde.noTimeout() - Prevents 15-second timeout (use with caution!)
+// Note: Scripts normally timeout after 15 seconds to prevent browser freezing
+// Only call this if your script genuinely needs to run longer
+kde.noTimeout();
+
+// Print output to script console
+kde.print('Script execution completed!');
 // Errors are caught and displayed in the script output panel, as well as notifed
 // heres an example where we call a function that does not exist
 kde.nonExistentFunction(); // This will trigger an error message`,
@@ -19602,20 +19615,7 @@ kde.drawLine(10, 70, w-10, h-10, 'black');
 kde.drawLine(w-10, 70, 10, h-10, 'black');
 
 // Show info
-kde.drawText(kde.getLayerCount() + ' layers total', 5, h-10, 'black');
-
-// ============================================
-// ADVANCED FEATURES
-// ============================================
-
-// Disable script timeout for long-running scripts
-// kde.noTimeout() - Prevents 15-second timeout (use with caution!)
-// Note: Scripts normally timeout after 15 seconds to prevent browser freezing
-// Only call this if your script genuinely needs to run longer
-// kde.noTimeout();
-
-// Print output to script console
-kde.print('Script execution completed!');`,
+kde.drawText(kde.getLayerCount() + ' layers total', 5, h-10, 'black');`,
         selection: `// Selection Operations Example
 // Demonstrates copy, paste, rotate, and mirror
 
