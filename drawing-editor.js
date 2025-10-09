@@ -7294,13 +7294,11 @@ class DrawingEditor {
                 mirrorX = 2 * centerPixel - x;
             }
             
-            // Show mirror if mirror position is within canvas bounds (regardless of original position)
-            if (mirrorX >= 0 && mirrorX < this.canvasWidth) {
-                if (this.brushShape === 'circle') {
-                    this.drawCircleBrushPreview(mirrorX, y, this.brushSize);
-                } else {
-                    this.drawSquareBrushPreview(mirrorX, y, this.brushSize);
-                }
+            // Always show horizontal mirror if it would be visible, regardless of original position
+            if (this.brushShape === 'circle') {
+                this.drawCircleBrushPreview(mirrorX, y, this.brushSize);
+            } else {
+                this.drawSquareBrushPreview(mirrorX, y, this.brushSize);
             }
         }
         
@@ -7317,13 +7315,11 @@ class DrawingEditor {
                 mirrorY = 2 * centerPixel - y;
             }
             
-            // Show mirror if mirror position is within canvas bounds (regardless of original position)
-            if (mirrorY >= 0 && mirrorY < this.canvasHeight) {
-                if (this.brushShape === 'circle') {
-                    this.drawCircleBrushPreview(x, mirrorY, this.brushSize);
-                } else {
-                    this.drawSquareBrushPreview(x, mirrorY, this.brushSize);
-                }
+            // Always show vertical mirror if it would be visible, regardless of original position
+            if (this.brushShape === 'circle') {
+                this.drawCircleBrushPreview(x, mirrorY, this.brushSize);
+            } else {
+                this.drawSquareBrushPreview(x, mirrorY, this.brushSize);
             }
         }
         
@@ -7348,30 +7344,24 @@ class DrawingEditor {
             }
             
             // Horizontal mirror
-            if (mirrorX >= 0 && mirrorX < this.canvasWidth) {
-                if (this.brushShape === 'circle') {
-                    this.drawCircleBrushPreview(mirrorX, y, this.brushSize);
-                } else {
-                    this.drawSquareBrushPreview(mirrorX, y, this.brushSize);
-                }
+            if (this.brushShape === 'circle') {
+                this.drawCircleBrushPreview(mirrorX, y, this.brushSize);
+            } else {
+                this.drawSquareBrushPreview(mirrorX, y, this.brushSize);
             }
             
             // Vertical mirror
-            if (mirrorY >= 0 && mirrorY < this.canvasHeight) {
-                if (this.brushShape === 'circle') {
-                    this.drawCircleBrushPreview(x, mirrorY, this.brushSize);
-                } else {
-                    this.drawSquareBrushPreview(x, mirrorY, this.brushSize);
-                }
+            if (this.brushShape === 'circle') {
+                this.drawCircleBrushPreview(x, mirrorY, this.brushSize);
+            } else {
+                this.drawSquareBrushPreview(x, mirrorY, this.brushSize);
             }
             
             // Diagonal mirror (both axes)
-            if (mirrorX >= 0 && mirrorX < this.canvasWidth && mirrorY >= 0 && mirrorY < this.canvasHeight) {
-                if (this.brushShape === 'circle') {
-                    this.drawCircleBrushPreview(mirrorX, mirrorY, this.brushSize);
-                } else {
-                    this.drawSquareBrushPreview(mirrorX, mirrorY, this.brushSize);
-                }
+            if (this.brushShape === 'circle') {
+                this.drawCircleBrushPreview(mirrorX, mirrorY, this.brushSize);
+            } else {
+                this.drawSquareBrushPreview(mirrorX, mirrorY, this.brushSize);
             }
         }
     }
