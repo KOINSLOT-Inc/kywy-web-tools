@@ -17303,6 +17303,10 @@ Instructions:
             if (userConfirmed) {
                 // Save the work first, then continue with script execution
                 this.save();
+                // Reset undo stack after saving since work is now saved
+                this.undoStack = [];
+                this.redoStack = [];
+                this.updateUndoRedoUI();
                 // Continue execution below - don't return early
             }
         }
