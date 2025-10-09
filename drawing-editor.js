@@ -14105,10 +14105,12 @@ Instructions:
         this.generateThumbnail(this.currentFrameIndex);
         this.generateCode();
         
-        // Add undo command
-        const command = new RotateSelectionCommand(this, canvasSnapshot, selectionBounds, this.currentFrameIndex);
-        this.undoStack.push(command);
-        this.redoStack = []; // Clear redo stack
+        // Add undo command (skip during script execution)
+        if (!this._executingScript) {
+            const command = new RotateSelectionCommand(this, canvasSnapshot, selectionBounds, this.currentFrameIndex);
+            this.undoStack.push(command);
+            this.redoStack = []; // Clear redo stack
+        }
     }
 
     rotateClipboard(degrees) {
@@ -14594,10 +14596,12 @@ Instructions:
         this.generateThumbnail(this.currentFrameIndex);
         this.generateCode();
         
-        // Add undo command
-        const command = new RotateSelectionCommand(this, canvasSnapshot, { startX: clampedMinX, startY: clampedMinY, endX: clampedMaxX, endY: clampedMaxY }, this.currentFrameIndex, originalSelection);
-        this.undoStack.push(command);
-        this.redoStack = []; // Clear redo stack
+        // Add undo command (skip during script execution)
+        if (!this._executingScript) {
+            const command = new RotateSelectionCommand(this, canvasSnapshot, { startX: clampedMinX, startY: clampedMinY, endX: clampedMaxX, endY: clampedMaxY }, this.currentFrameIndex, originalSelection);
+            this.undoStack.push(command);
+            this.redoStack = []; // Clear redo stack
+        }
     }
 
     rotateLassoPoints(lassoPoints, degrees, centerX, centerY, boundsMinX, boundsMinY, boundsWidth, boundsHeight) {
@@ -14687,10 +14691,12 @@ Instructions:
         this.generateThumbnail(this.currentFrameIndex);
         this.generateCode();
         
-        // Add undo command
-        const command = new MirrorSelectionCommand(this, canvasSnapshot, { startX, startY, endX, endY }, this.currentFrameIndex);
-        this.undoStack.push(command);
-        this.redoStack = []; // Clear redo stack
+        // Add undo command (skip during script execution)
+        if (!this._executingScript) {
+            const command = new MirrorSelectionCommand(this, canvasSnapshot, { startX, startY, endX, endY }, this.currentFrameIndex);
+            this.undoStack.push(command);
+            this.redoStack = []; // Clear redo stack
+        }
     }
 
     mirrorLassoSelection(direction) {
@@ -14797,10 +14803,12 @@ Instructions:
         this.generateThumbnail(this.currentFrameIndex);
         this.generateCode();
         
-        // Add undo command - pass the original lasso points captured before mirroring
-        const command = new MirrorSelectionCommand(this, canvasSnapshot, { startX: clampedMinX, startY: clampedMinY, endX: clampedMaxX, endY: clampedMaxY }, this.currentFrameIndex, direction, originalLassoPoints);
-        this.undoStack.push(command);
-        this.redoStack = []; // Clear redo stack
+        // Add undo command (skip during script execution)
+        if (!this._executingScript) {
+            const command = new MirrorSelectionCommand(this, canvasSnapshot, { startX: clampedMinX, startY: clampedMinY, endX: clampedMaxX, endY: clampedMaxY }, this.currentFrameIndex, direction, originalLassoPoints);
+            this.undoStack.push(command);
+            this.redoStack = []; // Clear redo stack
+        }
     }
 
     mirrorClipboard(direction) {
@@ -17818,9 +17826,14 @@ Instructions:
                         startY: Math.floor(startY),
                         endX: Math.floor(endX),
                         endY: Math.floor(endY),
-                        type: 'rectangle'
+                        mode: 'rectangle',
+                        active: true,
+                        cutContent: null,
+                        isDragging: false,
+                        dragHandle: null
                     };
                     
+                    console.log('selectRect created selection:', this.selection);
                     this.redrawCanvas();
                 },
                 /**
@@ -17888,7 +17901,13 @@ Instructions:
                  * @returns {boolean} True if rotation succeeded
                  */
                 rotateSelection: (degrees) => {
-                    if (!this.selection) return false;
+                    console.log('rotateSelection called with degrees:', degrees);
+                    console.log('Current selection:', this.selection);
+                    if (!this.selection || !this.selection.active) {
+                        console.log('No active selection found');
+                        return false;
+                    }
+                    console.log('Calling rotateSelectionByAngle...');
                     this.rotateSelectionByAngle(Math.floor(degrees));
                     return true;
                 },
@@ -17897,7 +17916,7 @@ Instructions:
                  * @returns {boolean} True if mirror succeeded
                  */
                 mirrorSelectionH: () => {
-                    if (!this.selection) return false;
+                    if (!this.selection || !this.selection.active) return false;
                     this.mirrorSelection('horizontal');
                     return true;
                 },
@@ -17906,7 +17925,7 @@ Instructions:
                  * @returns {boolean} True if mirror succeeded
                  */
                 mirrorSelectionV: () => {
-                    if (!this.selection) return false;
+                    if (!this.selection || !this.selection.active) return false;
                     this.mirrorSelection('vertical');
                     return true;
                 },
