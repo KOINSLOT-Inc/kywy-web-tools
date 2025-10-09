@@ -4287,7 +4287,7 @@ class DrawingEditor {
         // Create layer items in normal order (left to right = Layer 0 to Layer N)
         // This makes new layers appear on the right side
         for (let i = 0; i < frameData.layers.length; i++) {
-            const layer = frameData.layers[i];
+            let layer = frameData.layers[i];
             const layerItem = document.createElement('div');
             layerItem.className = 'layer-item';
             if (i === frameData.currentLayerIndex) {
