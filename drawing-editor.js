@@ -9464,6 +9464,9 @@ class DrawingEditor {
             const pos = this.getMousePos(this.lastMouseEvent);
             if (this.isWithinCanvas(pos.x, pos.y)) {
                 this.showPastePreview(pos.x, pos.y);
+            } else {
+                // Show paste preview at center when off-canvas
+                this.restoreToolPreviews();
             }
             return;
         }
@@ -9471,28 +9474,30 @@ class DrawingEditor {
         // Get current mouse position
         const pos = this.getMousePos(this.lastMouseEvent);
         
+        // If mouse is off-canvas, show tool previews at center
+        if (!this.isWithinCanvas(pos.x, pos.y)) {
+            this.restoreToolPreviews();
+            return;
+        }
+        
         switch (this.currentTool) {
             case 'pen':
-                if (this.isWithinCanvas(pos.x, pos.y)) {
-                    if (!this.gridModeEnabled && this.penMode !== 'spray') {
-                        this.showPenPreview(pos.x, pos.y);
-                    } else if (this.penMode === 'spray') {
-                        this.showSprayPreview(pos.x, pos.y);
-                    }
+                if (!this.gridModeEnabled && this.penMode !== 'spray') {
+                    this.showPenPreview(pos.x, pos.y);
+                } else if (this.penMode === 'spray') {
+                    this.showSprayPreview(pos.x, pos.y);
                 }
                 break;
                 
             case 'bucket':
-                if (this.isWithinCanvas(pos.x, pos.y)) {
-                    // Don't interfere if we're editing gradient settings
-                    if (!this.isEditingGradientSettings) {
-                        this.showFillPreview(pos.x, pos.y);
-                    }
+                // Don't interfere if we're editing gradient settings
+                if (!this.isEditingGradientSettings) {
+                    this.showFillPreview(pos.x, pos.y);
                 }
                 break;
                 
             case 'text':
-                if (this.textInput.trim() && this.isWithinCanvas(pos.x, pos.y)) {
+                if (this.textInput.trim()) {
                     this.generateTextCanvas();
                     this.clearOverlayAndRedrawBase();
                     this.showTextPreview(pos);
@@ -18330,6 +18335,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // Expose editor globally for scripting
     window.kde = editor;
     window.editor = editor; // Backwards compatibility
+    
+    // Initialize pattern buttons after DOM is ready
+    setTimeout(() => {
+        editor.setFillPattern('solid'); // Ensure proper initialization
+    }, 100);
     
     // Initialize sidebar toggles
     initializeSidebarToggles();
