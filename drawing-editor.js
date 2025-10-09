@@ -20545,7 +20545,13 @@ kde.print('Script execution completed!');
 // Errors are caught and displayed in the script output panel, as well as notifed
 // heres an example where we call a function that does not exist
 kde.nonExistentFunction(); // This will trigger an error message`,
-        bresenham: `// Bresenham's Circle Algorithm
+        bresenham: `// Welcome to KYWY Drawing Editor Scripts!
+// Here you can programmatically create drawings and animations using javascript.
+// The 'kde' object provides access to the canvas and drawing functions.
+// Becareful though, it is possible to lose your work when you runscripts so be sure the save your work!
+// See the full API reference in the Help panel (top bar) or load the "Code Reference" example from the dropdown.
+//
+// Bresenham's Circle Algorithm
 // This algorithm is a classic method for drawing circles in computer graphics.
 kde.clear();
 
