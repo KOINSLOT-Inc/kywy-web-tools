@@ -5449,7 +5449,7 @@ class DrawingEditor {
             if (this.currentTool === 'text') {
                 // Text size adjustment works anywhere (not restricted to canvas bounds)
                 const delta = e.deltaY > 0 ? -2 : 2;
-                this.fontSize = Math.max(8, Math.min(200, this.fontSize + delta));
+                this.fontSize = Math.max(8, Math.min(250, this.fontSize + delta));
                 const fontSizeElement = document.getElementById('fontSize');
                 if (fontSizeElement) {
                     fontSizeElement.value = this.fontSize;
