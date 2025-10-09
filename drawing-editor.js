@@ -1037,6 +1037,13 @@ class DrawingEditor {
         this.textPreviewCanvas = null;
         this.textPreviewData = null;
         
+        // Bitmap font detection and sizing
+        this.bitmapFonts = this.initializeBitmapFonts();
+        
+        // User font loading
+        this.userFonts = new Map(); // Store loaded user fonts
+        this.setupUserFontLoader();
+        
         // Emoji properties
         this.emojiBrightness = -20; // -100 to 100
         this.emojiContrast = 100; // 50 to 200 (percentage)
@@ -1879,6 +1886,8 @@ class DrawingEditor {
         if (fontFamily) {
             fontFamily.addEventListener('change', (e) => {
                 this.fontFamily = e.target.value;
+                // Update font size to valid bitmap size if switching to bitmap font
+                this.updateFontSize(this.fontSize);
                 this.updateTextPreview();
             });
         }
@@ -1887,8 +1896,7 @@ class DrawingEditor {
         const fontSize = document.getElementById('fontSize');
         if (fontSize) {
             fontSize.addEventListener('input', (e) => {
-                this.fontSize = parseInt(e.target.value);
-                document.getElementById('fontSizeDisplay').textContent = this.fontSize;
+                this.updateFontSize(parseInt(e.target.value));
                 this.updateTextPreview();
             });
         }
@@ -2130,6 +2138,10 @@ class DrawingEditor {
     // Helper method to render text with controlled letter spacing
     renderTextWithSpacing(ctx, text, x, y, minLetterSpacing = 1) {
         let currentX = x;
+        const isBitmap = this.isBitmapFont(this.fontFamily);
+        
+        // For bitmap fonts, use more precise spacing
+        const actualMinSpacing = isBitmap ? Math.max(0, minLetterSpacing) : minLetterSpacing;
         
         // Split text into segments (regular text and emojis)
         const segments = this.parseTextWithEmojis(text);
@@ -2145,16 +2157,27 @@ class DrawingEditor {
                     
                     // Skip spaces - handle them with a fixed width
                     if (char === ' ') {
-                        currentX += Math.max(this.fontSize * 0.3, minLetterSpacing * 2);
+                        const spaceWidth = isBitmap ? 
+                            Math.max(Math.round(this.fontSize * 0.25), 1) : // Smaller, more precise space for bitmap
+                            Math.max(this.fontSize * 0.3, actualMinSpacing * 2);
+                        currentX += spaceWidth;
                         continue;
                     }
                     
-                    // Render the character
-                    ctx.fillText(char, Math.round(currentX), y);
+                    // Render the character at pixel boundary
+                    const renderX = isBitmap ? Math.round(currentX) : currentX;
+                    const renderY = isBitmap ? Math.round(y) : y; // Ensure Y is also pixel-aligned for bitmap fonts
+                    ctx.fillText(char, renderX, renderY);
                     
                     // Measure character width and add spacing
                     const charWidth = ctx.measureText(char).width;
-                    currentX += Math.ceil(charWidth) + minLetterSpacing;
+                    if (isBitmap) {
+                        // For bitmap fonts, use more conservative rounding and spacing
+                        currentX += Math.round(charWidth) + actualMinSpacing;
+                    } else {
+                        // For vector fonts, use ceiling for crisp edges
+                        currentX += Math.ceil(charWidth) + actualMinSpacing;
+                    }
                 }
             }
         }
@@ -2165,6 +2188,10 @@ class DrawingEditor {
     // Helper method to measure text width with spacing
     measureTextWithSpacing(ctx, text, minLetterSpacing = 1) {
         let totalWidth = 0;
+        const isBitmap = this.isBitmapFont(this.fontFamily);
+        
+        // For bitmap fonts, use more precise spacing
+        const actualMinSpacing = isBitmap ? Math.max(0, minLetterSpacing) : minLetterSpacing;
         
         // Split text into segments (regular text and emojis)
         const segments = this.parseTextWithEmojis(text);
@@ -2179,12 +2206,21 @@ class DrawingEditor {
                     const char = segment.text[i];
                     
                     if (char === ' ') {
-                        totalWidth += Math.max(this.fontSize * 0.3, minLetterSpacing * 2);
+                        const spaceWidth = isBitmap ? 
+                            Math.max(Math.round(this.fontSize * 0.25), 1) : // Smaller, more precise space for bitmap
+                            Math.max(this.fontSize * 0.3, actualMinSpacing * 2);
+                        totalWidth += spaceWidth;
                         continue;
                     }
                     
                     const charWidth = ctx.measureText(char).width;
-                    totalWidth += Math.ceil(charWidth) + minLetterSpacing;
+                    if (isBitmap) {
+                        // For bitmap fonts, use more conservative rounding and spacing
+                        totalWidth += Math.round(charWidth) + actualMinSpacing;
+                    } else {
+                        // For vector fonts, use ceiling for crisp edges
+                        totalWidth += Math.ceil(charWidth) + actualMinSpacing;
+                    }
                 }
             }
         }
@@ -2860,74 +2896,286 @@ class DrawingEditor {
         return imageData;
     }
 
+    initializeBitmapFonts() {
+        // Massive collection of bitmap fonts and their base sizes with perfect pixel rendering
+        return {
+            // Classic Windows bitmap fonts (widely available)
+            'MS Sans Serif': { baseSize: 8, sizes: [8, 10, 12, 14, 18, 24], isPixelPerfect: true },
+            'Small Fonts': { baseSize: 6, sizes: [6, 7, 8, 9, 10, 11], isPixelPerfect: true },
+            'System': { baseSize: 8, sizes: [8, 10, 12, 14, 16, 18], isPixelPerfect: true },
+            'Terminal': { baseSize: 9, sizes: [9, 12, 15, 18, 21, 24], isPixelPerfect: true },
+            'Fixedsys': { baseSize: 9, sizes: [9, 12, 15, 18], isPixelPerfect: true },
+            'MS Serif': { baseSize: 8, sizes: [8, 10, 12, 14, 18, 24], isPixelPerfect: true },
+            'Courier': { baseSize: 10, sizes: [10, 12, 15, 18, 20, 24], isPixelPerfect: true },
+            'Modern': { baseSize: 8, sizes: [8, 10, 12, 14, 18, 24], isPixelPerfect: true },
+            'Roman': { baseSize: 8, sizes: [8, 10, 12, 14, 18, 24], isPixelPerfect: true },
+            'Script': { baseSize: 8, sizes: [8, 10, 12, 14, 18, 24], isPixelPerfect: true },
+            'Marlett': { baseSize: 8, sizes: [8, 10, 12, 14, 16, 18], isPixelPerfect: true },
+            
+            // Classic computer system fonts
+            'Perfect DOS VGA 437': { baseSize: 16, sizes: [8, 16, 24, 32, 48], isPixelPerfect: true },
+            'IBM BIOS': { baseSize: 8, sizes: [8, 16, 24, 32, 40, 48], isPixelPerfect: true },
+            'IBM VGA': { baseSize: 16, sizes: [8, 16, 24, 32], isPixelPerfect: true },
+            'MS-DOS': { baseSize: 8, sizes: [8, 16, 24, 32], isPixelPerfect: true },
+            'C64': { baseSize: 8, sizes: [8, 16, 24, 32], isPixelPerfect: true },
+            'Apple ][': { baseSize: 7, sizes: [7, 14, 21, 28], isPixelPerfect: true },
+            'Atari ST': { baseSize: 8, sizes: [8, 16, 24, 32], isPixelPerfect: true },
+            
+            // Modern pixel fonts
+            'Pixel Operator': { baseSize: 8, sizes: [8, 16, 24, 32], isPixelPerfect: true },
+            'Profont': { baseSize: 9, sizes: [9, 10, 11, 12, 15, 18], isPixelPerfect: true },
+            'Tamsyn': { baseSize: 8, sizes: [8, 10, 12, 14, 16, 20], isPixelPerfect: true },
+            'Terminus': { baseSize: 12, sizes: [12, 14, 16, 18, 20, 24], isPixelPerfect: true },
+            'Dina': { baseSize: 8, sizes: [8, 9, 10], isPixelPerfect: true },
+            'Gohufont': { baseSize: 11, sizes: [11, 14], isPixelPerfect: true },
+            'Creep': { baseSize: 8, sizes: [8, 16], isPixelPerfect: true },
+            'Cherry': { baseSize: 11, sizes: [11, 13, 15], isPixelPerfect: true },
+            'Cozette': { baseSize: 6, sizes: [6, 10, 12], isPixelPerfect: true },
+            'Spleen': { baseSize: 5, sizes: [5, 8, 12, 16, 24, 32], isPixelPerfect: true },
+            'Tamzen': { baseSize: 8, sizes: [8, 10, 13, 15, 16, 20], isPixelPerfect: true },
+            'Scientifica': { baseSize: 11, sizes: [11], isPixelPerfect: true },
+            'GohuFont': { baseSize: 11, sizes: [11, 14], isPixelPerfect: true },
+            'Kakwafont': { baseSize: 12, sizes: [12], isPixelPerfect: true },
+            
+            // Gaming/tech bitmap fonts
+            'Silkscreen': { baseSize: 8, sizes: [8, 16, 24, 32], isPixelPerfect: true },
+            'Press Start 2P': { baseSize: 8, sizes: [8, 16, 24, 32], isPixelPerfect: true },
+            'VT323': { baseSize: 12, sizes: [12, 24, 36, 48], isPixelPerfect: true },
+            'Digital-7': { baseSize: 14, sizes: [14, 21, 28, 35, 42], isPixelPerfect: true },
+            'Segment7': { baseSize: 14, sizes: [14, 21, 28, 35], isPixelPerfect: true },
+            'LCD': { baseSize: 14, sizes: [14, 21, 28], isPixelPerfect: true },
+            'Share Tech Mono': { baseSize: 12, sizes: [12, 24, 36], isPixelPerfect: true },
+            'Nova Mono': { baseSize: 12, sizes: [12, 24, 36], isPixelPerfect: true },
+            'Major Mono Display': { baseSize: 48, sizes: [24, 48, 72, 96], isPixelPerfect: true },
+            'Cutive Mono': { baseSize: 12, sizes: [12, 24, 36], isPixelPerfect: true },
+            
+            // Monospace bitmap-style fonts
+            'Courier Prime Code': { baseSize: 12, sizes: [12, 24, 36], isPixelPerfect: true },
+            'Anonymous Pro': { baseSize: 12, sizes: [12, 13, 16, 24], isPixelPerfect: true },
+            'B612 Mono': { baseSize: 12, sizes: [12, 16, 20, 24], isPixelPerfect: true },
+            'Fira Code': { baseSize: 12, sizes: [10, 12, 14, 16, 18, 20, 24], isPixelPerfect: true },
+            'JetBrains Mono': { baseSize: 13, sizes: [8, 10, 12, 13, 14, 16, 18, 20], isPixelPerfect: true },
+            'Source Code Pro': { baseSize: 12, sizes: [10, 12, 14, 16, 18, 20, 24], isPixelPerfect: true }
+        };
+    }
+
+    isBitmapFont(fontFamily) {
+        return this.bitmapFonts.hasOwnProperty(fontFamily);
+    }
+
+    getValidBitmapSize(fontFamily, requestedSize) {
+        if (!this.isBitmapFont(fontFamily)) {
+            return requestedSize;
+        }
+        
+        const fontInfo = this.bitmapFonts[fontFamily];
+        const validSizes = fontInfo.sizes;
+        
+        // Find the closest valid size
+        let closestSize = validSizes[0];
+        let minDiff = Math.abs(requestedSize - closestSize);
+        
+        for (const size of validSizes) {
+            const diff = Math.abs(requestedSize - size);
+            if (diff < minDiff) {
+                minDiff = diff;
+                closestSize = size;
+            }
+        }
+        
+        return closestSize;
+    }
+
+    updateFontSize(newSize) {
+        if (this.isBitmapFont(this.fontFamily)) {
+            // For bitmap fonts, snap to valid sizes
+            this.fontSize = this.getValidBitmapSize(this.fontFamily, newSize);
+        } else {
+            // For vector fonts, allow any integer size
+            this.fontSize = Math.round(newSize);
+        }
+        
+        // Update the UI
+        const fontSizeInput = document.getElementById('fontSize');
+        const fontSizeDisplay = document.getElementById('fontSizeDisplay');
+        if (fontSizeInput) fontSizeInput.value = this.fontSize;
+        if (fontSizeDisplay) fontSizeDisplay.textContent = this.fontSize;
+    }
+
     async detectSystemFonts() {
         try {
-            // List of common system fonts to test
-            const commonFonts = [
-                // Windows fonts
-                'Arial', 'Arial Black', 'Calibri', 'Cambria', 'Comic Sans MS', 'Consolas', 
-                'Courier New', 'Georgia', 'Impact', 'Lucida Console', 'Lucida Sans Unicode',
-                'Microsoft Sans Serif', 'Palatino Linotype', 'Segoe UI', 'Tahoma', 
-                'Times New Roman', 'Trebuchet MS', 'Verdana',
+            // Massive curated list of fonts organized by category
+            const fontCategories = {
+                // Pixel-perfect bitmap fonts (render at exact multiples)
+                'Bitmap Fonts': [
+                    'MS Sans Serif', 'Small Fonts', 'System', 'Terminal', 'Fixedsys',
+                    'Courier', 'MS Serif', 'Modern', 'Roman', 'Script', 'Marlett',
+                    'Perfect DOS VGA 437', 'IBM BIOS', 'IBM VGA', 'MS-DOS', 'C64',
+                    'Apple ][', 'Atari ST', 'Pixel Operator', 'Profont', 'Tamsyn',
+                    'Terminus', 'Dina', 'Gohufont', 'Creep', 'Cherry', 'Cozette',
+                    'Spleen', 'Tamzen', 'Scientifica', 'GohuFont', 'Kakwafont'
+                ],
                 
-                // macOS fonts
-                'Apple Chancery', 'Apple Color Emoji', 'Apple SD Gothic Neo', 'Avenir', 
-                'Avenir Next', 'Big Caslon', 'Brush Script MT', 'Chalkboard', 'Chalkboard SE',
-                'Cochin', 'Copperplate', 'Didot', 'Futura', 'Geneva', 'Gill Sans', 
-                'Helvetica', 'Helvetica Neue', 'Herculanum', 'Hoefler Text', 'Marker Felt',
-                'Menlo', 'Monaco', 'Noteworthy', 'Optima', 'Papyrus', 'Phosphate', 
-                'Rockwell', 'Signpainter', 'Skia', 'Snell Roundhand', 'System Font',
+                // Monospace/coding fonts
+                'Monospace': [
+                    'Consolas', 'Courier New', 'Courier', 'Monaco', 'Menlo', 'Source Code Pro',
+                    'Fira Code', 'JetBrains Mono', 'Cascadia Code', 'SF Mono', 'IBM Plex Mono',
+                    'DejaVu Sans Mono', 'Liberation Mono', 'Ubuntu Mono', 'Roboto Mono',
+                    'Lucida Console', 'Andale Mono', 'Droid Sans Mono', 'Inconsolata',
+                    'Hack', 'Anonymous Pro', 'Space Mono', 'Victor Mono', 'Operator Mono',
+                    'Dank Mono', 'PragmataPro', 'Input Mono', 'Iosevka', 'PT Mono',
+                    'Noto Sans Mono', 'Oxygen Mono', 'Share Tech Mono', 'Cutive Mono',
+                    'Nova Mono', 'VT323', 'Major Mono Display', 'B612 Mono', 'Overpass Mono',
+                    'Red Hat Mono', 'Jetbrains Mono NL', 'Fantasque Sans Mono', 'Fira Mono'
+                ],
                 
-                // Linux fonts
-                'DejaVu Sans', 'DejaVu Serif', 'DejaVu Sans Mono', 'Liberation Sans', 
-                'Liberation Serif', 'Liberation Mono', 'Ubuntu', 'Ubuntu Mono', 'Droid Sans',
-                'Droid Serif', 'Droid Sans Mono', 'Noto Sans', 'Noto Serif', 'Noto Mono',
+                // Sans-serif fonts (widely supported)
+                'Sans-Serif': [
+                    'Arial', 'Helvetica', 'Helvetica Neue', 'Segoe UI', 'Tahoma', 'Verdana',
+                    'Geneva', 'Lucida Grande', 'Trebuchet MS', 'DejaVu Sans', 'Liberation Sans',
+                    'Ubuntu', 'Calibri', 'Franklin Gothic Medium', 'Arial Black', 'Impact',
+                    'Roboto', 'Open Sans', 'Lato', 'Montserrat', 'Poppins', 'Inter', 'Source Sans Pro',
+                    'Avenir', 'Avenir Next', 'Proxima Nova', 'Gotham', 'Futura', 'Myriad Pro',
+                    'Nunito', 'Work Sans', 'DM Sans', 'Plus Jakarta Sans', 'Manrope', 'Outfit',
+                    'Space Grotesk', 'Satoshi', 'Neue Haas Grotesk', 'PT Sans', 'Noto Sans',
+                    'Oxygen', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Abel', 'Josefin Sans',
+                    'Quicksand', 'Varela Round', 'Comfortaa', 'Raleway', 'Exo', 'Oswald',
+                    'Arimo', 'Karla', 'Rubik', 'Barlow', 'Libre Franklin', 'Public Sans',
+                    'IBM Plex Sans', 'Red Hat Display', 'Overpass', 'Mukti', 'Sora'
+                ],
                 
-                // Generic/Web fonts
-                'serif', 'sans-serif', 'monospace', 'cursive', 'fantasy'
-            ];
+                // Serif fonts
+                'Serif': [
+                    'Times New Roman', 'Times', 'Georgia', 'Book Antiqua', 'Palatino',
+                    'Palatino Linotype', 'Baskerville', 'Garamond', 'DejaVu Serif',
+                    'Liberation Serif', 'Cambria', 'Century', 'Minion Pro', 'Adobe Garamond Pro',
+                    'Hoefler Text', 'Charter', 'Source Serif Pro', 'Crimson Text',
+                    'Libre Baskerville', 'EB Garamond', 'Lora', 'Cormorant Garamond',
+                    'Spectral', 'IBM Plex Serif', 'PT Serif', 'Noto Serif', 'Droid Serif',
+                    'Merriweather', 'Playfair Display', 'Old Standard TT', 'Vollkorn',
+                    'Alegreya', 'Gentium Plus', 'Cardo', 'Sorts Mill Goudy', 'Neuton',
+                    'Crimson Pro', 'Bitter', 'Rokkitt', 'Arvo', 'Slabo 27px', 'Slabo 13px',
+                    'Zilla Slab', 'Roboto Slab', 'Josefin Slab', 'Crete Round', 'Copse'
+                ],
+                
+                // Display/decorative fonts
+                'Display': [
+                    'Impact', 'Arial Black', 'Comic Sans MS', 'Papyrus', 'Brush Script MT',
+                    'Marker Felt', 'Chalkduster', 'Herculanum', 'Bradley Hand', 'Lucida Handwriting',
+                    'Bebas Neue', 'Oswald', 'Righteous', 'Bangers', 'Fredoka One', 'Lobster',
+                    'Pacifico', 'Orbitron', 'Exo', 'Rajdhani', 'Audiowide', 'Bungee',
+                    'Creepster', 'Faster One', 'Jokerman', 'Stencil', 'Broadway', 'Chiller',
+                    'Abril Fatface', 'Anton', 'Fjalla One', 'Passion One', 'Bevan', 'Alfa Slab One',
+                    'Ultra', 'Black Ops One', 'Russo One', 'Squada One', 'Titan One',
+                    'Permanent Marker', 'Kalam', 'Architects Daughter', 'Gloria Hallelujah',
+                    'Special Elite', 'Gochi Hand', 'Rock Salt', 'Caveat Brush', 'Shadows Into Light Two'
+                ],
+                
+                // Handwriting/Script fonts
+                'Script & Handwriting': [
+                    'Cursive', 'Bradley Hand', 'Lucida Handwriting', 'Brush Script MT',
+                    'Marker Felt', 'Chalkduster', 'Apple Chancery', 'Zapfino', 'Kristen ITC',
+                    'Freestyle Script', 'French Script MT', 'Dancing Script', 'Great Vibes',
+                    'Parisienne', 'Allura', 'Kaushan Script', 'Amatic SC', 'Caveat',
+                    'Indie Flower', 'Shadows Into Light', 'Satisfy', 'Courgette', 'Cookie',
+                    'Handlee', 'Kalam', 'Architects Daughter', 'Nothing You Could Do',
+                    'Coming Soon', 'Schoolbell', 'Reenie Beanie', 'Walter Turncoat',
+                    'Covered By Your Grace', 'Rock Salt', 'Permanent Marker', 'Crafty Girls',
+                    'Loved by the King', 'Just Me Again Down Here', 'Gloria Hallelujah'
+                ],
+                
+                // Gaming & Tech fonts
+                'Gaming & Tech': [
+                    'Orbitron', 'Exo', 'Rajdhani', 'Share Tech Mono', 'Digital-7', 'Segment7',
+                    'LCD', 'Silkscreen', 'Press Start 2P', 'VT323', 'Nova Mono', 'Electrolize',
+                    'Gruppo', 'Aldrich', 'Michroma', 'Audiowide', 'Jura', 'Syncopate',
+                    'Iceland', 'Ropa Sans', 'Quantico', 'Tech Mono', 'Space Mono',
+                    'Major Mono Display', 'Courier Prime Code', 'Anonymous Pro', 'B612 Mono',
+                    'Cutive Mono', 'Fira Code', 'JetBrains Mono', 'Source Code Pro'
+                ],
+                
+                // Strange & Unique fonts
+                'Strange & Unique': [
+                    'Wingdings', 'Webdings', 'Symbol', 'Zapf Dingbats', 'MT Extra', 'Marlett',
+                    'MS Reference Specialty', 'MS Outlook', 'HoloLens MDL2 Assets',
+                    'Segoe MDL2 Assets', 'Segoe UI Historic', 'Segoe UI Emoji', 'Segoe UI Symbol',
+                    'Creepster', 'Nosifer', 'Butcherman', 'Metal Mania', 'Chela One',
+                    'Griffy', 'Henny Penny', 'Pirata One', 'Rye', 'Uncial Antiqua',
+                    'MedievalSharp', 'Cinzel Decorative', 'New Rocker', 'Metamorphous',
+                    'Mystery Quest', 'Jolly Lodger', 'Creepster Caps', 'Eater', 'Ghoulish'
+                ],
+                
+                // International & Language fonts
+                'International': [
+                    'Noto Sans', 'Noto Serif', 'Noto Sans CJK', 'Noto Serif CJK',
+                    'Arial Unicode MS', 'MS Mincho', 'MS Gothic', 'Yu Gothic',
+                    'Hiragino Sans', 'Hiragino Mincho ProN', 'PingFang SC', 'PingFang TC',
+                    'SimSun', 'SimHei', 'KaiTi', 'FangSong', 'Microsoft YaHei',
+                    'Malgun Gothic', 'Gulim', 'Dotum', 'Batang', 'Gungsuh',
+                    'Tahoma', 'Microsoft Sans Serif', 'Lucida Sans Unicode',
+                    'DejaVu Sans', 'FreeSans', 'Liberation Sans', 'Droid Sans Fallback'
+                ],
+                
+                // Classic & Vintage fonts
+                'Classic & Vintage': [
+                    'Old English Text MT', 'Blackadder ITC', 'Chiller', 'Curlz MT',
+                    'Harrington', 'Jokerman', 'Juice ITC', 'Kristen ITC', 'Magneto',
+                    'Mistral', 'Papyrus', 'Parchment', 'Playbill', 'Poor Richard',
+                    'Pristina', 'Rage Italic', 'Ravie', 'Showcard Gothic', 'Snap ITC',
+                    'Stencil', 'Tempus Sans ITC', 'Viner Hand ITC', 'Vivaldi',
+                    'Vladimir Script', 'Wide Latin', 'Algerian', 'Broadway', 'Colonna MT'
+                ],
+                
+                // Web Safe (Guaranteed)
+                'Web': [
+                    'Arial', 'Helvetica', 'Times New Roman', 'Times', 'Courier New',
+                    'Courier', 'Verdana', 'Georgia', 'Palatino', 'Garamond',
+                    'Bookman', 'Comic Sans MS', 'Trebuchet MS', 'Arial Black', 'Impact'
+                ]
+            };
 
-            const availableFonts = await this.checkFontAvailability(commonFonts);
-            this.populateFontDropdown(availableFonts);
+            // Flatten all fonts into a single array for testing
+            const allFonts = Object.values(fontCategories).flat();
+            
+            // Test which fonts are actually available
+            const availableFonts = await this.checkBasicFontAvailability(allFonts);
+            
+            // Populate dropdown with available fonts, organized by category
+            this.populateOrganizedFontDropdown(availableFonts, fontCategories);
+            
+            console.log(`Detected ${availableFonts.length} available fonts out of ${Object.values(fontCategories).flat().length} tested fonts`);
+            
+            // If very few fonts were detected, fall back to basic web-safe fonts
+            if (availableFonts.length < 5) {
+                console.warn('Few fonts detected, adding web-safe fallbacks');
+                this.addWebSafeFallbacks();
+            }
+            
         } catch (error) {
             console.error('Font detection failed:', error);
-            alert('Font detection failed. Using default fonts.');
+            // Fallback to basic fonts
+            this.populateBasicFonts();
         }
     }
 
-    async checkFontAvailability(fonts) {
+    async checkBasicFontAvailability(fonts) {
         const availableFonts = [];
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
         
-        // Test string and baseline font
-        const testString = 'mmmmmmmmmmmmmmm';
-        const baselineFont = 'monospace';
-        
-        // Get baseline width
-        ctx.font = '16px ' + baselineFont;
+        // Simple test with monospace fallback
+        const testString = 'abcdefghijklmnopqrstuvwxyz';
+        ctx.font = '16px monospace';
         const baselineWidth = ctx.measureText(testString).width;
         
         for (const font of fonts) {
             try {
-                // Test with the font
-                ctx.font = `16px "${font}", ${baselineFont}`;
+                ctx.font = `16px "${font}", monospace`;
                 const testWidth = ctx.measureText(testString).width;
                 
-                // If width differs from baseline, font is likely available
-                if (Math.abs(testWidth - baselineWidth) > 0.1) {
+                // If width differs significantly, font is available
+                if (Math.abs(testWidth - baselineWidth) > 0.5) {
                     availableFonts.push(font);
-                } else {
-                    // Additional check using font face kde if available
-                    if ('fonts' in document) {
-                        try {
-                            const fontFace = new FontFace(font, `local("${font}")`);
-                            await fontFace.load();
-                            availableFonts.push(font);
-                        } catch (e) {
-                            // Font not available
-                        }
-                    }
                 }
             } catch (e) {
                 // Skip problematic fonts
@@ -2938,39 +3186,509 @@ class DrawingEditor {
         return availableFonts;
     }
 
-    populateFontDropdown(fonts) {
+    populateOrganizedFontDropdown(availableFonts, fontCategories) {
         const fontSelect = document.getElementById('fontFamily');
         if (!fontSelect) return;
         
         // Store current selection
         const currentFont = fontSelect.value;
         
-        // Clear all existing options
+        // Clear existing options
         fontSelect.innerHTML = '';
         
-        // Filter out generic fonts and common duplicates
-        const filteredFonts = fonts.filter(font => {
-            // Skip generic font families
-            if (['serif', 'sans-serif', 'monospace', 'cursive', 'fantasy'].includes(font)) {
-                return false;
+        // Add fonts organized by category
+        for (const [categoryName, categoryFonts] of Object.entries(fontCategories)) {
+            const availableInCategory = categoryFonts.filter(font => availableFonts.includes(font));
+            
+            if (availableInCategory.length > 0) {
+                // Add category header
+                const optgroup = document.createElement('optgroup');
+                optgroup.label = categoryName;
+                
+                // Add fonts in this category
+                availableInCategory.forEach(font => {
+                    const option = document.createElement('option');
+                    option.value = font;
+                    
+                    // Mark bitmap fonts specially
+                    if (this.isBitmapFont(font)) {
+                        const fontInfo = this.bitmapFonts[font];
+                        if (fontInfo.isPixelPerfect) {
+                            option.textContent = `${font} (Pixel Perfect)`;
+                        } else {
+                            option.textContent = `${font} (Bitmap)`;
+                        }
+                    } else {
+                        option.textContent = font;
+                    }
+                    
+                    optgroup.appendChild(option);
+                });
+                
+                fontSelect.appendChild(optgroup);
             }
-            return true;
-        });
-        
-        // Add detected fonts (sorted alphabetically)
-        filteredFonts.sort().forEach(font => {
-            const option = document.createElement('option');
-            option.value = font;
-            option.textContent = font;
-            fontSelect.appendChild(option);
-        });
-        
-        // Restore selection or default to first option
-        if (filteredFonts.length > 0) {
-            fontSelect.value = fonts.includes(currentFont) ? currentFont : fontSelect.options[0].value;
         }
         
-        // console.log(`Auto-detected ${filteredFonts.length} system fonts`);
+        // Restore selection or default to first option
+        if (availableFonts.includes(currentFont)) {
+            fontSelect.value = currentFont;
+        } else if (fontSelect.options.length > 0) {
+            fontSelect.value = fontSelect.options[0].value;
+            this.fontFamily = fontSelect.value;
+        }
+        
+        console.log(`Detected ${availableFonts.length} high-quality fonts`);
+    }
+
+    addWebSafeFallbacks() {
+        const fontSelect = document.getElementById('fontFamily');
+        if (!fontSelect) return;
+        
+        // Web-safe fonts that should work everywhere
+        const webSafeFonts = [
+            'Arial', 'Helvetica', 'Times New Roman', 'Times', 'Courier New',
+            'Courier', 'Verdana', 'Georgia', 'Impact', 'Comic Sans MS'
+        ];
+        
+        // Check if we already have a Web Safe group
+        let webSafeGroup = Array.from(fontSelect.querySelectorAll('optgroup')).find(
+            group => group.label === 'Web Safe'
+        );
+        
+        if (!webSafeGroup) {
+            webSafeGroup = document.createElement('optgroup');
+            webSafeGroup.label = 'Web Safe (Guaranteed)';
+            fontSelect.appendChild(webSafeGroup);
+        }
+        
+        // Add missing web-safe fonts
+        webSafeFonts.forEach(font => {
+            const existingOption = fontSelect.querySelector(`option[value="${font}"]`);
+            if (!existingOption) {
+                const option = document.createElement('option');
+                option.value = font;
+                option.textContent = font;
+                webSafeGroup.appendChild(option);
+            }
+        });
+    }
+
+    setupUserFontLoader() {
+        // Create font loader UI if it doesn't exist
+        if (!document.getElementById('fontLoader')) {
+            this.createFontLoaderUI();
+        }
+        
+        // Set up event listeners
+        const fontFileInput = document.getElementById('fontFileInput');
+        const loadFontBtn = document.getElementById('loadFontBtn');
+        
+        if (fontFileInput) {
+            fontFileInput.addEventListener('change', (e) => this.handleFontFileLoad(e));
+        }
+        
+        if (loadFontBtn) {
+            loadFontBtn.addEventListener('click', () => fontFileInput?.click());
+        }
+    }
+
+    createFontLoaderUI() {
+        // Find the font family select container
+        const fontFamilyContainer = document.getElementById('fontFamily')?.parentElement;
+        if (!fontFamilyContainer) return;
+        
+        // Create font loader container
+        const fontLoaderDiv = document.createElement('div');
+        fontLoaderDiv.id = 'fontLoader';
+        fontLoaderDiv.style.marginTop = '5px';
+        fontLoaderDiv.innerHTML = `
+            <input type="file" id="fontFileInput" accept=".ttf,.otf,.woff,.woff2" style="display: none;" multiple>
+            <button id="loadFontBtn" class="btn" style="width: 100%; font-size: 12px; padding: 4px;">
+                📁 Load Font Files
+            </button>
+            <div id="userFontsList" style="margin-top: 5px; max-height: 100px; overflow-y: auto;"></div>
+        `;
+        
+        fontFamilyContainer.appendChild(fontLoaderDiv);
+    }
+
+    async handleFontFileLoad(event) {
+        const files = Array.from(event.target.files);
+        const loadedFonts = [];
+        
+        // Show loading indicator
+        const loadBtn = document.getElementById('loadFontBtn');
+        const originalText = loadBtn.textContent;
+        loadBtn.textContent = '⏳ Analyzing fonts...';
+        loadBtn.disabled = true;
+        
+        for (const file of files) {
+            try {
+                const fontName = await this.loadUserFont(file);
+                if (fontName) {
+                    loadedFonts.push(fontName);
+                }
+            } catch (error) {
+                console.error(`Failed to load font ${file.name}:`, error);
+                alert(`Failed to load font "${file.name}". Make sure it's a valid font file.`);
+            }
+        }
+        
+        // Restore button
+        loadBtn.textContent = originalText;
+        loadBtn.disabled = false;
+        
+        if (loadedFonts.length > 0) {
+            this.updateFontDropdownWithUserFonts();
+            this.updateUserFontsList();
+            
+            // Auto-select the first loaded font
+            const fontSelect = document.getElementById('fontFamily');
+            if (fontSelect && loadedFonts[0]) {
+                fontSelect.value = loadedFonts[0];
+                this.fontFamily = loadedFonts[0];
+                this.updateTextPreview();
+            }
+            
+            // Show results with bitmap detection info
+            const bitmapFonts = loadedFonts.filter(name => this.bitmapFonts[name]);
+            let message = `Successfully loaded ${loadedFonts.length} font(s): ${loadedFonts.join(', ')}`;
+            if (bitmapFonts.length > 0) {
+                message += `\n\n🔲 Detected ${bitmapFonts.length} bitmap font(s) with pixel-perfect sizing: ${bitmapFonts.join(', ')}`;
+            }
+            alert(message);
+        }
+        
+        // Clear the input
+        event.target.value = '';
+    }
+
+    async loadUserFont(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            
+            reader.onload = async (e) => {
+                try {
+                    const arrayBuffer = e.target.result;
+                    
+                    // Extract font name from filename (remove extension)
+                    let fontName = file.name.replace(/\.(ttf|otf|woff|woff2)$/i, '');
+                    
+                    // Make sure the font name is unique
+                    let uniqueName = fontName;
+                    let counter = 1;
+                    while (this.userFonts.has(uniqueName)) {
+                        uniqueName = `${fontName} (${counter})`;
+                        counter++;
+                    }
+                    fontName = uniqueName;
+                    
+                    // Create FontFace object
+                    const fontFace = new FontFace(fontName, arrayBuffer);
+                    
+                    // Load the font
+                    await fontFace.load();
+                    
+                    // Add to document fonts
+                    document.fonts.add(fontFace);
+                    
+                    // Analyze if this is a bitmap font
+                    const bitmapInfo = await this.analyzeFontForBitmapCharacteristics(fontName);
+                    
+                    // Store in our user fonts map
+                    this.userFonts.set(fontName, {
+                        fontFace: fontFace,
+                        fileName: file.name,
+                        loadedAt: new Date(),
+                        bitmapInfo: bitmapInfo
+                    });
+                    
+                    // If it's detected as a bitmap font, add it to the bitmap fonts registry
+                    if (bitmapInfo.isBitmapFont) {
+                        this.bitmapFonts[fontName] = {
+                            baseSize: bitmapInfo.baseSize,
+                            sizes: bitmapInfo.validSizes,
+                            isPixelPerfect: true,
+                            isUserFont: true
+                        };
+                    }
+                    
+                    resolve(fontName);
+                } catch (error) {
+                    reject(error);
+                }
+            };
+            
+            reader.onerror = () => reject(new Error('Failed to read font file'));
+            reader.readAsArrayBuffer(file);
+        });
+    }
+
+    async analyzeFontForBitmapCharacteristics(fontName) {
+        // Create a temporary canvas for font analysis
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = 200;
+        canvas.height = 100;
+        
+        const testText = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+        const testSizes = [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 18, 20, 24, 32, 48];
+        
+        let bitmapCharacteristics = {
+            isBitmapFont: false,
+            baseSize: 12,
+            validSizes: [12],
+            sharpnessBySize: new Map()
+        };
+        
+        // Test font at different sizes to detect bitmap characteristics
+        for (const size of testSizes) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.font = `${size}px "${fontName}"`;
+            ctx.fillStyle = 'black';
+            ctx.textBaseline = 'top';
+            
+            // Render test text
+            const textWidth = ctx.measureText(testText).width;
+            if (textWidth === 0) continue; // Skip if font isn't loaded properly
+            
+            // Scale canvas to capture detail
+            const scale = Math.min(canvas.width / textWidth, 2);
+            ctx.save();
+            ctx.scale(scale, scale);
+            ctx.fillText(testText.substring(0, 20), 0, 0); // Sample text
+            ctx.restore();
+            
+            // Analyze pixel sharpness to detect bitmap characteristics
+            const imageData = ctx.getImageData(0, 0, canvas.width, Math.min(canvas.height, size * scale + 10));
+            const sharpness = this.calculatePixelSharpness(imageData);
+            bitmapCharacteristics.sharpnessBySize.set(size, sharpness);
+        }
+        
+        // Analyze sharpness patterns to detect bitmap font
+        const sharpnessValues = Array.from(bitmapCharacteristics.sharpnessBySize.values());
+        const avgSharpness = sharpnessValues.reduce((a, b) => a + b, 0) / sharpnessValues.length;
+        
+        // Detect characteristic patterns of bitmap fonts
+        let sharpSizes = [];
+        let blurrySizes = [];
+        
+        for (const [size, sharpness] of bitmapCharacteristics.sharpnessBySize) {
+            if (sharpness > avgSharpness * 1.2) {
+                sharpSizes.push(size);
+            } else if (sharpness < avgSharpness * 0.8) {
+                blurrySizes.push(size);
+            }
+        }
+        
+        // Bitmap fonts typically have very sharp rendering at specific sizes
+        // and much blurrier rendering at others
+        const hasSharpPeaks = sharpSizes.length >= 2;
+        const hasBlurryValleys = blurrySizes.length >= 2;
+        const sharpnessRange = Math.max(...sharpnessValues) - Math.min(...sharpnessValues);
+        
+        // Check for common bitmap font patterns
+        const hasCommonBitmapSizes = sharpSizes.some(size => [8, 9, 10, 12, 14, 16].includes(size));
+        
+        // Determine if this is likely a bitmap font
+        if (hasSharpPeaks && hasBlurryValleys && sharpnessRange > 0.3 && hasCommonBitmapSizes) {
+            bitmapCharacteristics.isBitmapFont = true;
+            
+            // Find the best base size (sharpest small size)
+            const smallSharpSizes = sharpSizes.filter(size => size <= 16).sort((a, b) => a - b);
+            bitmapCharacteristics.baseSize = smallSharpSizes[0] || 8;
+            
+            // Generate valid sizes (multiples and common bitmap sizes)
+            const baseSize = bitmapCharacteristics.baseSize;
+            let validSizes = [];
+            
+            // Add multiples of base size
+            for (let mult = 1; mult <= 6; mult++) {
+                const size = baseSize * mult;
+                if (size <= 48) validSizes.push(size);
+            }
+            
+            // Add other sharp sizes that aren't multiples
+            for (const size of sharpSizes) {
+                if (!validSizes.includes(size) && size <= 48) {
+                    validSizes.push(size);
+                }
+            }
+            
+            validSizes.sort((a, b) => a - b);
+            bitmapCharacteristics.validSizes = validSizes.length > 0 ? validSizes : [baseSize];
+        }
+        
+        return bitmapCharacteristics;
+    }
+
+    calculatePixelSharpness(imageData) {
+        const data = imageData.data;
+        let edgeCount = 0;
+        let totalPixels = 0;
+        
+        // Calculate edge detection using simple gradient magnitude
+        for (let y = 1; y < imageData.height - 1; y++) {
+            for (let x = 1; x < imageData.width - 1; x++) {
+                const idx = (y * imageData.width + x) * 4;
+                
+                // Get alpha channel (text opacity)
+                const center = data[idx + 3];
+                const right = data[idx + 4 + 3];
+                const bottom = data[((y + 1) * imageData.width + x) * 4 + 3];
+                
+                // Calculate gradient magnitude
+                const gradX = Math.abs(right - center);
+                const gradY = Math.abs(bottom - center);
+                const magnitude = Math.sqrt(gradX * gradX + gradY * gradY);
+                
+                if (center > 0) { // Only count pixels that are part of text
+                    if (magnitude > 50) edgeCount++; // Sharp edge threshold
+                    totalPixels++;
+                }
+            }
+        }
+        
+        return totalPixels > 0 ? edgeCount / totalPixels : 0;
+    }
+
+    updateFontDropdownWithUserFonts() {
+        if (this.userFonts.size === 0) return;
+        
+        const fontSelect = document.getElementById('fontFamily');
+        if (!fontSelect) return;
+        
+        // Check if user fonts group already exists
+        let userFontsGroup = document.getElementById('userFontsGroup');
+        
+        if (!userFontsGroup) {
+            // Create user fonts group at the top
+            userFontsGroup = document.createElement('optgroup');
+            userFontsGroup.id = 'userFontsGroup';
+            userFontsGroup.label = 'User Fonts';
+            fontSelect.insertBefore(userFontsGroup, fontSelect.firstChild);
+        }
+        
+        // Clear existing user font options
+        userFontsGroup.innerHTML = '';
+        
+        // Add all user fonts
+        for (const [fontName, fontData] of this.userFonts) {
+            const option = document.createElement('option');
+            option.value = fontName;
+            
+            // Add bitmap indicator if detected as bitmap font
+            const bitmapIndicator = fontData.bitmapInfo?.isBitmapFont ? ' 🔲' : '';
+            option.textContent = `${fontName}${bitmapIndicator} (${fontData.fileName})`;
+            userFontsGroup.appendChild(option);
+        }
+    }
+
+    updateUserFontsList() {
+        const userFontsList = document.getElementById('userFontsList');
+        if (!userFontsList) return;
+        
+        if (this.userFonts.size === 0) {
+            userFontsList.innerHTML = '';
+            return;
+        }
+        
+        userFontsList.innerHTML = '<div style="font-size: 11px; color: #666; margin-bottom: 3px;">Loaded Fonts:</div>';
+        
+        for (const [fontName, fontData] of this.userFonts) {
+            const fontItem = document.createElement('div');
+            fontItem.style.cssText = 'display: flex; justify-content: space-between; align-items: center; font-size: 11px; padding: 2px; background: #f0f0f0; margin: 1px 0; border-radius: 2px;';
+            
+            // Add bitmap indicator and size info
+            const bitmapInfo = fontData.bitmapInfo?.isBitmapFont ? 
+                ` 🔲 (${fontData.bitmapInfo.validSizes.join(', ')})` : '';
+            
+            fontItem.innerHTML = `
+                <span title="${fontData.fileName}${bitmapInfo ? '\nBitmap sizes: ' + fontData.bitmapInfo.validSizes.join(', ') : ''}">${fontName}${bitmapInfo}</span>
+                <button onclick="editor.removeUserFont('${fontName}')" style="background: #ff4444; color: white; border: none; border-radius: 2px; padding: 1px 4px; font-size: 10px; cursor: pointer;">×</button>
+            `;
+            userFontsList.appendChild(fontItem);
+        }
+    }
+
+    removeUserFont(fontName) {
+        if (!this.userFonts.has(fontName)) return;
+        
+        const fontData = this.userFonts.get(fontName);
+        
+        // Remove from document fonts
+        document.fonts.delete(fontData.fontFace);
+        
+        // Remove from bitmap fonts registry if it was detected as bitmap
+        if (this.bitmapFonts[fontName] && this.bitmapFonts[fontName].isUserFont) {
+            delete this.bitmapFonts[fontName];
+        }
+        
+        // Remove from our storage
+        this.userFonts.delete(fontName);
+        
+        // Update UI
+        this.updateFontDropdownWithUserFonts();
+        this.updateUserFontsList();
+        
+        // If this was the currently selected font, switch to a different one
+        const fontSelect = document.getElementById('fontFamily');
+        if (fontSelect && fontSelect.value === fontName) {
+            fontSelect.value = fontSelect.options[0]?.value || 'Arial';
+            this.fontFamily = fontSelect.value;
+            this.updateTextPreview();
+        }
+        
+        // Remove empty user fonts group if no user fonts remain
+        if (this.userFonts.size === 0) {
+            const userFontsGroup = document.getElementById('userFontsGroup');
+            if (userFontsGroup) {
+                userFontsGroup.remove();
+            }
+        }
+    }
+
+    populateBasicFonts() {
+        const fontSelect = document.getElementById('fontFamily');
+        if (!fontSelect) return;
+        
+        console.log('Using basic font fallback');
+        
+        // Comprehensive fallback fonts organized by category
+        const basicFontCategories = {
+            'Web Safe': [
+                'Arial', 'Helvetica', 'Times New Roman', 'Times', 'Courier New',
+                'Courier', 'Verdana', 'Georgia', 'Impact', 'Comic Sans MS'
+            ],
+            'Generic Families': [
+                'sans-serif', 'serif', 'monospace', 'cursive', 'fantasy'
+            ],
+            'Common System': [
+                'Trebuchet MS', 'Palatino', 'Garamond', 'Bookman', 'Tahoma'
+            ]
+        };
+        
+        fontSelect.innerHTML = '';
+        
+        // Add organized categories
+        for (const [categoryName, fonts] of Object.entries(basicFontCategories)) {
+            const optgroup = document.createElement('optgroup');
+            optgroup.label = categoryName;
+            
+            fonts.forEach(font => {
+                const option = document.createElement('option');
+                option.value = font;
+                option.textContent = font;
+                optgroup.appendChild(option);
+            });
+            
+            fontSelect.appendChild(optgroup);
+        }
+        
+        fontSelect.value = 'Arial';
+        this.fontFamily = 'Arial';
+        
+        console.log('Basic fonts loaded successfully');
     }
 
     updateTextPreview() {
@@ -2990,25 +3708,59 @@ class DrawingEditor {
         canvas.width = this.canvasWidth;
         canvas.height = this.canvasHeight;
         
+        // Configure pixel-perfect rendering for bitmap fonts
+        if (this.isBitmapFont(this.fontFamily)) {
+            // Disable antialiasing for crisp bitmap font rendering
+            ctx.imageSmoothingEnabled = false;
+            ctx.webkitImageSmoothingEnabled = false;
+            ctx.mozImageSmoothingEnabled = false;
+            ctx.msImageSmoothingEnabled = false;
+            
+            // Use crisp rendering for pixel-perfect fonts
+            ctx.textRendering = 'geometricPrecision';
+            ctx.fontKerning = 'none'; // Disable kerning for consistent spacing
+        } else {
+            // Enable antialiasing for smooth vector fonts
+            ctx.imageSmoothingEnabled = true;
+            ctx.textRendering = 'optimizeLegibility';
+        }
+        
         // Configure text style
         let fontStyle = '';
         if (this.textBold) fontStyle += 'bold ';
         if (this.textItalic) fontStyle += 'italic ';
         
-        ctx.font = `${fontStyle}${this.fontSize}px ${this.fontFamily}`;
+        ctx.font = `${fontStyle}${this.fontSize}px "${this.fontFamily}"`;
         ctx.fillStyle = this.textColor;
-        ctx.textBaseline = 'top';
+        
+        // Configure text baseline for pixel-perfect rendering
+        if (this.isBitmapFont(this.fontFamily)) {
+            ctx.textBaseline = 'top'; // Keep top for consistent positioning
+        } else {
+            ctx.textBaseline = 'top';
+        }
         
         // Split text into lines
         const lines = this.textInput.split('\n');
-        const lineHeight = Math.round(this.fontSize * 1.0); // Use 1.0 for pixel-perfect spacing
+        
+        // Calculate line height based on font type
+        let lineHeight;
+        if (this.isBitmapFont(this.fontFamily)) {
+            // For bitmap fonts, use exact font size (no multiplier)
+            lineHeight = this.fontSize;
+        } else {
+            // For vector fonts, use standard 1.2 line height for better readability
+            lineHeight = Math.round(this.fontSize * 1.2);
+        }
         
         // Measure text dimensions with controlled spacing
         let maxWidth = 0;
         const lineWidths = [];
         
         lines.forEach(line => {
-            const lineWidth = this.measureTextWithSpacing(ctx, line, 1); // 1px minimum spacing
+            // Use minimal spacing for bitmap fonts, 1px for vector fonts
+            const spacing = this.isBitmapFont(this.fontFamily) ? 0 : 1;
+            const lineWidth = this.measureTextWithSpacing(ctx, line, spacing);
             lineWidths.push(lineWidth);
             maxWidth = Math.max(maxWidth, lineWidth);
         });
@@ -5449,12 +6201,8 @@ class DrawingEditor {
             if (this.currentTool === 'text') {
                 // Text size adjustment works anywhere (not restricted to canvas bounds)
                 const delta = e.deltaY > 0 ? -2 : 2;
-                this.fontSize = Math.max(8, Math.min(250, this.fontSize + delta));
-                const fontSizeElement = document.getElementById('fontSize');
-                if (fontSizeElement) {
-                    fontSizeElement.value = this.fontSize;
-                }
-                document.getElementById('fontSizeDisplay').textContent = this.fontSize;
+                const newSize = Math.max(8, Math.min(250, this.fontSize + delta));
+                this.updateFontSize(newSize);
             }
             
             if (this.currentTool === 'polygon') {
@@ -9226,23 +9974,50 @@ class DrawingEditor {
         // Configure temp context for text rendering
         tempCtx.save();
         
+        // Configure pixel-perfect rendering for bitmap fonts
+        if (this.isBitmapFont(this.fontFamily)) {
+            // Disable antialiasing for crisp bitmap font rendering
+            tempCtx.imageSmoothingEnabled = false;
+            tempCtx.webkitImageSmoothingEnabled = false;
+            tempCtx.mozImageSmoothingEnabled = false;
+            tempCtx.msImageSmoothingEnabled = false;
+            
+            // Use crisp rendering for pixel-perfect fonts
+            tempCtx.textRendering = 'geometricPrecision';
+            tempCtx.fontKerning = 'none'; // Disable kerning for consistent spacing
+        } else {
+            // Enable antialiasing for smooth vector fonts but still no image smoothing for text placement
+            tempCtx.imageSmoothingEnabled = false;
+            tempCtx.textRendering = 'optimizeLegibility';
+        }
+        
         // Set text style
         let fontStyle = '';
         if (this.textBold) fontStyle += 'bold ';
         if (this.textItalic) fontStyle += 'italic ';
         
-        tempCtx.font = `${fontStyle}${this.fontSize}px ${this.fontFamily}`;
+        tempCtx.font = `${fontStyle}${this.fontSize}px "${this.fontFamily}"`;
         tempCtx.fillStyle = 'black';
         tempCtx.textBaseline = 'top';
-        tempCtx.imageSmoothingEnabled = false;
         
         // Draw text to temp canvas with pixel-perfect line spacing and letter spacing
         const lines = this.textPreviewData.lines;
-        const lineHeight = Math.round(this.fontSize * 1.0); // Use 1.0 for pixel-perfect spacing
+        
+        // Calculate line height based on font type
+        let lineHeight;
+        if (this.isBitmapFont(this.fontFamily)) {
+            // For bitmap fonts, use exact font size (no multiplier)
+            lineHeight = this.fontSize;
+        } else {
+            // For vector fonts, use standard 1.2 line height for better readability
+            lineHeight = Math.round(this.fontSize * 1.2);
+        }
         
         lines.forEach((line, index) => {
             const y = 5 + Math.round(index * lineHeight); // Round to pixel boundaries
-            this.renderTextWithSpacing(tempCtx, line, 5, y, 1); // 1px minimum letter spacing
+            // Use minimal spacing for bitmap fonts, 1px for vector fonts
+            const spacing = this.isBitmapFont(this.fontFamily) ? 0 : 1;
+            this.renderTextWithSpacing(tempCtx, line, 5, y, spacing);
         });
         
         tempCtx.restore();
@@ -9346,23 +10121,50 @@ class DrawingEditor {
         // Configure temp context for text rendering
         tempCtx.save();
         
+        // Configure pixel-perfect rendering for bitmap fonts
+        if (this.isBitmapFont(this.fontFamily)) {
+            // Disable antialiasing for crisp bitmap font rendering
+            tempCtx.imageSmoothingEnabled = false;
+            tempCtx.webkitImageSmoothingEnabled = false;
+            tempCtx.mozImageSmoothingEnabled = false;
+            tempCtx.msImageSmoothingEnabled = false;
+            
+            // Use crisp rendering for pixel-perfect fonts
+            tempCtx.textRendering = 'geometricPrecision';
+            tempCtx.fontKerning = 'none'; // Disable kerning for consistent spacing
+        } else {
+            // Enable antialiasing for smooth vector fonts but still no image smoothing for text placement
+            tempCtx.imageSmoothingEnabled = false;
+            tempCtx.textRendering = 'optimizeLegibility';
+        }
+        
         // Set text style
         let fontStyle = '';
         if (this.textBold) fontStyle += 'bold ';
         if (this.textItalic) fontStyle += 'italic ';
         
-        tempCtx.font = `${fontStyle}${this.fontSize}px ${this.fontFamily}`;
+        tempCtx.font = `${fontStyle}${this.fontSize}px "${this.fontFamily}"`;
         tempCtx.fillStyle = 'black';
         tempCtx.textBaseline = 'top';
-        tempCtx.imageSmoothingEnabled = false;
         
         // Draw text to temp canvas with pixel-perfect line spacing and letter spacing
         const lines = this.textPreviewData.lines;
-        const lineHeight = Math.round(this.fontSize * 1.0); // Use 1.0 for pixel-perfect spacing
+        
+        // Calculate line height based on font type
+        let lineHeight;
+        if (this.isBitmapFont(this.fontFamily)) {
+            // For bitmap fonts, use exact font size (no multiplier)
+            lineHeight = this.fontSize;
+        } else {
+            // For vector fonts, use standard 1.2 line height for better readability
+            lineHeight = Math.round(this.fontSize * 1.2);
+        }
         
         lines.forEach((line, index) => {
             const y = 5 + Math.round(index * lineHeight); // Round to pixel boundaries
-            this.renderTextWithSpacing(tempCtx, line, 5, y, 1); // 1px minimum letter spacing
+            // Use minimal spacing for bitmap fonts, 1px for vector fonts
+            const spacing = this.isBitmapFont(this.fontFamily) ? 0 : 1;
+            this.renderTextWithSpacing(tempCtx, line, 5, y, spacing);
         });
         
         tempCtx.restore();

@@ -1261,7 +1261,7 @@ input[type="range"]::-moz-range-thumb {
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 2px;
-    padding: 8px 2px 8px 8px;
+    padding: 8px 8px 8px 8px;
     max-height: 300px;
     overflow-y: auto;
     overflow-x: hidden;
@@ -1271,7 +1271,7 @@ input[type="range"]::-moz-range-thumb {
 .emoji-btn {
     background: none;
     border: none;
-    padding: 2px;
+    padding: 6px;
     cursor: pointer;
     font-size: 18px;
     border-radius: 3px;
@@ -1280,7 +1280,7 @@ input[type="range"]::-moz-range-thumb {
     display: flex;
     align-items: center;
     justify-content: center;
-    min-width: 0;
+    min-width: 8px;
     overflow: hidden;
 }
 
@@ -2408,6 +2408,22 @@ textarea::placeholder {
     border-radius: 3px;
     background-color: var(--bg-color);
     color: var(--text-color);
+}
+
+/* Font family dropdown size constraints */
+#fontFamily {
+    max-width: 200px;
+    min-width: 120px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+#fontFamily option {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
 }
 
 .setting-row input[type="checkbox"] {
