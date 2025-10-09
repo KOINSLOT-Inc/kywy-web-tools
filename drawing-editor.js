@@ -6476,6 +6476,11 @@ class DrawingEditor {
             }
         });
         
+        // Draw mirrored previews if mirror mode is enabled
+        if (this.mirrorHorizontal || this.mirrorVertical) {
+            this.drawMirroredLinePreview(x0, y0, x1, y1);
+        }
+        
         this.overlayCtx.restore();
     }
     
@@ -7330,6 +7335,119 @@ class DrawingEditor {
                     this.drawSquareBrushPreview(mirrorX, mirrorY, this.brushSize);
                 }
             }
+        }
+    }
+    
+    drawMirroredLinePreview(x0, y0, x1, y1) {
+        // Calculate mirror lines for line endpoints and draw mirrored line previews
+        
+        if (this.mirrorHorizontal && !this.mirrorVertical) {
+            // Horizontal mirror only
+            const mirrorX0 = this.getMirroredX(x0);
+            const mirrorX1 = this.getMirroredX(x1);
+            
+            // Get all pixels along the mirrored line
+            const mirroredLinePixels = this.getLinePixels(Math.floor(mirrorX0), Math.floor(y0), Math.floor(mirrorX1), Math.floor(y1));
+            
+            // Draw each mirrored pixel
+            mirroredLinePixels.forEach(pixel => {
+                if (this.isWithinCanvas(pixel.x, pixel.y)) {
+                    if (this.brushShape === 'circle') {
+                        this.drawCircleBrushPreview(pixel.x, pixel.y, this.brushSize);
+                    } else {
+                        this.drawSquareBrushPreview(pixel.x, pixel.y, this.brushSize);
+                    }
+                }
+            });
+        }
+        
+        if (this.mirrorVertical && !this.mirrorHorizontal) {
+            // Vertical mirror only
+            const mirrorY0 = this.getMirroredY(y0);
+            const mirrorY1 = this.getMirroredY(y1);
+            
+            // Get all pixels along the mirrored line
+            const mirroredLinePixels = this.getLinePixels(Math.floor(x0), Math.floor(mirrorY0), Math.floor(x1), Math.floor(mirrorY1));
+            
+            // Draw each mirrored pixel
+            mirroredLinePixels.forEach(pixel => {
+                if (this.isWithinCanvas(pixel.x, pixel.y)) {
+                    if (this.brushShape === 'circle') {
+                        this.drawCircleBrushPreview(pixel.x, pixel.y, this.brushSize);
+                    } else {
+                        this.drawSquareBrushPreview(pixel.x, pixel.y, this.brushSize);
+                    }
+                }
+            });
+        }
+        
+        if (this.mirrorHorizontal && this.mirrorVertical) {
+            // Both mirrors - draw all three mirrored lines
+            const mirrorX0 = this.getMirroredX(x0);
+            const mirrorX1 = this.getMirroredX(x1);
+            const mirrorY0 = this.getMirroredY(y0);
+            const mirrorY1 = this.getMirroredY(y1);
+            
+            // Horizontal mirror
+            const horizontalMirroredPixels = this.getLinePixels(Math.floor(mirrorX0), Math.floor(y0), Math.floor(mirrorX1), Math.floor(y1));
+            horizontalMirroredPixels.forEach(pixel => {
+                if (this.isWithinCanvas(pixel.x, pixel.y)) {
+                    if (this.brushShape === 'circle') {
+                        this.drawCircleBrushPreview(pixel.x, pixel.y, this.brushSize);
+                    } else {
+                        this.drawSquareBrushPreview(pixel.x, pixel.y, this.brushSize);
+                    }
+                }
+            });
+            
+            // Vertical mirror
+            const verticalMirroredPixels = this.getLinePixels(Math.floor(x0), Math.floor(mirrorY0), Math.floor(x1), Math.floor(mirrorY1));
+            verticalMirroredPixels.forEach(pixel => {
+                if (this.isWithinCanvas(pixel.x, pixel.y)) {
+                    if (this.brushShape === 'circle') {
+                        this.drawCircleBrushPreview(pixel.x, pixel.y, this.brushSize);
+                    } else {
+                        this.drawSquareBrushPreview(pixel.x, pixel.y, this.brushSize);
+                    }
+                }
+            });
+            
+            // Diagonal mirror (both axes)
+            const diagonalMirroredPixels = this.getLinePixels(Math.floor(mirrorX0), Math.floor(mirrorY0), Math.floor(mirrorX1), Math.floor(mirrorY1));
+            diagonalMirroredPixels.forEach(pixel => {
+                if (this.isWithinCanvas(pixel.x, pixel.y)) {
+                    if (this.brushShape === 'circle') {
+                        this.drawCircleBrushPreview(pixel.x, pixel.y, this.brushSize);
+                    } else {
+                        this.drawSquareBrushPreview(pixel.x, pixel.y, this.brushSize);
+                    }
+                }
+            });
+        }
+    }
+    
+    // Helper functions for mirroring coordinates
+    getMirroredX(x) {
+        if (this.canvasWidth % 2 === 0) {
+            // Even width: mirror across line between center pixels
+            const centerLine = (this.canvasWidth / 2) - 0.5;
+            return Math.floor(2 * centerLine - x);
+        } else {
+            // Odd width: mirror across center pixel
+            const centerPixel = Math.floor(this.canvasWidth / 2);
+            return 2 * centerPixel - x;
+        }
+    }
+    
+    getMirroredY(y) {
+        if (this.canvasHeight % 2 === 0) {
+            // Even height: mirror across line between center pixels
+            const centerLine = (this.canvasHeight / 2) - 0.5;
+            return Math.floor(2 * centerLine - y);
+        } else {
+            // Odd height: mirror across center pixel
+            const centerPixel = Math.floor(this.canvasHeight / 2);
+            return 2 * centerPixel - y;
         }
     }
     
