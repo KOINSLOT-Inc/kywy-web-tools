@@ -1021,6 +1021,8 @@ class DrawingEditor {
         this.lastTouchCenter = null;
         this.activeTouchId = null; // Track the primary touch for drawing
         this.touchStartTime = 0; // For palm rejection timing
+        this.gestureStartDistance = null; // Initial distance for gesture detection
+        this.gestureStartCenter = null; // Initial center for gesture detection
         
         // Mirror drawing state
         this.mirrorHorizontal = false;
@@ -6227,74 +6229,18 @@ class DrawingEditor {
         
         // Zoom in/out based on wheel direction
         const zoomFactor = 1.1;
-        const oldZoom = this.zoom;
         let newZoom;
         
         if (e.deltaY < 0) {
             // Zoom in
-            newZoom = oldZoom * zoomFactor;
+            newZoom = this.zoom * zoomFactor;
         } else {
             // Zoom out
-            newZoom = oldZoom / zoomFactor;
+            newZoom = this.zoom / zoomFactor;
         }
         
-        // Constrain zoom levels (max 10,000% = 100x)
-        newZoom = Math.max(0.5, Math.min(newZoom, 100));
-        
-        // Debug: Track mouse position before zoom
-        const canvasRect = this.drawingCanvas.getBoundingClientRect();
-        const mouseX = e.clientX - canvasRect.left;
-        const mouseY = e.clientY - canvasRect.top;
-        
-        // Calculate canvas coordinates (logical pixel position on canvas)
-        const canvasX = mouseX / oldZoom;
-        const canvasY = mouseY / oldZoom;
-        
-        // Step 3: Apply zoom change (this changes canvas display size)
-        this.zoom = newZoom;
-
-        // Update zoom level display
-        document.getElementById('zoomLevel').textContent = Math.round(this.zoom * 100) + '%';
-        
-        // Update mobile zoom display
-        this.updateMobileZoomDisplay();
-
-        
-        // Step 4: Reposition canvas to keep mouse cursor at same logical position
-        const canvasWrapper = document.querySelector('.canvas-wrapper');
-        if (canvasWrapper) {
-            // Temporarily disable transitions for instant repositioning
-            canvasWrapper.style.transition = 'none';
-            
-            // Calculate new position to keep mouse at same logical coordinates
-            // mouse_screen = canvas_offset + (canvas_logical_coords * new_zoom)
-            // So: new_canvas_offset = mouse_screen - (canvas_logical_coords * new_zoom)
-            
-            const containerRect = document.querySelector('.canvas-container').getBoundingClientRect();
-            const mouseScreenX = e.clientX - (containerRect.left);
-            const mouseScreenY = e.clientY - (containerRect.top);
-            
-            const newLeft = mouseScreenX - (canvasX * newZoom);
-            const newTop = mouseScreenY - (canvasY * newZoom);
-            
-            canvasWrapper.style.left = newLeft + 'px';
-            canvasWrapper.style.top = newTop + 'px';
-            canvasWrapper.style.transform = 'none';
-            
-            // Re-enable transitions after a short delay
-            setTimeout(() => {
-                canvasWrapper.style.transition = '';
-            }, 10);
-        }
-        
-        // Debug: Track mouse position after zoom
-        const newCanvasRect = this.drawingCanvas.getBoundingClientRect();
-        const newMouseX = e.clientX - newCanvasRect.left;
-        const newMouseY = e.clientY - newCanvasRect.top;
-        const newCanvasX = newMouseX / newZoom;
-        const newCanvasY = newMouseY / newZoom;
-
-        this.setCanvasSize(this.canvasWidth, this.canvasHeight);
+        // Use the consistent setZoomAtPoint function for mouse wheel zoom
+        this.setZoomAtPoint(newZoom, e.clientX, e.clientY);
         
         // After zoom, redraw any active preview based on current tool
         // Only trigger mouse move if we have a last mouse event
@@ -6326,8 +6272,13 @@ class DrawingEditor {
         } else if (touches.length === 2) {
             // Two finger touch - prepare for pinch zoom and pan
             e.preventDefault();
-            this.lastTouchDistance = this.getTouchDistance(touches[0], touches[1]);
-            this.lastTouchCenter = this.getTouchCenter(touches[0], touches[1]);
+            const initialDistance = this.getTouchDistance(touches[0], touches[1]);
+            const initialCenter = this.getTouchCenter(touches[0], touches[1]);
+            
+            this.lastTouchDistance = initialDistance;
+            this.lastTouchCenter = initialCenter;
+            this.gestureStartDistance = initialDistance;
+            this.gestureStartCenter = initialCenter;
             
             // Enable panning mode for two-finger gestures
             this.isPanning = true;
@@ -6342,7 +6293,10 @@ class DrawingEditor {
         } else if (touches.length > 2) {
             // Three or more fingers - pan only
             e.preventDefault();
-            this.lastTouchCenter = this.getTouchCenter(touches[0], touches[1]);
+            const initialCenter = this.getTouchCenter(touches[0], touches[1]);
+            
+            this.lastTouchCenter = initialCenter;
+            this.gestureStartCenter = initialCenter;
             this.isPanning = true;
             
             // Clear active touch ID
@@ -6382,23 +6336,33 @@ class DrawingEditor {
             const currentDistance = this.getTouchDistance(touches[0], touches[1]);
             const currentCenter = this.getTouchCenter(touches[0], touches[1]);
             
-            // Handle pinch zoom if we have a previous distance
-            if (this.lastTouchDistance) {
+            // Handle simultaneous pinch zoom and pan
+            if (this.lastTouchDistance && this.lastTouchCenter) {
                 const zoomChange = currentDistance / this.lastTouchDistance;
-                const newZoom = this.zoom * zoomChange;
                 
-                // Use the touch center as the zoom point to zoom towards fingers
-                this.setZoomAtPoint(newZoom, currentCenter.x, currentCenter.y);
-            }
-            
-            // Handle panning
-            if (this.lastTouchCenter) {
-                const canvasContainer = document.querySelector('.canvas-container');
+                // Only apply zoom if the change is significant enough to avoid jitter
+                if (Math.abs(zoomChange - 1.0) > 0.01) {
+                    const newZoom = this.zoom * zoomChange;
+                    
+                    // Use the previous touch center as the zoom point for stability
+                    this.setZoomAtPoint(newZoom, this.lastTouchCenter.x, this.lastTouchCenter.y);
+                }
+                
+                // Handle panning by calculating the movement of the touch center
+                // This needs to happen after zoom to account for zoom-induced position changes
                 const deltaX = currentCenter.x - this.lastTouchCenter.x;
                 const deltaY = currentCenter.y - this.lastTouchCenter.y;
                 
-                canvasContainer.scrollLeft -= deltaX;
-                canvasContainer.scrollTop -= deltaY;
+                if (Math.abs(deltaX) > 1 || Math.abs(deltaY) > 1) {
+                    const canvasWrapper = document.querySelector('.canvas-wrapper');
+                    if (canvasWrapper) {
+                        const currentLeft = parseFloat(canvasWrapper.style.left) || 0;
+                        const currentTop = parseFloat(canvasWrapper.style.top) || 0;
+                        
+                        canvasWrapper.style.left = (currentLeft + deltaX) + 'px';
+                        canvasWrapper.style.top = (currentTop + deltaY) + 'px';
+                    }
+                }
             }
             
             // Update for next frame
@@ -6412,12 +6376,19 @@ class DrawingEditor {
             
             // Handle panning
             if (this.lastTouchCenter) {
-                const canvasContainer = document.querySelector('.canvas-container');
                 const deltaX = currentCenter.x - this.lastTouchCenter.x;
                 const deltaY = currentCenter.y - this.lastTouchCenter.y;
                 
-                canvasContainer.scrollLeft -= deltaX;
-                canvasContainer.scrollTop -= deltaY;
+                if (Math.abs(deltaX) > 1 || Math.abs(deltaY) > 1) {
+                    const canvasWrapper = document.querySelector('.canvas-wrapper');
+                    if (canvasWrapper) {
+                        const currentLeft = parseFloat(canvasWrapper.style.left) || 0;
+                        const currentTop = parseFloat(canvasWrapper.style.top) || 0;
+                        
+                        canvasWrapper.style.left = (currentLeft + deltaX) + 'px';
+                        canvasWrapper.style.top = (currentTop + deltaY) + 'px';
+                    }
+                }
             }
             
             this.lastTouchCenter = currentCenter;
@@ -6453,6 +6424,8 @@ class DrawingEditor {
             // Reset touch tracking
             this.lastTouchDistance = null;
             this.lastTouchCenter = null;
+            this.gestureStartDistance = null;
+            this.gestureStartCenter = null;
             this.activeTouchId = null;
         } else if (touches.length === 1) {
             // Went from multi-touch to single touch
