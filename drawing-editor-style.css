@@ -3670,9 +3670,9 @@ body:not([class*="-theme"]) {
 
 /* Windows 95 theme script output */
 .windows95-theme .script-editor-panel .script-output.success {
-    background: #ff0000 !important;
+    background: #008000 !important;
     color: #ffffff !important;
-    border: 2px solid #800000 !important;
+    border: 2px solid #004000 !important;
 }
 
 .windows95-theme .script-editor-panel .script-output.error {
