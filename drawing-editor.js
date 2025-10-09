@@ -1057,7 +1057,7 @@ class DrawingEditor {
         // Undo/Redo system using snapshots
         this.undoStack = [];
         this.redoStack = [];
-        this.maxUndoStackSize = 200;
+        this.maxUndoStackSize = 1000;
         this.pendingSnapshot = null; // Snapshot taken before an operation starts
         
         // Unsaved work tracking
@@ -15650,6 +15650,19 @@ Instructions:
             this.undoStack.push(this.pendingSnapshot);
             this.redoStack = []; // Clear redo stack when new action is performed
             
+            // Warn user to save when undo stack is nearly full
+            if (this.undoStack.length >= this.maxUndoStackSize - 50 && this.undoStack.length % 50 === 0) {
+                const userWantsToSave = confirm(
+                    `Your undo history is getting full (${this.undoStack.length}/${this.maxUndoStackSize}).\n\n` +
+                    "Older changes will start being discarded soon. Would you like to save your work now?\n\n" +
+                    "Click 'OK' to save, or 'Cancel' to continue."
+                );
+                
+                if (userWantsToSave) {
+                    this.save();
+                }
+            }
+            
             // Limit undo stack size
             if (this.undoStack.length > this.maxUndoStackSize) {
                 this.undoStack.shift();
@@ -16138,6 +16151,8 @@ Instructions:
     // Mark canvas as saved
     markAsSaved() {
         this.hasUnsavedChanges = false;
+        // Remember the current undo stack length as our "last saved" point
+        this.lastSaveUndoCount = this.undoStack.length;
         this.updateWindowTitle();
     }
 
@@ -17292,10 +17307,11 @@ Instructions:
     
     // Execute a drawing function - useful for complex patterns
     async executeDrawing(drawFunction) {
-        // Check undo stack length and prompt user to save if there are many unsaved changes
-        if (this.undoStack.length > 10) {
+        // Check how many changes since last save and prompt user to save if there are many unsaved changes
+        const changesSinceLastSave = this.undoStack.length - (this.lastSaveUndoCount || 0);
+        if (changesSinceLastSave > 10) {
             const userConfirmed = confirm(
-                `You have ${this.undoStack.length} unsaved changes. Running a script can cause loss of work.\n\n` +
+                `You have ${changesSinceLastSave} unsaved changes. Running a script can cause loss of work.\n\n` +
                 "Would you like to save your work first?\n\n" +
                 "Click 'OK' to save first then run script, or 'Cancel' to continue anyway."
             );
@@ -17303,10 +17319,8 @@ Instructions:
             if (userConfirmed) {
                 // Save the work first, then continue with script execution
                 this.save();
-                // Reset undo stack after saving since work is now saved
-                this.undoStack = [];
-                this.redoStack = [];
-                this.updateUndoRedoUI();
+                // Remember the current undo stack length as our "last saved" point
+                this.lastSaveUndoCount = this.undoStack.length;
                 // Continue execution below - don't return early
             }
         }
