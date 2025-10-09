@@ -164,7 +164,7 @@
                     
                     <h4>Rotate Selection</h4>
                     <label for="rotationAngle">Angle: <span id="rotationAngleDisplay">0</span>°</label>
-                    <input type="range" id="rotationAngle" min="-180" max="180" value="0" step="15">
+                    <input type="range" id="rotationAngle" min="-180" max="180" value="0" step="0.01">
                     <div id="rotationWarning" style="display: none; color: #ff6b35; font-size: 11px; margin: 4px 0; padding: 2px 4px; background: rgba(255, 107, 53, 0.1); border-radius: 3px;">
                         ⚠️ Non-90° rotation is destructive to pixel art
                     </div>
@@ -200,25 +200,21 @@
                             <div class="line-pattern-controls" id="linePatternControls" style="display: none; margin-top: 10px;">
                                 <h4>Line Settings</h4>
                                 <div class="line-controls">
-                                    <div class="control-row">
-                                        <label for="lineAngle">Angle:</label>
-                                        <input type="range" id="lineAngle" min="0" max="180" value="0" step="15">
-                                        <span id="lineAngleDisplay">0°</span>
+                                    <div>
+                                        <label for="lineAngle">Angle: <span id="lineAngleDisplay">0°</span></label>
+                                        <input type="range" id="lineAngle" min="0" max="180" value="0" step="0.01" style="width: 100%;">
                                     </div>
-                                    <div class="control-row">
-                                        <label for="lineSpacing">Spacing:</label>
-                                        <input type="range" id="lineSpacing" min="2" max="20" value="6" step="1">
-                                        <span id="lineSpacingDisplay">6px</span>
+                                    <div>
+                                        <label for="lineSpacing">Spacing: <span id="lineSpacingDisplay">6px</span></label>
+                                        <input type="range" id="lineSpacing" min="2" max="20" value="6" step="0.01" style="width: 100%;">
                                     </div>
-                                    <div class="control-row">
-                                        <label for="lineWidth">Width:</label>
-                                        <input type="range" id="lineWidth" min="1" max="5" value="1" step="1">
-                                        <span id="lineWidthDisplay">1px</span>
+                                    <div>
+                                        <label for="lineWidth">Width: <span id="lineWidthDisplay">1px</span></label>
+                                        <input type="range" id="lineWidth" min="1" max="5" value="1" step="0.01" style="width: 100%;">
                                     </div>
-                                    <div class="control-row">
-                                        <label for="linePhase">Phase:</label>
-                                        <input type="range" id="linePhase" min="0" max="20" value="0" step="1">
-                                        <span id="linePhaseDisplay">0px</span>
+                                    <div>
+                                        <label for="linePhase">Phase: <span id="linePhaseDisplay">0px</span></label>
+                                        <input type="range" id="linePhase" min="0" max="20" value="0" step="0.01" style="width: 100%;">
                                     </div>
                                 </div>
                             </div>
@@ -227,18 +223,17 @@
                         <!-- Pattern-specific controls -->
                         <div class="percentage-pattern-controls" id="percentagePatternControls" style="display: none; margin-top: 10px;">
                             <h4>Percentage Settings</h4>
-                            <div class="control-row">
+                            <div>
                                 <label for="percentageFillSlider">Fill Amount: <span id="percentageDisplay">50</span>%</label>
-                                <input type="range" id="percentageFillSlider" min="5" max="95" value="50" step="5">
+                                <input type="range" id="percentageFillSlider" min="5" max="95" value="50" step="0.01" style="width: 100%;">
                             </div>
                         </div>
 
                         <div class="checkerboard-pattern-controls" id="checkerboardPatternControls" style="display: none; margin-top: 10px;">
                             <h4>Checkerboard Settings</h4>
-                            <div class="control-row">
-                                <label for="checkerboardSize">Size:</label>
-                                <input type="range" id="checkerboardSize" min="1" max="8" value="2" step="1">
-                                <span id="checkerboardSizeDisplay">2px</span>
+                            <div>
+                                <label for="checkerboardSize">Size: <span id="checkerboardSizeDisplay">2px</span></label>
+                                <input type="range" id="checkerboardSize" min="1" max="8" value="2" step="0.01" style="width: 100%;">
                             </div>
                             <div class="control-row">
                                 <label>
@@ -249,10 +244,9 @@
 
                         <div class="clipboard-pattern-controls" id="clipboardPatternControls" style="display: none; margin-top: 10px;">
                             <h4>Clipboard Settings</h4>
-                            <div class="control-row">
-                                <label for="clipboardScale">Scale:</label>
-                                <input type="range" id="clipboardScale" min="25" max="300" value="100" step="25">
-                                <span id="clipboardScaleDisplay">100%</span>
+                            <div>
+                                <label for="clipboardScale">Scale: <span id="clipboardScaleDisplay">100%</span></label>
+                                <input type="range" id="clipboardScale" min="25" max="300" value="100" step="0.01" style="width: 100%;">
                             </div>
                             <div class="control-row">
                                 <label>
@@ -263,20 +257,17 @@
 
                         <div class="dots-pattern-controls" id="dotsPatternControls" style="display: none; margin-top: 10px;">
                             <h4>Dots Settings</h4>
-                            <div class="control-row">
-                                <label for="dotsSpacing">Spacing:</label>
-                                <input type="range" id="dotsSpacing" min="2" max="16" value="4" step="1">
-                                <span id="dotsSpacingDisplay">4px</span>
+                            <div>
+                                <label for="dotsSpacing">Spacing: <span id="dotsSpacingDisplay">4px</span></label>
+                                <input type="range" id="dotsSpacing" min="2" max="16" value="4" step="0.01" style="width: 100%;">
                             </div>
-                            <div class="control-row">
-                                <label for="dotsSize">Size:</label>
-                                <input type="range" id="dotsSize" min="1" max="4" value="1" step="1">
-                                <span id="dotsSizeDisplay">1px</span>
+                            <div>
+                                <label for="dotsSize">Size: <span id="dotsSizeDisplay">1px</span></label>
+                                <input type="range" id="dotsSize" min="1" max="4" value="1" step="0.01" style="width: 100%;">
                             </div>
-                            <div class="control-row">
-                                <label for="dotsOffset">Offset:</label>
-                                <input type="range" id="dotsOffset" min="0" max="100" value="50" step="10">
-                                <span id="dotsOffsetDisplay">50%</span>
+                            <div>
+                                <label for="dotsOffset">Offset: <span id="dotsOffsetDisplay">50%</span></label>
+                                <input type="range" id="dotsOffset" min="0" max="100" value="50" step="0.01" style="width: 100%;">
                             </div>
                             <div class="control-row">
                                 <label>
@@ -303,53 +294,43 @@
                             <div class="gradient-controls" id="gradientControls" style="display: none; margin-top: 10px;">
                                 <div id="linearControls" style="display: none;">
                                     <h4>Linear Gradient Settings</h4>
-                                    <div class="control-row">
-                                        <label for="gradientAngle">Angle:</label>
-                                        <input type="range" id="gradientAngle" min="0" max="360" value="0" step="15">
-                                        <span id="angleDisplay">0°</span>
-                                    </div>
-                                    <div class="control-row">
-                                        <label for="gradientSteepness">Steepness:</label>
-                                        <input type="range" id="gradientSteepness" min="0.1" max="5.0" value="1.0" step="0.1">
-                                        <span id="steepnessDisplay">1.0</span>
-                                    </div>
-                                    <div class="control-row">
-                                        <label for="gradientPositionX">Position X:</label>
-                                        <input type="range" id="gradientPositionX" min="0" max="1" value="0.5" step="0.1">
-                                        <span id="positionXDisplay">0.5</span>
-                                    </div>
-                                    <div class="control-row">
-                                        <label for="gradientPositionY">Position Y:</label>
-                                        <input type="range" id="gradientPositionY" min="0" max="1" value="0.5" step="0.1">
-                                        <span id="positionYDisplay">0.5</span>
-                                    </div>
+                                    <label for="gradientAngle">Angle: <span id="angleDisplay">0</span>°</label>
+                                    <input type="range" id="gradientAngle" min="0" max="360" value="0" step="0.01">
+                                    
+                                    <label for="gradientSteepness">Steepness: <span id="steepnessDisplay">1.0</span></label>
+                                    <input type="range" id="gradientSteepness" min="0.1" max="5.0" value="1.0" step="0.01">
+                                    
+                                    <label for="gradientPositionX">Position X: <span id="positionXDisplay">0.5</span></label>
+                                    <input type="range" id="gradientPositionX" min="0" max="1" value="0.5" step="0.01">
+                                    
+                                    <label for="gradientPositionY">Position Y: <span id="positionYDisplay">0.5</span></label>
+                                    <input type="range" id="gradientPositionY" min="0" max="1" value="0.5" step="0.01">
                                 </div>
                                 
                                 <div id="radialControls" style="display: none;">
                                     <h4>Radial Gradient Settings</h4>
-                                    <div class="control-row">
-                                        <label for="radialRadius">Radius:</label>
-                                        <input type="range" id="radialRadius" min="0.1" max="2.0" value="0.7" step="0.1">
-                                        <span id="radiusDisplay">0.7</span>
-                                    </div>
-                                    <div class="control-row">
-                                        <label for="radialPositionX">Center X:</label>
-                                        <input type="range" id="radialPositionX" min="0" max="1" value="0.5" step="0.1">
-                                        <span id="radialXDisplay">0.5</span>
-                                    </div>
-                                    <div class="control-row">
-                                        <label for="radialPositionY">Center Y:</label>
-                                        <input type="range" id="radialPositionY" min="0" max="1" value="0.5" step="0.1">
-                                        <span id="radialYDisplay">0.5</span>
-                                    </div>
+                                    <label for="radialRadius">Radius: <span id="radiusDisplay">0.7</span></label>
+                                    <input type="range" id="radialRadius" min="0.1" max="2.0" value="0.7" step="0.01">
+                                    
+                                    <label for="radialPositionX">Center X: <span id="radialXDisplay">0.5</span></label>
+                                    <input type="range" id="radialPositionX" min="0" max="1" value="0.5" step="0.01">
+                                    
+                                    <label for="radialPositionY">Center Y: <span id="radialYDisplay">0.5</span></label>
+                                    <input type="range" id="radialPositionY" min="0" max="1" value="0.5" step="0.01">
                                 </div>
                                 
                                 <div id="stippleDitherControls" style="display: none;">
                                     <h4>Stipple/Dither Settings</h4>
+                                    <label for="gradientContrast">Contrast: <span id="contrastDisplay">1.0</span></label>
+                                    <input type="range" id="gradientContrast" min="0.1" max="2.0" value="1.0" step="0.01">
+                                    
+                                    <label for="gradientBrightness">Brightness: <span id="gradientBrightnessDisplay">0</span></label>
+                                    <input type="range" id="gradientBrightness" min="-100" max="100" value="0" step="0.01">
+                                    
                                     <div class="control-row">
-                                        <label for="gradientContrast">Contrast:</label>
-                                        <input type="range" id="gradientContrast" min="0.1" max="2.0" value="1.0" step="0.1">
-                                        <span id="contrastDisplay">1.0</span>
+                                        <label>
+                                            <input type="checkbox" id="gradientInvert"> Invert Gradient
+                                        </label>
                                     </div>
                                 </div>
                             </div>
@@ -401,7 +382,7 @@
                     
                     <h4>Sides</h4>
                     <label for="polygonSides">Count: <span id="polygonSidesDisplay">6</span> sides</label>
-                    <input type="range" id="polygonSides" min="3" max="20" value="6" step="1">
+                    <input type="range" id="polygonSides" min="3" max="20" value="6" step="0.01">
                     
                     <h4>Fill Style</h4>
                     <div class="fill-style">
@@ -447,7 +428,7 @@
                         </select>
                         
                         <label for="fontSize">Size: <span id="fontSizeDisplay">48</span>px</label>
-                        <input type="range" id="fontSize" min="4" max="100" value="48" step="1">
+                        <input type="range" id="fontSize" min="4" max="100" value="48" step="0.01">
                         
                         <div class="text-style">
                             <span class="label-text">Style:</span>
@@ -467,12 +448,12 @@
                             
                             <div id="emojiBrightnessContainer">
                                 <label for="emojiBrightness">Emoji Brightness: <span id="emojiBrightnessDisplay">-20</span></label>
-                                <input type="range" id="emojiBrightness" min="-100" max="100" value="-20" step="1">
+                                <input type="range" id="emojiBrightness" min="-100" max="100" value="-20" step="0.01">
                             </div>
                             
                             <div id="ditheringOptionsContainer" style="display: none;">
                                 <label for="emojiContrast">Emoji Contrast: <span id="emojiContrastDisplay">100</span>%</label>
-                                <input type="range" id="emojiContrast" min="50" max="200" value="100" step="1">
+                                <input type="range" id="emojiContrast" min="50" max="200" value="100" step="0.01">
                                 
                                 <label for="ditheringTypeSelect">Dithering Type:</label>
                                 <select id="ditheringTypeSelect">
@@ -1082,19 +1063,19 @@
 
                     <div class="setting-row">
                         <label for="importContrast">Contrast:</label>
-                        <input type="range" id="importContrast" min="-100" max="100" value="0" step="1">
+                        <input type="range" id="importContrast" min="-100" max="100" value="0" step="0.01">
                         <span id="importContrastValue">0</span>
                     </div>
 
                     <div class="setting-row">
                         <label for="importBrightness">Brightness:</label>
-                        <input type="range" id="importBrightness" min="-100" max="100" value="0" step="1">
+                        <input type="range" id="importBrightness" min="-100" max="100" value="0" step="0.01">
                         <span id="importBrightnessValue">0</span>
                     </div>
 
                     <div class="setting-row">
                         <label for="importThreshold">Threshold:</label>
-                        <input type="range" id="importThreshold" min="0" max="255" value="128" step="1">
+                        <input type="range" id="importThreshold" min="0" max="255" value="128" step="0.01">
                         <span id="importThresholdValue">128</span>
                     </div>
 

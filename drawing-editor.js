@@ -926,7 +926,9 @@ class DrawingEditor {
         this.gradientVariant = 'stipple'; // 'stipple' or 'dither' (removed 'smooth')
         this.gradientAngle = 0; // angle for gradients
         this.gradientSteepness = 1.0; // steepness for gradients
+        this.gradientBrightness = 0; // brightness adjustment for gradients (-100 to 100)
         this.gradientContrast = 1.0; // contrast for dithered gradients (0.1 = low contrast, 2.0 = high contrast)
+        this.gradientInvert = false; // invert gradient colors
         this.gradientCenterDistance = 0.5; // center distance adjustment for gradients
         
         // Gradient editing state
@@ -1471,6 +1473,31 @@ class DrawingEditor {
                 this.isEditingGradientSettings = true;
                 this.ensureGradientEditingPreview();
                 if (this.currentTool === 'bucket' && this.fillPattern.startsWith('gradient-linear')) {
+                    this.updateGradientLivePreview();
+                }
+            });
+        }
+
+        const gradientBrightnessSlider = document.getElementById('gradientBrightness');
+        if (gradientBrightnessSlider) {
+            gradientBrightnessSlider.addEventListener('input', () => {
+                this.gradientBrightness = parseInt(gradientBrightnessSlider.value);
+                document.getElementById('gradientBrightnessDisplay').textContent = this.gradientBrightness;
+                this.isEditingGradientSettings = true;
+                this.ensureGradientEditingPreview();
+                if (this.currentTool === 'bucket' && this.fillPattern.includes('stipple') || this.fillPattern.includes('dither')) {
+                    this.updateGradientLivePreview();
+                }
+            });
+        }
+
+        const gradientInvertCheckbox = document.getElementById('gradientInvert');
+        if (gradientInvertCheckbox) {
+            gradientInvertCheckbox.addEventListener('change', () => {
+                this.gradientInvert = gradientInvertCheckbox.checked;
+                this.isEditingGradientSettings = true;
+                this.ensureGradientEditingPreview();
+                if (this.currentTool === 'bucket' && (this.fillPattern.includes('stipple') || this.fillPattern.includes('dither'))) {
                     this.updateGradientLivePreview();
                 }
             });
@@ -9885,6 +9912,7 @@ class DrawingEditor {
         if (pattern === 'gradient-linear' || pattern === 'gradient-radial') {
             this.gradientType = pattern.replace('gradient-', '');
             this.showGradientVariants();
+            this.showGradientControls(); // Update gradient controls UI when switching between linear/radial
             
             // Automatically apply the current variant to create the complete pattern
             if (this.gradientVariant) {
@@ -10019,7 +10047,68 @@ class DrawingEditor {
             linearControls.style.display = isLinear ? 'block' : 'none';
             radialControls.style.display = isRadial ? 'block' : 'none';
             stippleDitherControls.style.display = isStippleDither ? 'block' : 'none';
+            
+            // Update display values to reflect current settings
+            this.updateGradientDisplayValues();
         }
+    }
+    
+    updateGradientDisplayValues() {
+        // Update linear gradient displays
+        const angleDisplay = document.getElementById('angleDisplay');
+        const steepnessDisplay = document.getElementById('steepnessDisplay');
+        const positionXDisplay = document.getElementById('positionXDisplay');
+        const positionYDisplay = document.getElementById('positionYDisplay');
+        
+        if (angleDisplay) angleDisplay.textContent = this.gradientAngle + '°';
+        if (steepnessDisplay) steepnessDisplay.textContent = this.gradientSteepness.toFixed(1);
+        if (positionXDisplay) positionXDisplay.textContent = this.gradientPositionX.toFixed(1);
+        if (positionYDisplay) positionYDisplay.textContent = this.gradientPositionY.toFixed(1);
+        
+        // Update radial gradient displays
+        const radiusDisplay = document.getElementById('radiusDisplay');
+        const radialXDisplay = document.getElementById('radialXDisplay');
+        const radialYDisplay = document.getElementById('radialYDisplay');
+        
+        if (radiusDisplay) radiusDisplay.textContent = this.radialRadius.toFixed(1);
+        if (radialXDisplay) radialXDisplay.textContent = this.radialPositionX.toFixed(1);
+        if (radialYDisplay) radialYDisplay.textContent = this.radialPositionY.toFixed(1);
+        
+        // Update stipple/dither displays (including brightness)
+        const contrastDisplay = document.getElementById('contrastDisplay');
+        const gradientBrightnessDisplay = document.getElementById('gradientBrightnessDisplay');
+        if (contrastDisplay) contrastDisplay.textContent = this.gradientContrast.toFixed(1);
+        if (gradientBrightnessDisplay) gradientBrightnessDisplay.textContent = this.gradientBrightness;
+        
+        // Update invert checkbox
+        const gradientInvertCheckbox = document.getElementById('gradientInvert');
+        if (gradientInvertCheckbox) gradientInvertCheckbox.checked = this.gradientInvert;
+        
+        // Update linear gradient slider values
+        const angleSlider = document.getElementById('gradientAngle');
+        const steepnessSlider = document.getElementById('gradientSteepness');
+        const positionXSlider = document.getElementById('gradientPositionX');
+        const positionYSlider = document.getElementById('gradientPositionY');
+        
+        if (angleSlider) angleSlider.value = this.gradientAngle;
+        if (steepnessSlider) steepnessSlider.value = this.gradientSteepness;
+        if (positionXSlider) positionXSlider.value = this.gradientPositionX;
+        if (positionYSlider) positionYSlider.value = this.gradientPositionY;
+        
+        // Update radial slider values
+        const radialRadiusSlider = document.getElementById('radialRadius');
+        const radialPositionXSlider = document.getElementById('radialPositionX');
+        const radialPositionYSlider = document.getElementById('radialPositionY');
+        
+        if (radialRadiusSlider) radialRadiusSlider.value = this.radialRadius;
+        if (radialPositionXSlider) radialPositionXSlider.value = this.radialPositionX;
+        if (radialPositionYSlider) radialPositionYSlider.value = this.radialPositionY;
+        
+        // Update stipple/dither slider values (including brightness)
+        const contrastSlider = document.getElementById('gradientContrast');
+        const gradientBrightnessSlider = document.getElementById('gradientBrightness');
+        if (contrastSlider) contrastSlider.value = this.gradientContrast;
+        if (gradientBrightnessSlider) gradientBrightnessSlider.value = this.gradientBrightness;
     }
 
     toggleFillPatternsSettings() {
@@ -16459,14 +16548,15 @@ Instructions:
         const transitionCenter = 0.5; // Center of transition
         
         // Create a smooth transition zone around the center
+        // Use logarithmic/exponential scaling to spread out the usable range
         let adjustedIntensity;
         if (this.gradientSteepness >= 1.0) {
-            // Sharp transitions - use sigmoid function
-            const steepnessFactor = this.gradientSteepness * 10; // Scale for sharper curves
+            // Sharp transitions - use logarithmic scaling to spread out higher values
+            const steepnessFactor = Math.log(this.gradientSteepness + 1) * 8; // Logarithmic scaling for wider range
             adjustedIntensity = 1 / (1 + Math.exp(-steepnessFactor * (intensity - transitionCenter)));
         } else {
-            // Gentle transitions - use wider sigmoid
-            const steepnessFactor = this.gradientSteepness * 5;
+            // Gentle transitions - use exponential scaling to make low values more effective
+            const steepnessFactor = Math.pow(this.gradientSteepness, 1.5) * 15; // More aggressive scaling for low values
             adjustedIntensity = 1 / (1 + Math.exp(-steepnessFactor * (intensity - transitionCenter)));
         }
         
@@ -16628,6 +16718,18 @@ Instructions:
             default:
                 intensity = 0.5; // Default to middle intensity
                 break;
+        }
+        
+        // Apply invert if enabled
+        if (this.gradientInvert) {
+            intensity = 1 - intensity;
+        }
+        
+        // Apply brightness adjustment to intensity only for stipple/dither variants
+        // (inverted: positive values darken, negative values brighten)
+        if (gradientType.includes('stipple') || gradientType.includes('dither')) {
+            const brightnessAdjustment = -this.gradientBrightness / 100; // Convert to -1.0 to 1.0 range and invert
+            intensity = Math.max(0, Math.min(1, intensity + brightnessAdjustment));
         }
         
         // Handle stipple and dither variants
