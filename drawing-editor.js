@@ -935,6 +935,11 @@ class DrawingEditor {
         this.isEditingGradientSettings = false;
         this.gradientEditingTimeout = null;
         
+        // Script execution timeout tracking
+        this._scriptStartTime = null;
+        this._scriptTimeout = 15000; // 15 seconds in milliseconds
+        this._timeoutDisabled = false; // Can be disabled by calling kde.noTimeout()
+        
         // Linear gradient properties
         this.gradientPositionX = 0.5; // X position for linear gradient center (0.0 = left, 1.0 = right)
         this.gradientPositionY = 0.5; // Y position for linear gradient center (0.0 = top, 1.0 = bottom)
@@ -17275,6 +17280,16 @@ Instructions:
         return 'default';
     }
     
+    // Check if script execution has timed out
+    _checkScriptTimeout() {
+        if (this._executingScript && this._scriptStartTime && !this._timeoutDisabled) {
+            const elapsed = Date.now() - this._scriptStartTime;
+            if (elapsed > this._scriptTimeout) {
+                throw new Error('Script execution timeout: Script took longer than 15 seconds to complete');
+            }
+        }
+    }
+    
     // Execute a drawing function - useful for complex patterns
     async executeDrawing(drawFunction) {
         this.captureSnapshot();
@@ -17282,6 +17297,8 @@ Instructions:
         // Set flag to indicate we're executing a script
         // This prevents individual kde calls from creating their own undo entries
         this._executingScript = true;
+        this._scriptStartTime = Date.now(); // Start timeout timer
+        this._timeoutDisabled = false; // Reset timeout disable flag for each script
         
         // Pause animation during script execution
         if (this.isPlaying) {
@@ -17295,8 +17312,15 @@ Instructions:
         this._printBuffer = [];
         
         try {
-            // Call the user's drawing function with kde access (wrapped in Promise for async)
-            await new Promise((resolve, reject) => {
+            // Create timeout promise (15 seconds)
+            const timeoutPromise = new Promise((_, reject) => {
+                setTimeout(() => {
+                    reject(new Error('Script execution timeout: Script took longer than 15 seconds to complete'));
+                }, 15000);
+            });
+            
+            // Create script execution promise
+            const scriptPromise = new Promise((resolve, reject) => {
                 try {
                     drawFunction({
                 /**
@@ -17306,6 +17330,7 @@ Instructions:
                  * @param {string} color - Color ('black' or 'white')
                  */
                 setPixel: (x, y, color) => {
+                    this._checkScriptTimeout(); // Check for timeout
                     const coords = this.validateCoords(x, y);
                     const validColor = this.validateColor(color);
                     return this.drawPixelAt(coords.x, coords.y, validColor);
@@ -17319,6 +17344,7 @@ Instructions:
                  * @param {string} color - Color ('black' or 'white')
                  */
                 drawLine: (x1, y1, x2, y2, color) => {
+                    this._checkScriptTimeout(); // Check for timeout
                     const c1 = this.validateCoords(x1, y1);
                     const c2 = this.validateCoords(x2, y2);
                     const validColor = this.validateColor(color);
@@ -17334,6 +17360,7 @@ Instructions:
                  * @param {string} color - Color ('black' or 'white')
                  */
                 drawRect: (x, y, w, h, filled, color) => {
+                    this._checkScriptTimeout(); // Check for timeout
                     const coords = this.validateCoords(x, y);
                     w = Math.floor(w);
                     h = Math.floor(h);
@@ -17349,6 +17376,7 @@ Instructions:
                  * @param {string} color - Color ('black' or 'white')
                  */
                 drawCircle: (x, y, r, filled, color) => {
+                    this._checkScriptTimeout(); // Check for timeout
                     const coords = this.validateCoords(x, y);
                     r = Math.floor(r);
                     const validColor = this.validateColor(color);
@@ -17364,6 +17392,7 @@ Instructions:
                  * @param {string} color - Color ('black' or 'white')
                  */
                 drawEllipse: (x, y, rx, ry, filled, color) => {
+                    this._checkScriptTimeout(); // Check for timeout
                     const coords = this.validateCoords(x, y);
                     rx = Math.floor(rx);
                     ry = Math.floor(ry);
@@ -17378,6 +17407,7 @@ Instructions:
                  * @param {string} color - Color ('black' or 'white')
                  */
                 drawText: (text, x, y, color) => {
+                    this._checkScriptTimeout(); // Check for timeout
                     const coords = this.validateCoords(x, y);
                     const validColor = this.validateColor(color);
                     return this.drawTextAt(text, coords.x, coords.y, validColor);
@@ -17388,7 +17418,10 @@ Instructions:
                  * @param {number} y - Y coordinate
                  * @returns {string} Color ('black', 'white', or 'transparent')
                  */
-                getPixel: (x, y) => this.getPixelAt(x, y),
+                getPixel: (x, y) => {
+                    this._checkScriptTimeout(); // Check for timeout
+                    return this.getPixelAt(x, y);
+                },
                 /**
                  * Get canvas width
                  * @returns {number} Width in pixels (144)
@@ -17402,7 +17435,10 @@ Instructions:
                 /**
                  * Clear the entire canvas to white
                  */
-                clear: () => this.clearCurrentFrame(),
+                clear: () => {
+                    this._checkScriptTimeout(); // Check for timeout
+                    return this.clearCurrentFrame();
+                },
                 /**
                  * Set the current drawing color
                  * @param {string} color - Color ('black' or 'white')
@@ -17814,19 +17850,32 @@ Instructions:
                  * Register a click handler function
                  * @param {function} callback - Function called with (x, y) when canvas is clicked
                  */
-                onClick: (callback) => this.setScriptClickHandler(callback)
+                onClick: (callback) => this.setScriptClickHandler(callback),
+                /**
+                 * Disable the 15-second script timeout for long-running scripts
+                 * Use with caution as this can cause browser freezing
+                 */
+                noTimeout: () => {
+                    this._timeoutDisabled = true;
+                    console.log('[Script] Timeout disabled - script can run indefinitely');
+                }
             });
                     resolve(); // Complete the async execution
                 } catch (error) {
                     reject(error);
                 }
             });
+            
+            // Race the script execution against the timeout
+            await Promise.race([scriptPromise, timeoutPromise]);
+            
         } catch (error) {
             console.error('Drawing function error:', error);
             // Save print buffer before throwing
             const prints = this._printBuffer || [];
             this._printBuffer = [];
             this._executingScript = false;
+            this._scriptStartTime = null; // Reset timer
             
             // Attach prints to error object so they can be accessed by caller
             error.scriptPrints = prints;
@@ -17835,6 +17884,7 @@ Instructions:
         
         // Clear script execution flag
         this._executingScript = false;
+        this._scriptStartTime = null; // Reset timer
         
         // Always push to undo stack (snapshot was captured before execution)
         this.pushUndo();
@@ -19552,7 +19602,20 @@ kde.drawLine(10, 70, w-10, h-10, 'black');
 kde.drawLine(w-10, 70, 10, h-10, 'black');
 
 // Show info
-kde.drawText(kde.getLayerCount() + ' layers total', 5, h-10, 'black');`,
+kde.drawText(kde.getLayerCount() + ' layers total', 5, h-10, 'black');
+
+// ============================================
+// ADVANCED FEATURES
+// ============================================
+
+// Disable script timeout for long-running scripts
+// kde.noTimeout() - Prevents 15-second timeout (use with caution!)
+// Note: Scripts normally timeout after 15 seconds to prevent browser freezing
+// Only call this if your script genuinely needs to run longer
+// kde.noTimeout();
+
+// Print output to script console
+kde.print('Script execution completed!');`,
         selection: `// Selection Operations Example
 // Demonstrates copy, paste, rotate, and mirror
 
