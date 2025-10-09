@@ -6218,7 +6218,10 @@ class DrawingEditor {
                 document.getElementById('brushSize').value = this.brushSize;
                 document.getElementById('brushSizeDisplay').textContent = this.brushSize;
             }
-            this.onMouseMove(this.lastMouseEvent);
+            // Only trigger mouse move if we have a last mouse event
+            if (this.lastMouseEvent) {
+                this.onMouseMove(this.lastMouseEvent);
+            }
             return;
         }
         
@@ -6294,7 +6297,10 @@ class DrawingEditor {
         this.setCanvasSize(this.canvasWidth, this.canvasHeight);
         
         // After zoom, redraw any active preview based on current tool
-        this.onMouseMove(this.lastMouseEvent);
+        // Only trigger mouse move if we have a last mouse event
+        if (this.lastMouseEvent) {
+            this.onMouseMove(this.lastMouseEvent);
+        }
     }
     
     // Touch event handlers
@@ -6380,7 +6386,9 @@ class DrawingEditor {
             if (this.lastTouchDistance) {
                 const zoomChange = currentDistance / this.lastTouchDistance;
                 const newZoom = this.zoom * zoomChange;
-                this.setZoom(newZoom);
+                
+                // Use the touch center as the zoom point to zoom towards fingers
+                this.setZoomAtPoint(newZoom, currentCenter.x, currentCenter.y);
             }
             
             // Handle panning
@@ -10961,6 +10969,55 @@ class DrawingEditor {
         if (this.gridModeEnabled) {
             this.updateGridDisplay();
             this.updateBrushControlsState(); // Update brush display to reflect grid visibility
+        }
+    }
+
+    setZoomAtPoint(newZoom, pointX, pointY) {
+        // Max zoom of 10,000% = 100x, min zoom of 0.5x = 50%
+        const constrainedZoom = Math.max(0.5, Math.min(newZoom, 100));
+        const oldZoom = this.zoom;
+        
+        // Calculate canvas coordinates (logical pixel position on canvas) before zoom
+        const canvasRect = this.drawingCanvas.getBoundingClientRect();
+        const canvasX = (pointX - canvasRect.left) / oldZoom;
+        const canvasY = (pointY - canvasRect.top) / oldZoom;
+        
+        // Apply zoom change
+        this.zoom = constrainedZoom;
+        this.setCanvasSize(this.canvasWidth, this.canvasHeight);
+        document.getElementById('zoomLevel').textContent = Math.round(this.zoom * 100) + '%';
+        
+        // Update mobile zoom display
+        this.updateMobileZoomDisplay();
+        
+        // Update grid display when zoom changes
+        if (this.gridModeEnabled) {
+            this.updateGridDisplay();
+            this.updateBrushControlsState(); // Update brush display to reflect grid visibility
+        }
+        
+        // Reposition canvas to keep the point at the same logical position
+        const canvasWrapper = document.querySelector('.canvas-wrapper');
+        if (canvasWrapper) {
+            // Temporarily disable transitions for instant repositioning
+            canvasWrapper.style.transition = 'none';
+            
+            // Calculate new position to keep point at same logical coordinates
+            const containerRect = document.querySelector('.canvas-container').getBoundingClientRect();
+            const pointScreenX = pointX - containerRect.left;
+            const pointScreenY = pointY - containerRect.top;
+            
+            const newLeft = pointScreenX - (canvasX * constrainedZoom);
+            const newTop = pointScreenY - (canvasY * constrainedZoom);
+            
+            canvasWrapper.style.left = newLeft + 'px';
+            canvasWrapper.style.top = newTop + 'px';
+            canvasWrapper.style.transform = 'none';
+            
+            // Re-enable transitions after a short delay
+            setTimeout(() => {
+                canvasWrapper.style.transition = '';
+            }, 50);
         }
     }
     
