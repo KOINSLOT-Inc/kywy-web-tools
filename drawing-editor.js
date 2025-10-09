@@ -5728,7 +5728,7 @@ class DrawingEditor {
                 break;
             case 's':
                 if (e.ctrlKey || e.metaKey) {
-                    this.saveDrawing();
+                    this.save();
                     e.preventDefault();
                 } else {
                     // S: Spray tool
