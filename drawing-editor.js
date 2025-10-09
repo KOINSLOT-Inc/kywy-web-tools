@@ -4416,7 +4416,7 @@ class DrawingEditor {
     renderTileMap() {
         if (!this.tileMapEnabled) return;
         
-        const ctx = this.getActiveContext();
+        const ctx = this.drawingCtx;
         
         // Clear canvas first
         ctx.fillStyle = 'white';
@@ -4440,7 +4440,7 @@ class DrawingEditor {
     drawTileGrid() {
         if (!this.tileMapEnabled) return;
         
-        const ctx = this.getActiveContext();
+        const ctx = this.drawingCtx;
         ctx.strokeStyle = 'rgba(128, 128, 128, 0.3)';
         ctx.lineWidth = 1;
         
@@ -4517,6 +4517,11 @@ class DrawingEditor {
         this.tileMapEnabled = document.getElementById('tileMapEnabled').checked;
         
         if (this.tileMapEnabled) {
+            // Initialize tile map if not already done
+            if (!this.tileMapData || this.tileMapData.length === 0) {
+                this.initializeTileMap();
+            }
+            
             // If other panels are open, close them first
             if (this.layersPanelVisible) {
                 document.getElementById('layersEnabled').checked = false;
@@ -4529,6 +4534,16 @@ class DrawingEditor {
             if (this.scriptEditorEnabled) {
                 document.getElementById('scriptEditorEnabled').checked = false;
                 this.toggleScriptEditorMode();
+            }
+            
+            // Show tile map panel
+            if (!this.tileMapPanelVisible) {
+                this.toggleTileMapPanel();
+            }
+        } else {
+            // Hide tile map panel when mode is disabled
+            if (this.tileMapPanelVisible) {
+                this.toggleTileMapPanel();
             }
         }
         
@@ -12596,6 +12611,8 @@ class DrawingEditor {
             code = this.generateAnimationHPP();
         } else if (format === 'layers') {
             code = this.generateLayersHPP();
+        } else if (format === 'tilemap') {
+            code = this.generateTileMapHPP();
         }
         
         document.getElementById('codeOutput').value = code;
@@ -12878,6 +12895,45 @@ class DrawingEditor {
                 code += `bool ${assetName}_transparency[${visibleLayers.length}] = {${transparencyValues.join(', ')}};\n`;
             }
         }
+        
+        return code;
+    }
+    
+    generateTileMapHPP() {
+        // Get the asset name from the input and clean it
+        const rawAssetName = document.getElementById('assetName').value || 'tilemap';
+        const assetName = this.cleanAssetName(rawAssetName);
+        
+        // Create tile map data
+        const tileMapData = {
+            tileSize: this.tileSize,
+            mapWidth: this.tileMapWidth,
+            mapHeight: this.tileMapHeight,
+            tiles: this.tileMapData.flat(),
+            tileFiles: this.tileSet.map((_, i) => `tile_${i.toString().padStart(3, '0')}.png`)
+        };
+        
+        let code = `// KYWY_FORMAT: TILEMAP\n`;
+        code += `// Generated tile map data for ${this.tileMapWidth}x${this.tileMapHeight} tile map\n`;
+        code += `// Tile size: ${this.tileSize}x${this.tileSize}, Total tiles: ${this.tileSet.length}\n`;
+        code += `// Created with Kywy Drawing Editor\n\n`;
+        code += `#ifndef ${assetName.toUpperCase()}_HPP\n#define ${assetName.toUpperCase()}_HPP\n\n`;
+        code += `#include <vector>\n#include <string>\n\n`;
+        code += `struct ${assetName} {\n`;
+        code += `    int tileSize;\n`;
+        code += `    int mapWidth;\n`;
+        code += `    int mapHeight;\n`;
+        code += `    std::vector<int> tiles;\n`;
+        code += `    std::vector<std::string> tileFiles;\n`;
+        code += `};\n\n`;
+        code += `const ${assetName} ${assetName} = {\n`;
+        code += `    ${tileMapData.tileSize},\n`;
+        code += `    ${tileMapData.mapWidth},\n`;
+        code += `    ${tileMapData.mapHeight},\n`;
+        code += `    {${tileMapData.tiles.join(', ')}},\n`;
+        code += `    {${tileMapData.tileFiles.map(f => `"${f}"`).join(', ')}}\n`;
+        code += `};\n\n`;
+        code += `#endif // ${assetName.toUpperCase()}_HPP\n`;
         
         return code;
     }
