@@ -17833,7 +17833,6 @@ Instructions:
                         dragHandle: null
                     };
                     
-                    console.log('selectRect created selection:', this.selection);
                     this.redrawCanvas();
                 },
                 /**
@@ -17901,13 +17900,7 @@ Instructions:
                  * @returns {boolean} True if rotation succeeded
                  */
                 rotateSelection: (degrees) => {
-                    console.log('rotateSelection called with degrees:', degrees);
-                    console.log('Current selection:', this.selection);
-                    if (!this.selection || !this.selection.active) {
-                        console.log('No active selection found');
-                        return false;
-                    }
-                    console.log('Calling rotateSelectionByAngle...');
+                    if (!this.selection || !this.selection.active) return false;
                     this.rotateSelectionByAngle(Math.floor(degrees));
                     return true;
                 },
