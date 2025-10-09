@@ -193,7 +193,7 @@ select:focus {
 }
 
 /* Windows 95 textarea styling */
-textarea {
+textarea:not(.CodeMirror-code) {
     border: 1px inset #c0c0c0 !important;
     background-color: white !important;
     color: #000000 !important;
@@ -429,7 +429,7 @@ header {
 }
 
 /* Windows 95 code blocks - subtle inset borders */
-pre, code {
+pre:not(.CodeMirror-line), code:not([class*="cm-"]) {
     background-color: white !important;
     border: 1px inset #c0c0c0 !important;
     color: #000000 !important;
@@ -447,8 +447,21 @@ pre, code {
 /* canvas styling is completely removed to preserve drawing functionality */
 
 /* Windows 95 text colors */
-h1, h2, h3, h4, h5, h6, p, span, label {
+h1, h2, h3, h4, h5, h6, p, span:not([class*="cm-"]):not(.CodeMirror-line span), label {
     color: #000000 !important;
+}
+
+/* Ensure CodeMirror elements are excluded from universal styling */
+.windows95-theme .CodeMirror,
+.windows95-theme .CodeMirror *,
+.windows95-theme .code-editor-wrapper .CodeMirror,
+.windows95-theme .code-editor-wrapper .CodeMirror * {
+    font-family: "Courier New", monospace !important;
+}
+
+/* Override any universal div styling for CodeMirror */
+.windows95-theme .CodeMirror div {
+    color: inherit !important;
 }
 
 /* Windows 95 link styling */
@@ -675,6 +688,24 @@ body:not(.menu-page) .onion-skin-control #animOnionOpacityContainer {
     border-left-width: 2px !important;
 }
 
+/* CodeMirror selection and background for Windows 95 theme */
+.windows95-theme .code-editor-wrapper .CodeMirror {
+    background-color: white !important;
+    color: #000000 !important;
+}
+
+.windows95-theme .code-editor-wrapper .CodeMirror-selected {
+    background-color: var(--accent-color) !important;
+    color: white !important;
+}
+
+.windows95-theme .code-editor-wrapper .CodeMirror-line::selection,
+.windows95-theme .code-editor-wrapper .CodeMirror-line > span::selection,
+.windows95-theme .code-editor-wrapper .CodeMirror-line > span > span::selection {
+    background-color: var(--accent-color) !important;
+    color: white !important;
+}
+
 /* Fullscreen script editor - solid grey background */
 .windows95-theme .script-editor-panel.fullscreen {
     background: #c0c0c0 !important;
@@ -693,33 +724,40 @@ body:not(.menu-page) .onion-skin-control #animOnionOpacityContainer {
 }
 
 /* Windows 95 themed syntax highlighting */
-.windows95-theme .code-editor-wrapper .cm-comment {
+body.windows95-theme .code-editor-wrapper .cm-comment,
+body.windows95-theme .CodeMirror .cm-comment {
     color: #008000 !important;
     font-style: italic !important;
 }
 
-.windows95-theme .code-editor-wrapper .cm-keyword {
-    color: #0000ff !important;
+body.windows95-theme .code-editor-wrapper .cm-keyword,
+body.windows95-theme .CodeMirror .cm-keyword {
+    color: var(--accent-color) !important;
     font-weight: bold !important;
 }
 
-.windows95-theme .code-editor-wrapper .cm-string {
+body.windows95-theme .code-editor-wrapper .cm-string,
+body.windows95-theme .CodeMirror .cm-string {
     color: #a31515 !important;
 }
 
-.windows95-theme .code-editor-wrapper .cm-number {
+body.windows95-theme .code-editor-wrapper .cm-number,
+body.windows95-theme .CodeMirror .cm-number {
     color: #098658 !important;
 }
 
-.windows95-theme .code-editor-wrapper .cm-variable {
-    color: #001080 !important;
+body.windows95-theme .code-editor-wrapper .cm-variable,
+body.windows95-theme .CodeMirror .cm-variable {
+    color: var(--accent-color) !important;
 }
 
-.windows95-theme .code-editor-wrapper .cm-def {
+body.windows95-theme .code-editor-wrapper .cm-def,
+body.windows95-theme .CodeMirror .cm-def {
     color: #795e26 !important;
     font-weight: bold !important;
 }
 
-.windows95-theme .code-editor-wrapper .cm-operator {
+body.windows95-theme .code-editor-wrapper .cm-operator,
+body.windows95-theme .CodeMirror .cm-operator {
     color: #000000 !important;
 }
