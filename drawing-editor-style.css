@@ -1224,7 +1224,7 @@ input[type="range"]::-moz-range-thumb {
     max-height: 400px;
     overflow: hidden;
     width: 100%;
-    max-width: 240px;
+    max-width: 260px;
     box-sizing: border-box;
     position: relative;
 }
@@ -1260,18 +1260,39 @@ input[type="range"]::-moz-range-thumb {
 .emoji-grid {
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: 2px;
-    padding: 8px 8px 8px 8px;
+    gap: 4px;
+    padding: 8px 12px 8px 8px; /* Reduced right padding for scrollbar */
     max-height: 300px;
     overflow-y: auto;
     overflow-x: hidden;
     box-sizing: border-box;
+    /* Custom scrollbar for better spacing */
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-color) transparent;
+}
+
+/* Webkit scrollbar styling */
+.emoji-grid::-webkit-scrollbar {
+    width: 8px;
+}
+
+.emoji-grid::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.emoji-grid::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 4px;
+}
+
+.emoji-grid::-webkit-scrollbar-thumb:hover {
+    background: var(--accent-color);
 }
 
 .emoji-btn {
     background: none;
     border: none;
-    padding: 6px;
+    padding: 4px;
     cursor: pointer;
     font-size: 18px;
     border-radius: 3px;
@@ -1280,8 +1301,12 @@ input[type="range"]::-moz-range-thumb {
     display: flex;
     align-items: center;
     justify-content: center;
-    min-width: 8px;
+    min-width: 32px;
+    min-height: 32px;
+    max-width: 48px;
+    max-height: 48px;
     overflow: hidden;
+    box-sizing: border-box;
 }
 
 .emoji-btn:hover {
@@ -1322,6 +1347,49 @@ input[type="range"]::-moz-range-thumb {
     cursor: pointer;
     font-size: 0.9rem;
     margin-bottom: 10px;
+}
+
+/* Responsive emoji grid adjustments */
+@media (max-width: 768px) {
+    .emoji-picker {
+        max-width: 220px;
+    }
+    
+    .emoji-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 3px;
+        padding: 6px 10px 6px 6px;
+    }
+    
+    .emoji-btn {
+        min-width: 28px;
+        min-height: 28px;
+        max-width: 40px;
+        max-height: 40px;
+        font-size: 16px;
+        padding: 2px;
+    }
+}
+
+@media (max-width: 480px) {
+    .emoji-picker {
+        max-width: 180px;
+    }
+    
+    .emoji-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 2px;
+        padding: 4px 8px 4px 4px;
+    }
+    
+    .emoji-btn {
+        min-width: 24px;
+        min-height: 24px;
+        max-width: 36px;
+        max-height: 36px;
+        font-size: 14px;
+        padding: 1px;
+    }
 }
 
 .emoji-dither-btn:hover {
