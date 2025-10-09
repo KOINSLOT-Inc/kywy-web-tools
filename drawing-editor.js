@@ -179,6 +179,9 @@ class CanvasStateSnapshot {
             }
         }
         
+        // Final validation to ensure canvas state is consistent
+        this.editor.validateAndRepairCanvasState();
+        
         return true;
     }
     
@@ -939,6 +942,8 @@ class DrawingEditor {
         this._scriptStartTime = null;
         this._scriptTimeout = 15000; // 15 seconds in milliseconds
         this._timeoutDisabled = false; // Can be disabled by calling kde.noTimeout()
+        this._timeoutPaused = false; // Can be paused for dialogs
+        this._pausedTime = 0; // Track how much time was spent paused
         
         // Linear gradient properties
         this.gradientPositionX = 0.5; // X position for linear gradient center (0.0 = left, 1.0 = right)
@@ -4295,22 +4300,31 @@ class DrawingEditor {
                 layerItem.classList.add('layer-solo');
             }
             
+            // Validate layer canvas before creating preview
+            if (!layer.canvas || typeof layer.canvas.getContext !== 'function') {
+                console.warn('Invalid layer canvas for preview:', layer.canvas);
+                // Try to repair this layer
+                const fallbackLayer = this.createFallbackLayer();
+                frameData.layers[layerIndex] = fallbackLayer;
+                layer = fallbackLayer;
+                console.warn('Replaced invalid layer with fallback at index', layerIndex);
+            }
+            
             // Create preview canvas
             const preview = document.createElement('div');
             preview.className = 'layer-preview';
             const previewCanvas = document.createElement('canvas');
             
-            // Validate layer canvas before creating preview
-            if (!layer.canvas || typeof layer.canvas.getContext !== 'function') {
-                console.warn('Invalid layer canvas for preview:', layer.canvas);
-                // Create empty preview canvas
-                previewCanvas.width = this.canvasWidth || 144;
-                previewCanvas.height = this.canvasHeight || 168;
-            } else {
-                previewCanvas.width = layer.canvas.width;
-                previewCanvas.height = layer.canvas.height;
+            previewCanvas.width = layer.canvas.width;
+            previewCanvas.height = layer.canvas.height;
+            try {
                 const previewCtx = previewCanvas.getContext('2d', { willReadFrequently: true });
                 previewCtx.drawImage(layer.canvas, 0, 0);
+            } catch (error) {
+                console.warn('Failed to create layer preview:', error);
+                // Create empty preview
+                previewCanvas.width = this.canvasWidth || 144;
+                previewCanvas.height = this.canvasHeight || 168;
             }
             preview.appendChild(previewCanvas);
             
@@ -4863,16 +4877,30 @@ class DrawingEditor {
             if (frameData.currentLayerIndex >= 0 && 
                 frameData.currentLayerIndex < frameData.layers.length &&
                 frameData.layers[frameData.currentLayerIndex] &&
-                frameData.layers[frameData.currentLayerIndex].canvas) {
+                frameData.layers[frameData.currentLayerIndex].canvas &&
+                typeof frameData.layers[frameData.currentLayerIndex].canvas.getContext === 'function') {
                 return frameData.layers[frameData.currentLayerIndex].canvas;
             } else {
                 // Fix invalid index - default to last valid layer
                 console.warn('[getActiveCanvas] Invalid layer index:', frameData.currentLayerIndex, 'fixing to valid layer');
                 for (let i = frameData.layers.length - 1; i >= 0; i--) {
-                    if (frameData.layers[i] && frameData.layers[i].canvas) {
+                    if (frameData.layers[i] && 
+                        frameData.layers[i].canvas && 
+                        typeof frameData.layers[i].canvas.getContext === 'function') {
                         frameData.currentLayerIndex = i;
                         return frameData.layers[i].canvas;
                     }
+                }
+                
+                // No valid layers found - repair the frame
+                console.warn('[getActiveCanvas] No valid layers found - repairing frame');
+                this.validateAndRepairCanvasState();
+                
+                // Try one more time after repair
+                const repairedFrameData = this.frameLayers && this.frameLayers[this.currentFrameIndex];
+                if (repairedFrameData && repairedFrameData.layers && repairedFrameData.layers[0] && 
+                    repairedFrameData.layers[0].canvas && typeof repairedFrameData.layers[0].canvas.getContext === 'function') {
+                    return repairedFrameData.layers[0].canvas;
                 }
             }
         }
@@ -4883,7 +4911,8 @@ class DrawingEditor {
         
         // Try again after initialization
         const newFrameData = this.frameLayers && this.frameLayers[this.currentFrameIndex];
-        if (newFrameData && newFrameData.layers && newFrameData.layers[0] && newFrameData.layers[0].canvas) {
+        if (newFrameData && newFrameData.layers && newFrameData.layers[0] && 
+            newFrameData.layers[0].canvas && typeof newFrameData.layers[0].canvas.getContext === 'function') {
             return newFrameData.layers[0].canvas;
         }
         
@@ -4893,7 +4922,17 @@ class DrawingEditor {
     }
     
     getActiveContext() {
-        return this.getActiveCanvas().getContext('2d', { willReadFrequently: true });
+        const canvas = this.getActiveCanvas();
+        if (canvas && typeof canvas.getContext === 'function') {
+            return canvas.getContext('2d', { willReadFrequently: true });
+        } else {
+            console.error('[getActiveContext] Invalid canvas object:', canvas);
+            // Emergency fallback - create a temporary canvas
+            const fallbackCanvas = document.createElement('canvas');
+            fallbackCanvas.width = this.canvasWidth;
+            fallbackCanvas.height = this.canvasHeight;
+            return fallbackCanvas.getContext('2d', { willReadFrequently: true });
+        }
     }
 
     flattenAllFrames() {
@@ -16705,6 +16744,10 @@ Instructions:
             if (item.restore()) {
                 // Stop animation if it's playing
                 this.stopAnimation();
+                
+                // Validate and repair canvas state after restoration
+                this.validateAndRepairCanvasState();
+                
                 this.updateLayersUI();
                 
                 // Redraw canvas to show restored state
@@ -16741,6 +16784,10 @@ Instructions:
             if (item.restore()) {
                 // Stop animation if it's playing
                 this.stopAnimation();
+                
+                // Validate and repair canvas state after restoration
+                this.validateAndRepairCanvasState();
+                
                 this.updateLayersUI();
                 
                 // Redraw canvas to show restored state
@@ -16760,6 +16807,89 @@ Instructions:
             item.execute();
             this.updateUndoRedoUI();
         }
+    }
+
+    // Validate and repair canvas state after undo/redo operations
+    validateAndRepairCanvasState() {
+        // Check if frameLayers exists and has valid structure
+        if (!this.frameLayers) {
+            console.warn('[validateAndRepairCanvasState] No frameLayers found - initializing');
+            this.frameLayers = {};
+        }
+
+        // Validate current frame has valid layers
+        const currentFrameData = this.frameLayers[this.currentFrameIndex];
+        if (!currentFrameData || !currentFrameData.layers || !Array.isArray(currentFrameData.layers)) {
+            console.warn('[validateAndRepairCanvasState] Invalid frame data for frame', this.currentFrameIndex, '- repairing');
+            this.initializeLayersForFrame(this.currentFrameIndex);
+            return;
+        }
+
+        // Validate each layer has a proper canvas
+        let hasValidLayer = false;
+        const validLayers = [];
+
+        for (let i = 0; i < currentFrameData.layers.length; i++) {
+            const layer = currentFrameData.layers[i];
+            if (layer && layer.canvas && typeof layer.canvas.getContext === 'function') {
+                // Layer is valid
+                validLayers.push(layer);
+                hasValidLayer = true;
+            } else {
+                console.warn('[validateAndRepairCanvasState] Invalid layer at index', i, '- creating fallback layer');
+                // Create a fallback layer
+                const fallbackLayer = this.createFallbackLayer();
+                validLayers.push(fallbackLayer);
+                hasValidLayer = true;
+            }
+        }
+
+        // Update layers with repaired data
+        if (validLayers.length !== currentFrameData.layers.length) {
+            currentFrameData.layers = validLayers;
+            console.warn('[validateAndRepairCanvasState] Repaired', validLayers.length - currentFrameData.layers.length, 'layers');
+        }
+
+        // Ensure currentLayerIndex is valid
+        if (currentFrameData.currentLayerIndex >= validLayers.length || currentFrameData.currentLayerIndex < 0) {
+            currentFrameData.currentLayerIndex = 0;
+            console.warn('[validateAndRepairCanvasState] Fixed invalid layer index to 0');
+        }
+
+        // If no valid layers found, create a default one
+        if (!hasValidLayer) {
+            console.warn('[validateAndRepairCanvasState] No valid layers found - creating default layer');
+            this.initializeLayersForFrame(this.currentFrameIndex);
+        }
+    }
+
+    // Create a fallback layer when corruption is detected
+    createFallbackLayer() {
+        const newCanvas = document.createElement('canvas');
+        newCanvas.width = this.canvasWidth;
+        newCanvas.height = this.canvasHeight;
+        
+        // Fill with white background
+        const ctx = newCanvas.getContext('2d', { willReadFrequently: true });
+        ctx.fillStyle = 'white';
+        ctx.fillRect(0, 0, newCanvas.width, newCanvas.height);
+        
+        // Try to copy from the main frame canvas if available
+        try {
+            const frameCanvas = this.frames[this.currentFrameIndex];
+            if (frameCanvas && typeof frameCanvas.getContext === 'function') {
+                ctx.drawImage(frameCanvas, 0, 0);
+            }
+        } catch (error) {
+            console.warn('[createFallbackLayer] Could not copy from frame canvas:', error);
+        }
+        
+        return {
+            name: 'Fallback Layer',
+            canvas: newCanvas,
+            visible: true,
+            transparencyMode: 'white'
+        };
     }
 
     updateUndoRedoUI() {
@@ -18275,16 +18405,47 @@ Instructions:
     
     // Check if script execution has timed out
     _checkScriptTimeout() {
-        if (this._executingScript && this._scriptStartTime && !this._timeoutDisabled) {
-            const elapsed = Date.now() - this._scriptStartTime;
+        if (this._executingScript && this._scriptStartTime && !this._timeoutDisabled && !this._timeoutPaused) {
+            const elapsed = Date.now() - this._scriptStartTime - this._pausedTime;
             if (elapsed > this._scriptTimeout) {
                 throw new Error('Script execution timeout: Script took longer than 15 seconds to complete. If this is intended, use the kde.noTimeout() to disable the timeout. You may not be able to recover work if the script enters an infinite loop, saving your workis recomended.');
             }
         }
     }
     
+    // Pause script timeout (for dialogs, etc.)
+    _pauseScriptTimeout() {
+        if (this._executingScript && !this._timeoutDisabled && !this._timeoutPaused) {
+            this._timeoutPaused = true;
+            this._pauseStartTime = Date.now();
+        }
+    }
+    
+    // Resume script timeout after pause
+    _resumeScriptTimeout() {
+        if (this._executingScript && this._timeoutPaused) {
+            this._timeoutPaused = false;
+            if (this._pauseStartTime) {
+                this._pausedTime += Date.now() - this._pauseStartTime;
+                this._pauseStartTime = null;
+            }
+        }
+    }
+    
     // Execute a drawing function - useful for complex patterns
     async executeDrawing(drawFunction) {
+        // Pre-flight check: Ensure we have a valid canvas state
+        try {
+            const testCanvas = this.getActiveCanvas();
+            if (!testCanvas || typeof testCanvas.getContext !== 'function') {
+                console.error('[executeDrawing] Critical canvas state error - aborting script execution');
+                throw new Error('Canvas state is corrupted. Please refresh the page and try again.');
+            }
+        } catch (error) {
+            console.error('[executeDrawing] Canvas validation failed:', error);
+            throw new Error('Cannot execute script: Canvas state is invalid. Please refresh the page.');
+        }
+        
         // Check how many changes since last save and prompt user to save if there are many unsaved changes
         const changesSinceLastSave = this.undoStack.length - (this.lastSaveUndoCount || 0);
         if (changesSinceLastSave > 10) {
@@ -18305,11 +18466,16 @@ Instructions:
         
         this.captureSnapshot();
         
+        // Validate canvas state before script execution
+        this.validateAndRepairCanvasState();
+        
         // Set flag to indicate we're executing a script
         // This prevents individual kde calls from creating their own undo entries
         this._executingScript = true;
         this._scriptStartTime = Date.now(); // Start timeout timer
         this._timeoutDisabled = false; // Reset timeout disable flag for each script
+        this._timeoutPaused = false; // Reset timeout pause state
+        this._pausedTime = 0; // Reset accumulated pause time
         
         // Pause animation during script execution
         if (this.isPlaying) {
@@ -18859,7 +19025,48 @@ Instructions:
                         }
                         return String(arg);
                     }).join(' ');
-                    alert(message);
+                    
+                    // Pause timeout during alert
+                    this._pauseScriptTimeout();
+                    try {
+                        alert(message);
+                    } finally {
+                        this._resumeScriptTimeout();
+                    }
+                },
+                /**
+                 * Show a prompt dialog for user input
+                 * @param {string} message - Message to show in prompt
+                 * @param {string} defaultValue - Default input value (optional)
+                 * @returns {string|null} User input or null if cancelled
+                 */
+                prompt: (message, defaultValue = '') => {
+                    const promptMessage = String(message || 'Enter value:');
+                    const defaultStr = String(defaultValue);
+                    
+                    // Pause timeout during prompt
+                    this._pauseScriptTimeout();
+                    try {
+                        return prompt(promptMessage, defaultStr);
+                    } finally {
+                        this._resumeScriptTimeout();
+                    }
+                },
+                /**
+                 * Show a confirmation dialog (Yes/No)
+                 * @param {string} message - Message to show in confirmation dialog
+                 * @returns {boolean} True if user clicked OK/Yes, false if cancelled/No
+                 */
+                confirm: (message) => {
+                    const confirmMessage = String(message || 'Are you sure?');
+                    
+                    // Pause timeout during confirm
+                    this._pauseScriptTimeout();
+                    try {
+                        return confirm(confirmMessage);
+                    } finally {
+                        this._resumeScriptTimeout();
+                    }
                 },
                 /**
                  * Register a click handler function
@@ -20276,6 +20483,29 @@ kde.print('Canvas dimensions:', {width: w, height: h});
 // alert(...args) - Shows browser alert dialog with message
 kde.alert('This is an alert!');
 
+// Get user input with a prompt dialog
+// prompt(message, defaultValue) - Shows text input dialog, returns string or null
+const userName = kde.prompt('What is your name?', 'Enter name here');
+if (userName !== null) {
+    kde.drawText('Hello ' + userName + '!', 10, 125, 'black');
+    kde.print('User entered name:', userName);
+} else {
+    kde.drawText('Hello ' + userName + '!', 10, 125, 'black');
+    kde.print('User cancelled the prompt');
+}
+
+// Ask user a yes/no question
+// confirm(message) - Shows confirmation dialog, returns true/false
+const shouldContinue = kde.confirm('Do you want to draw a bonus circle?');
+if (shouldContinue) {
+    kde.drawCircle(70, 135, 8, true, 'black');
+    kde.drawText('Bonus!', 45, 133, 'white');
+    kde.print('User confirmed - drew bonus circle');
+} else {
+    kde.drawText('No bonus', 45, 133, 'black');
+    kde.print('User declined bonus circle');
+}
+
 // map(value, inMin, inMax, outMin, outMax) - map value from one range to another
 // constrain(value, min, max) - clamp value between min and max
 
@@ -20538,6 +20768,7 @@ kde.deleteFrame();
 // kde.noTimeout() - Prevents 15-second timeout (use with caution!)
 // Note: Scripts normally timeout after 15 seconds to prevent browser freezing
 // Only call this if your script genuinely needs to run longer
+// Note: Time spent in alert(), prompt(), and confirm() dialogs does NOT count toward timeout
 kde.noTimeout();
 
 // Print output to script console
@@ -20662,6 +20893,59 @@ kde.onClick(function(x, y) {
 
 // Instructions
 kde.drawText('Click to draw!', 10, 20);`,
+        dialogs: `// Dialog Functions Example
+// Demonstrates prompt(), confirm(), and alert() functions
+kde.clear();
+
+// Welcome message
+kde.drawText('Dialog Demo', 10, 10, 'black');
+
+// Get user's name with prompt
+const name = kde.prompt('What is your name?', 'Artist');
+if (name !== null && name.trim() !== '') {
+    kde.drawText('Hello ' + name + '!', 10, 30, 'black');
+} else {
+    kde.drawText('Hello Anonymous!', 10, 30, 'black');
+}
+
+// Ask about favorite shape
+const drawShape = kde.confirm('Would you like me to draw your favorite shape?');
+if (drawShape) {
+    // Ask which shape
+    const shape = kde.prompt('Enter shape (circle, square, triangle):', 'circle');
+    const x = 50, y = 60, size = 20;
+    
+    if (shape === 'circle') {
+        kde.drawCircle(x, y, size, false, 'black');
+        kde.drawText('Circle', x - 15, y + 30, 'black');
+    } else if (shape === 'square') {
+        kde.drawRect(x - size/2, y - size/2, size, size, false, 'black');
+        kde.drawText('Square', x - 15, y + 30, 'black');
+    } else if (shape === 'triangle') {
+        kde.drawPolygon(x, y, size, 3, 0, false, 'black');
+        kde.drawText('Triangle', x - 20, y + 30, 'black');
+    } else {
+        kde.drawText('Unknown shape!', x - 30, y, 'black');
+    }
+} else {
+    kde.drawText('Maybe next time!', 10, 50, 'black');
+}
+
+// Ask about clearing canvas
+const shouldClear = kde.confirm('Should I clear the canvas and start over?');
+if (shouldClear) {
+    kde.clear();
+    kde.drawText('Canvas cleared!', 10, 10, 'black');
+    kde.drawText('Thanks for trying dialogs!', 10, 25, 'black');
+} else {
+    kde.drawText('Canvas kept as-is!', 10, 100, 'black');
+}
+
+// Show info message
+kde.alert('Dialogs do not count toward the 15-second script timeout!');
+
+// Final message
+kde.drawText('Dialog demo complete', 10, kde.getHeight() - 15, 'black');`,
         animation: `// Create Multi-Frame Animation
 // This example creates a bouncing ball animation
 

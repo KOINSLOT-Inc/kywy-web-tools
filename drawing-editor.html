@@ -993,6 +993,10 @@
                             Output messages to script console</li>
                         <li><strong>alert(...args)</strong><br>
                             Show popup alert dialog</li>
+                        <li><strong>prompt(message, defaultValue)</strong><br>
+                            Show text input dialog. Returns user input string or null if cancelled</li>
+                        <li><strong>confirm(message)</strong><br>
+                            Show yes/no confirmation dialog. Returns true/false</li>
                         <li><strong>onClick(callback)</strong><br>
                             Register click handler function(x, y)</li>
                         <li><strong>noTimeout()</strong><br>
@@ -1011,6 +1015,7 @@
                         <li><strong>Layer System:</strong> Scripts can work with layers when enabled</li>
                         <li><strong>Click Handlers:</strong> Only one click handler can be active at a time</li>
                         <li><strong>Script Timeout:</strong> Scripts automatically timeout after 15 seconds to prevent browser freezing</li>
+                        <li><strong>Dialog Timeout:</strong> Time spent in alert(), prompt(), and confirm() dialogs does not count toward the 15-second timeout</li>
                         <li><strong>Timeout Bypass:</strong> Call <code>kde.noTimeout()</code> to disable timeout for long-running scripts (use with caution!)</li>
                         <li><strong>Error Handling:</strong> Script errors are shown in console and stop execution</li>
                     </ul>
