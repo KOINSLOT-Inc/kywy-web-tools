@@ -3424,15 +3424,17 @@ button:focus-visible, .toggle-btn:focus-visible, .collapsible-btn:focus-visible,
     background: transparent;
     border: none;
     color: inherit;
-    font-size: 18px;
+    font-size: 12px !important;
     cursor: pointer;
     padding: 0;
-    width: 24px;
-    height: 24px;
+    width: 20px !important;
+    height: 20px !important;
+    min-width: 16px !important;
+    min-height: 16px !important;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 3px;
+    border-radius: 2px;
     opacity: 0.6;
     transition: opacity 0.2s, background 0.2s;
 }
@@ -3664,6 +3666,19 @@ body:not([class*="-theme"]) {
 .windows95-theme {
     scrollbar-width: auto !important;
     scrollbar-color: #d4d0c8 #e0e0e0 !important;
+}
+
+/* Windows 95 theme script output */
+.windows95-theme .script-editor-panel .script-output.success {
+    background: #ff0000 !important;
+    color: #ffffff !important;
+    border: 2px solid #800000 !important;
+}
+
+.windows95-theme .script-editor-panel .script-output.error {
+    background: #ff0000 !important;
+    color: #ffffff !important;
+    border: 2px solid #800000 !important;
 }
 
 /* NES theme Firefox */
