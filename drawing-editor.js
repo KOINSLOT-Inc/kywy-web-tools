@@ -17285,7 +17285,7 @@ Instructions:
         if (this._executingScript && this._scriptStartTime && !this._timeoutDisabled) {
             const elapsed = Date.now() - this._scriptStartTime;
             if (elapsed > this._scriptTimeout) {
-                throw new Error('Script execution timeout: Script took longer than 15 seconds to complete');
+                throw new Error('Script execution timeout: Script took longer than 15 seconds to complete. If this is intended, use the kde.noTimeout to disable the timeout. You may not be able to recover work if the script enters an infinite loop, saving your work is recomended.');
             }
         }
     }

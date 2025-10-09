@@ -852,7 +852,7 @@
                 
                 <div class="help-section">
                     <h3>💻 Script API Reference</h3>
-                    <p>The editor includes a powerful scripting system that allows you to programmatically create drawings, animations, and complex patterns. Scripts are executed through the Script Editor panel (check box on bottom bar). </p>
+                    <p>The editor includes a powerful scripting system that allows you to programmatically create drawings, animations, and complex patterns. Scripts are executed through the Script Editor panel (check box on bottom bar). Note that it is possible to get into an infinite loop and lose your work!! Save before running scripts you have not tested before.</p>
                                     
                     <h4>✏️ Basic Drawing Functions:</h4>
                     <ul>
@@ -984,6 +984,8 @@
                             Show popup alert dialog</li>
                         <li><strong>onClick(callback)</strong><br>
                             Register click handler function(x, y)</li>
+                        <li><strong>noTimeout()</strong><br>
+                            Disable 15-second script timeout (use with caution! Save your work first!)</li>
                         <li><strong>new()</strong><br>
                             Create new drawing (clears all)</li>
                     </ul>
@@ -997,6 +999,8 @@
                         <li><strong>Undo Support:</strong> Entire script execution is one undo operation</li>
                         <li><strong>Layer System:</strong> Scripts can work with layers when enabled</li>
                         <li><strong>Click Handlers:</strong> Only one click handler can be active at a time</li>
+                        <li><strong>Script Timeout:</strong> Scripts automatically timeout after 15 seconds to prevent browser freezing</li>
+                        <li><strong>Timeout Bypass:</strong> Call <code>kde.noTimeout()</code> to disable timeout for long-running scripts (use with caution!)</li>
                         <li><strong>Error Handling:</strong> Script errors are shown in console and stop execution</li>
                     </ul>
                 </div>
