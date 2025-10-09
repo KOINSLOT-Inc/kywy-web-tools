@@ -15658,8 +15658,9 @@ Instructions:
     }
 
     invertCanvas() {
-        this.pushUndo();
+        this.captureSnapshot();
         this._invertCanvasInternal();
+        this.pushUndo();
     }
 
     _invertCanvasInternal() {
