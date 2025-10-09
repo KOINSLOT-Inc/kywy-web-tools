@@ -4519,6 +4519,7 @@ class DrawingEditor {
         document.getElementById('flipVertical').addEventListener('click', () => this.flipCanvasVertical());
         document.getElementById('rotateLeft').addEventListener('click', () => this.rotateCanvas(-90));
         document.getElementById('rotateRight').addEventListener('click', () => this.rotateCanvas(90));
+        document.getElementById('invertCanvas').addEventListener('click', () => this.invertCanvas());
     }
     
     initializeMobileMenus() {
@@ -5436,8 +5437,26 @@ class DrawingEditor {
     onMouseWheel(e) {
         e.preventDefault();
         
-        // Ctrl+Wheel: Change brush size or polygon sides
+        // Get mouse position relative to canvas for bounds checking
+        const rect = this.drawingCanvas.getBoundingClientRect();
+        const mX = e.clientX - rect.left;
+        const mY = e.clientY - rect.top;
+        const cX = Math.floor(mX / this.zoom);
+        const cY = Math.floor(mY / this.zoom);
+        
+        // Ctrl+Wheel: Change brush size, polygon sides, or text size
         if (e.ctrlKey || e.metaKey) {
+            if (this.currentTool === 'text') {
+                // Text size adjustment works anywhere (not restricted to canvas bounds)
+                const delta = e.deltaY > 0 ? -2 : 2;
+                this.fontSize = Math.max(8, Math.min(200, this.fontSize + delta));
+                const fontSizeElement = document.getElementById('fontSize');
+                if (fontSizeElement) {
+                    fontSizeElement.value = this.fontSize;
+                }
+                document.getElementById('fontSizeDisplay').textContent = this.fontSize;
+            }
+            
             if (this.currentTool === 'polygon') {
                 // Change polygon sides
                 const delta = e.deltaY > 0 ? -1 : 1;
@@ -5451,7 +5470,7 @@ class DrawingEditor {
                 document.getElementById('brushSize').value = this.brushSize;
                 document.getElementById('brushSizeDisplay').textContent = this.brushSize;
             }
-            this.redrawCanvas();
+            this.onMouseMove(this.lastMouseEvent);
             return;
         }
         
@@ -5752,24 +5771,12 @@ class DrawingEditor {
         if (!this.isDrawing) {
             // Show pen preview when hovering with pen tool (but not while actively drawing)
             if (this.currentTool === 'pen' && !this.gridModeEnabled && this.penMode !== 'spray') {
-                // Only show preview if cursor is within canvas bounds
-                if (this.isWithinCanvas(pos.x, pos.y)) {
-                    this.showPenPreview(pos.x, pos.y);
-                } else {
-                    // Clear preview when outside canvas
-                    this.clearOverlayAndRedrawBase();
-                }
+                this.showPenPreview(pos.x, pos.y);
             }
             
             // Show spray preview when hovering with spray mode (but not while actively spraying)
             if (this.currentTool === 'pen' && this.penMode === 'spray') {
-                // Only show preview if cursor is within canvas bounds
-                if (this.isWithinCanvas(pos.x, pos.y)) {
-                    this.showSprayPreview(pos.x, pos.y);
-                } else {
-                    // Clear preview when outside canvas
-                    this.clearOverlayAndRedrawBase();
-                }
+                this.showSprayPreview(pos.x, pos.y);
             }
 
             // Show fill preview when hovering with bucket tool
@@ -6791,9 +6798,9 @@ class DrawingEditor {
                 const px = x + dx - halfSize;
                 const py = y + dy - halfSize;
                 
-                // Check if point is within circle and canvas bounds
+                // Check if point is within circle (no canvas bounds check for preview)
                 const distance = Math.sqrt((dx - halfSize) ** 2 + (dy - halfSize) ** 2);
-                if (distance <= radius && px >= 0 && px < this.canvasWidth && py >= 0 && py < this.canvasHeight) {
+                if (distance <= radius) {
                     // Use integer coordinates for crisp pixel rendering
                     this.overlayCtx.fillRect(Math.floor(px), Math.floor(py), 1, 1);
                 }
@@ -6813,10 +6820,8 @@ class DrawingEditor {
                 const px = x + dx - halfSize;
                 const py = y + dy - halfSize;
                 
-                if (px >= 0 && px < this.canvasWidth && py >= 0 && py < this.canvasHeight) {
-                    // Use integer coordinates for crisp pixel rendering
-                    this.overlayCtx.fillRect(Math.floor(px), Math.floor(py), 1, 1);
-                }
+                // No canvas bounds check for preview - let overlay handle clipping
+                this.overlayCtx.fillRect(Math.floor(px), Math.floor(py), 1, 1);
             }
         }
     }
@@ -7289,7 +7294,8 @@ class DrawingEditor {
                 mirrorX = 2 * centerPixel - x;
             }
             
-            if (mirrorX >= 0 && mirrorX < this.canvasWidth && mirrorX !== x) {
+            // Show mirror if mirror position is within canvas bounds (regardless of original position)
+            if (mirrorX >= 0 && mirrorX < this.canvasWidth) {
                 if (this.brushShape === 'circle') {
                     this.drawCircleBrushPreview(mirrorX, y, this.brushSize);
                 } else {
@@ -7311,7 +7317,8 @@ class DrawingEditor {
                 mirrorY = 2 * centerPixel - y;
             }
             
-            if (mirrorY >= 0 && mirrorY < this.canvasHeight && mirrorY !== y) {
+            // Show mirror if mirror position is within canvas bounds (regardless of original position)
+            if (mirrorY >= 0 && mirrorY < this.canvasHeight) {
                 if (this.brushShape === 'circle') {
                     this.drawCircleBrushPreview(x, mirrorY, this.brushSize);
                 } else {
@@ -7341,7 +7348,7 @@ class DrawingEditor {
             }
             
             // Horizontal mirror
-            if (mirrorX >= 0 && mirrorX < this.canvasWidth && mirrorX !== x) {
+            if (mirrorX >= 0 && mirrorX < this.canvasWidth) {
                 if (this.brushShape === 'circle') {
                     this.drawCircleBrushPreview(mirrorX, y, this.brushSize);
                 } else {
@@ -7350,7 +7357,7 @@ class DrawingEditor {
             }
             
             // Vertical mirror
-            if (mirrorY >= 0 && mirrorY < this.canvasHeight && mirrorY !== y) {
+            if (mirrorY >= 0 && mirrorY < this.canvasHeight) {
                 if (this.brushShape === 'circle') {
                     this.drawCircleBrushPreview(x, mirrorY, this.brushSize);
                 } else {
@@ -7359,8 +7366,7 @@ class DrawingEditor {
             }
             
             // Diagonal mirror (both axes)
-            if (mirrorX >= 0 && mirrorX < this.canvasWidth && mirrorY >= 0 && mirrorY < this.canvasHeight && 
-                (mirrorX !== x || mirrorY !== y)) {
+            if (mirrorX >= 0 && mirrorX < this.canvasWidth && mirrorY >= 0 && mirrorY < this.canvasHeight) {
                 if (this.brushShape === 'circle') {
                     this.drawCircleBrushPreview(mirrorX, mirrorY, this.brushSize);
                 } else {
@@ -11201,6 +11207,71 @@ class DrawingEditor {
     // Check if coordinates are within canvas bounds
     isWithinCanvas(x, y) {
         return x >= 0 && x < this.canvasWidth && y >= 0 && y < this.canvasHeight;
+    }
+
+    anyMirrorWithinCanvas(x, y) {
+        // Check if any mirror position would be within canvas bounds
+        if (!this.mirrorHorizontal && !this.mirrorVertical) {
+            return false; // No mirroring enabled
+        }
+
+        // Calculate mirror positions using the same logic as drawMirroredPenPreview
+        if (this.mirrorHorizontal) {
+            let mirrorX;
+            if (this.canvasWidth % 2 === 0) {
+                const centerLine = (this.canvasWidth / 2) - 0.5;
+                mirrorX = Math.floor(2 * centerLine - x);
+            } else {
+                const centerPixel = Math.floor(this.canvasWidth / 2);
+                mirrorX = 2 * centerPixel - x;
+            }
+            
+            if (this.isWithinCanvas(mirrorX, y)) {
+                return true;
+            }
+        }
+
+        if (this.mirrorVertical) {
+            let mirrorY;
+            if (this.canvasHeight % 2 === 0) {
+                const centerLine = (this.canvasHeight / 2) - 0.5;
+                mirrorY = Math.floor(2 * centerLine - y);
+            } else {
+                const centerPixel = Math.floor(this.canvasHeight / 2);
+                mirrorY = 2 * centerPixel - y;
+            }
+            
+            if (this.isWithinCanvas(x, mirrorY)) {
+                return true;
+            }
+        }
+
+        // Check diagonal mirror (when both mirrors are enabled)
+        if (this.mirrorHorizontal && this.mirrorVertical) {
+            let mirrorX, mirrorY;
+            
+            if (this.canvasWidth % 2 === 0) {
+                const centerLine = (this.canvasWidth / 2) - 0.5;
+                mirrorX = Math.floor(2 * centerLine - x);
+            } else {
+                const centerPixel = Math.floor(this.canvasWidth / 2);
+                mirrorX = 2 * centerPixel - x;
+            }
+            
+            if (this.canvasHeight % 2 === 0) {
+                const centerLine = (this.canvasHeight / 2) - 0.5;
+                mirrorY = Math.floor(2 * centerLine - y);
+            } else {
+                const centerPixel = Math.floor(this.canvasHeight / 2);
+                mirrorY = 2 * centerPixel - y;
+            }
+            
+            if (this.isWithinCanvas(mirrorX, mirrorY)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     generateCode() {
@@ -15596,6 +15667,30 @@ Instructions:
         this.generateCode();
     }
 
+    invertCanvas() {
+        this.pushUndo();
+        this._invertCanvasInternal();
+    }
+
+    _invertCanvasInternal() {
+        const ctx = this.getCurrentFrameContext();
+        const imageData = ctx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
+        const data = imageData.data;
+        
+        // Invert the colors (RGB only, preserve alpha)
+        for (let i = 0; i < data.length; i += 4) {
+            data[i] = 255 - data[i];     // Red
+            data[i + 1] = 255 - data[i + 1]; // Green
+            data[i + 2] = 255 - data[i + 2]; // Blue
+            // data[i + 3] remains unchanged (Alpha)
+        }
+        
+        ctx.putImageData(imageData, 0, 0);
+        this.redrawCanvas();
+        this.generateThumbnail(this.currentFrameIndex);
+        this.generateCode();
+    }
+
     // Mobile menu methods
     toggleMobileMenu(menuType) {
         const menu = document.getElementById(`mobile-${menuType}-menu`);
@@ -17111,25 +17206,6 @@ Instructions:
         ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
         
         if (color) this.currentColor = savedColor;
-    }
-    
-    /**
-     * Invert all colors on the canvas (black <-> white)
-     */
-    invertCanvas() {
-        const ctx = this.getCurrentFrameContext();
-        const imageData = ctx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
-        const data = imageData.data;
-        
-        for (let i = 0; i < data.length; i += 4) {
-            // Invert RGB values
-            data[i] = 255 - data[i];         // R
-            data[i + 1] = 255 - data[i + 1]; // G
-            data[i + 2] = 255 - data[i + 2]; // B
-            // Keep alpha as is
-        }
-        
-        ctx.putImageData(imageData, 0, 0);
     }
     
     /**
