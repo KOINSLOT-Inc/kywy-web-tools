@@ -89,14 +89,6 @@
                     </div>
                 </div>
 
-                <div class="tool-section">
-                    <h3>Pen Color</h3>
-                    <div class="color-picker">
-                        <button id="blackColor" class="color-btn active" data-color="black">⬛ Black</button>
-                        <button id="whiteColor" class="color-btn" data-color="white">⬜ White</button>
-                    </div>
-                </div>
-
                 <div class="tool-group">
                     <h3>Tools</h3>
                     <div class="tools-grid">
@@ -112,7 +104,13 @@
                 </div>
 
                 <div class="tool-section" id="brushSettings">
-                    <h3>Brush Settings</h3>
+                    <h3>Pen Color</h3>
+                    <div class="color-picker">
+                        <button id="blackColor" class="color-btn active" data-color="black">⬛ Black</button>
+                        <button id="whiteColor" class="color-btn" data-color="white">⬜ White</button>
+                    </div>
+                    
+                    <h4>Brush Settings</h4>
                     <label for="brushSize">Size: <span id="brushSizeDisplay">1</span>px</label>
                     <input type="range" id="brushSize" min="1" max="50" value="1">
                     
@@ -399,7 +397,13 @@
                 </div>
 
                 <div class="tool-section" id="textSettings" style="display: none;">
-                    <h3>Text Settings</h3>
+                    <h3>Text Color</h3>
+                    <div class="color-picker">
+                        <button id="textBlackColor" class="color-btn active" data-color="black">⬛ Black</button>
+                        <button id="textWhiteColor" class="color-btn" data-color="white">⬜ White</button>
+                    </div>
+                    
+                    <h4>Text Settings</h4>
                     <div class="text-controls">
                         <label for="textInput">Text:</label>
                         <textarea id="textInput" placeholder="Enter text... (use Enter for new lines)" maxlength="500" rows="3"></textarea>
@@ -434,12 +438,6 @@
                             <span class="label-text">Style:</span>
                             <button id="boldToggle" class="text-style-btn" data-style="bold">B Bold</button>
                             <button id="italicToggle" class="text-style-btn" data-style="italic">I Italic</button>
-                        </div>
-                        
-                        <div class="color-picker">
-                            <span class="label-text">Color:</span>
-                            <button id="textBlackColor" class="color-btn active" data-color="black">⬛ Black</button>
-                            <button id="textWhiteColor" class="color-btn" data-color="white">⬜ White</button>
                         </div>
                         
                         <div class="emoji-adjustments">

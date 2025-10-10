@@ -6784,6 +6784,7 @@ class DrawingEditor {
         if (this.currentTool === 'text' && this.isPlacingText) {
             const pos = this.getMousePos(e);
             this.finalizeText(pos);
+            this.onMouseMove(this.lastMouseEvent); // Update preview state
         }
         
         // End panning (for hand tool or middle mouse)
