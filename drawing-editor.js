@@ -7919,14 +7919,14 @@ class DrawingEditor {
                         // Calculate brightness (0-255) using luminance formula
                         const brightness = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
                         
-                        // Use consistent preview colors based on pixel brightness:
-                        // Blue for dark pixels (will appear black), Red for light pixels (will appear white)
+                        // Use consistent preview colors based on current color setting:
+                        // Blue for black setting, Red for white setting (consistent with other tools)
                         const baseAlpha = 0.7;
                         let previewColor;
-                        if (brightness < 128) {
-                            previewColor = 'rgba(0, 0, 255, 0.8)'; // Blue for dark pixels
+                        if (this.currentColor === 'black') {
+                            previewColor = 'rgba(0, 0, 255, 0.8)'; // Blue for black setting
                         } else {
-                            previewColor = 'rgba(255, 0, 0, 0.8)'; // Red for light pixels
+                            previewColor = 'rgba(255, 0, 0, 0.8)'; // Red for white setting
                         }
                         
                         // Collect all positions for this pixel (original + mirrors)
