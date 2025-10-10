@@ -13573,6 +13573,10 @@ class DrawingEditor {
         const whiteOnBlackBtn = document.getElementById('onionModeWhiteOnBlack');
         if (blackOnWhiteBtn) blackOnWhiteBtn.classList.add('active');
         if (whiteOnBlackBtn) whiteOnBlackBtn.classList.remove('active');
+
+        this.updateUI();
+        this.updateAnimationUI();
+        this.updateLayersUI();
     }
     
     save() {
