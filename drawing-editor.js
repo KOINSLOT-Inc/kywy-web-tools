@@ -7330,13 +7330,10 @@ class DrawingEditor {
         
         // Draw each pixel that would be affected by the brush, but only if within canvas bounds
         linePixels.forEach(pixel => {
-            // Only draw pixels that are within canvas bounds
-            if (this.isWithinCanvas(pixel.x, pixel.y)) {
-                if (this.brushShape === 'circle') {
-                    this.drawCircleBrushPreview(pixel.x, pixel.y, this.brushSize);
-                } else {
-                    this.drawSquareBrushPreview(pixel.x, pixel.y, this.brushSize);
-                }
+            if (this.brushShape === 'circle') {
+                this.drawCircleBrushPreview(pixel.x, pixel.y, this.brushSize);
+            } else {
+                this.drawSquareBrushPreview(pixel.x, pixel.y, this.brushSize);
             }
         });
         
