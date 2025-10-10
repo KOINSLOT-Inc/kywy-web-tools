@@ -7319,8 +7319,11 @@ class DrawingEditor {
         
         // Phase 3: Draw actual pixels that will be drawn for the straight line (top layer)
         this.overlayCtx.save();
-        this.overlayCtx.fillStyle = 'rgba(255, 0, 0, 0.9)'; // Very strong red with 90% opacity for clear visibility
-        
+        if (this.currentColor === 'black' ) {
+            this.overlayCtx.fillStyle = 'rgba(0, 0, 255, 0.8)'; // Very strong blue with 80% opacity for clear visibility
+        } else {
+            this.overlayCtx.fillStyle = 'rgba(255, 0, 0, 0.8)'; // Strong red with 80% opacity for clear visibility
+        }
         // Get all pixels along the line using Bresenham algorithm (same as actual drawing)
         const linePixels = this.getLinePixels(Math.floor(x0), Math.floor(y0), Math.floor(x1), Math.floor(y1));
         
@@ -7370,9 +7373,13 @@ class DrawingEditor {
         this.overlayCtx.webkitImageSmoothingEnabled = false;
         this.overlayCtx.mozImageSmoothingEnabled = false;
         this.overlayCtx.msImageSmoothingEnabled = false;
-        
-        this.overlayCtx.fillStyle = 'rgba(255, 0, 0, 0.9)'; // Very strong red with 90% opacity for clear visibility
-        
+
+        if (this.currentColor === 'black' ) {
+            this.overlayCtx.fillStyle = 'rgba(0, 0, 255, 0.8)'; // Very strong blue with 80% opacity for clear visibility
+        } else {
+            this.overlayCtx.fillStyle = 'rgba(255, 0, 0, 0.8)'; // Strong red with 80% opacity for clear visibility
+        }
+
         // Draw pen preview based on brush shape and size
         if (this.brushShape === 'circle') {
             this.drawCircleBrushPreview(x, y, this.brushSize);
@@ -7411,7 +7418,11 @@ class DrawingEditor {
         
         // Draw a pixel-perfect circle outline to show spray area
         const radius = this.brushSize / 2;
-        this.overlayCtx.fillStyle = 'rgba(255, 0, 0, 0.8)';
+        if (this.currentColor === 'black' ) {
+            this.overlayCtx.fillStyle = 'rgba(0, 0, 255, 0.8)'; // Very strong red with 90% opacity for clear visibility
+        } else {
+            this.overlayCtx.fillStyle = 'rgba(255, 0, 0, 0.8)'; // Strong red with 80% opacity for clear visibility
+        }
         
         // Use Bresenham's circle algorithm for pixel-perfect outline with dashed pattern
         this.drawPixelPerfectCircleOutline(x, y, radius, true);
@@ -7519,11 +7530,19 @@ class DrawingEditor {
         const actualHeight = endY - gridY;
         
         // Fill the grid square - pixel perfect
-        this.overlayCtx.fillStyle = 'rgba(255, 0, 0, 0.3)';
+        if (this.currentColorolor === 'black' ) {
+            this.overlayCtx.fillStyle = 'rgba(0, 0, 255, 0.3)'; // Very strong red with 90% opacity for clear visibility
+        } else {
+            this.overlayCtx.fillStyle = 'rgba(255, 0, 0, 0.3)'; // Strong red with 80% opacity for clear visibility
+        }
         this.overlayCtx.fillRect(gridX, gridY, actualWidth, actualHeight);
         
         // Draw crisp border - use integer coordinates for pixel-perfect lines
-        this.overlayCtx.strokeStyle = 'rgba(255, 0, 0, 0.9)';
+        if (this.currentColor === 'black' ) {
+            this.overlayCtx.strokeStyle = 'rgba(0, 0, 255, 0.8)'; // Very strong red with 90% opacity for clear visibility
+        } else {
+            this.overlayCtx.strokeStyle = 'rgba(255, 0, 0, 0.8)'; // Strong red with 80% opacity for clear visibility
+        }
         this.overlayCtx.lineWidth = 1;
         this.overlayCtx.translate(0.5, 0.5); // Shift for pixel-perfect lines
         this.overlayCtx.strokeRect(gridX - 0.5, gridY - 0.5, actualWidth, actualHeight);
@@ -7688,7 +7707,11 @@ class DrawingEditor {
         // Draw preview based on the current fill pattern
         fillPixels.forEach(pixel => {
             let shouldShowPixel = true;
-            let previewColor = 'rgba(255, 0, 0, 0.6)'; // Red preview for consistency
+            if (this.currentColor === 'black' ) {
+                this.overlayCtx.fillStyle = 'rgba(0, 0, 255, 0.8)'; // Very strong blue with 80% opacity for clear visibility
+            } else {
+                this.overlayCtx.fillStyle = 'rgba(255, 0, 0, 0.8)'; // Strong red with 80% opacity for clear visibility
+            }
             
             if (this.fillPattern.startsWith('gradient-')) {
                 // For gradients, use the exact same logic as performFloodFill
@@ -7707,7 +7730,7 @@ class DrawingEditor {
             }
             
             if (shouldShowPixel) {
-                this.overlayCtx.fillStyle = previewColor;
+                // Color was already set above based on this.currentColor
                 this.overlayCtx.fillRect(pixel.x, pixel.y, 1, 1);
             }
         });
@@ -7896,9 +7919,15 @@ class DrawingEditor {
                         // Calculate brightness (0-255) using luminance formula
                         const brightness = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
                         
-                        // Map brightness to red intensity
-                        const redIntensity = Math.max(100, 255 - brightness);
+                        // Use consistent preview colors based on pixel brightness:
+                        // Blue for dark pixels (will appear black), Red for light pixels (will appear white)
                         const baseAlpha = 0.7;
+                        let previewColor;
+                        if (brightness < 128) {
+                            previewColor = 'rgba(0, 0, 255, 0.8)'; // Blue for dark pixels
+                        } else {
+                            previewColor = 'rgba(255, 0, 0, 0.8)'; // Red for light pixels
+                        }
                         
                         // Collect all positions for this pixel (original + mirrors)
                         const allPositions = [{ x: drawX, y: drawY }];
@@ -7924,13 +7953,13 @@ class DrawingEditor {
                             if (existing) {
                                 // Accumulate effects for overlapping positions
                                 previewPositions.set(key, {
-                                    redIntensity: Math.max(existing.redIntensity, redIntensity),
+                                    color: previewColor,
                                     alpha: Math.min(1.0, existing.alpha + baseAlpha * 0.4),
                                     count: existing.count + 1
                                 });
                             } else {
                                 previewPositions.set(key, {
-                                    redIntensity: redIntensity,
+                                    color: previewColor,
                                     alpha: baseAlpha,
                                     count: 1
                                 });
@@ -7944,9 +7973,14 @@ class DrawingEditor {
         // Now draw all collected positions
         for (const [posKey, data] of previewPositions) {
             const [x, y] = posKey.split(',').map(Number);
-            // Use a more intense color for overlapping positions
+            // Use a more intense alpha for overlapping positions
             const finalAlpha = data.count > 1 ? Math.min(1.0, data.alpha * 1.2) : data.alpha;
-            this.overlayCtx.fillStyle = `rgba(${data.redIntensity}, 0, 0, ${finalAlpha})`;
+            // Extract RGB values from the color string and apply the final alpha
+            if (data.color.includes('255, 0, 0')) {
+                this.overlayCtx.fillStyle = `rgba(255, 0, 0, ${finalAlpha})`;
+            } else {
+                this.overlayCtx.fillStyle = `rgba(0, 0, 255, ${finalAlpha})`;
+            }
             this.overlayCtx.fillRect(x, y, 1, 1);
         }
         
@@ -8315,7 +8349,11 @@ class DrawingEditor {
         this.clearOverlayAndRedrawBase();
         
         // Set preview style once for the entire operation
-        this.overlayCtx.fillStyle = '#ff0000';
+        if (this.currentColor === 'black' ) {
+            this.overlayCtx.fillStyle = 'rgba(0, 0, 255, 0.8)'; // Very strong blue with 80% opacity for clear visibility
+        } else {
+            this.overlayCtx.fillStyle = 'rgba(255, 0, 0, 0.8)'; // Strong red with 80% opacity for clear visibility
+        }
         this.overlayCtx.globalAlpha = 1.0;
         
         const startX = this.shapeStart.x;
@@ -8680,7 +8718,11 @@ class DrawingEditor {
     setPreviewPixel(x, y) {
         if (x >= 0 && x < this.canvasWidth && y >= 0 && y < this.canvasHeight) {
             // Use red color for polygon preview
-            this.overlayCtx.fillStyle = '#ff0000';
+            if (this.currentColor === 'black' ) {
+                this.overlayCtx.fillStyle = 'rgba(0, 0, 255, 0.8)'; // Very strong red with 90% opacity for clear visibility
+            } else {
+                   this.overlayCtx.fillStyle = 'rgba(255, 0, 0, 0.8)'; // Strong red with 80% opacity for clear visibility
+            }
             this.overlayCtx.fillRect(x, y, 1, 1);
         }
     }
@@ -10138,7 +10180,11 @@ class DrawingEditor {
         
         // Apply red tint for preview
         this.overlayCtx.globalCompositeOperation = 'source-atop';
-        this.overlayCtx.fillStyle = 'rgba(255, 0, 0, 0.8)';
+        if (this.currentColor === 'black' ) {
+            this.overlayCtx.fillStyle = 'rgba(0, 0, 255, 0.8)'; // Very strong blue with 90% opacity for clear visibility
+        } else {
+            this.overlayCtx.fillStyle = 'rgba(255, 0, 0, 0.8)'; // Strong red with 80% opacity for clear visibility
+        }
         this.overlayCtx.fillRect(pos.x - 5, pos.y - 5, tempCanvas.width, tempCanvas.height);
         
         // Draw mirrored text previews if mirroring is enabled
@@ -10162,7 +10208,11 @@ class DrawingEditor {
                 
                 // Apply red tint for mirror preview
                 this.overlayCtx.globalCompositeOperation = 'source-atop';
-                this.overlayCtx.fillStyle = 'rgba(255, 0, 0, 0.8)';
+                if (this.currentColor === 'black' ) {
+                    this.overlayCtx.fillStyle = 'rgba(0, 0, 255, 0.8)'; // Very strong blue with 90% opacity for clear visibility
+                } else {
+                    this.overlayCtx.fillStyle = 'rgba(255, 0, 0, 0.8)'; // Strong red with 80% opacity for clear visibility
+                }
                 this.overlayCtx.fillRect(mirrorTopLeftX, mirrorTopLeftY, tempCanvas.width, tempCanvas.height);
                 this.overlayCtx.globalCompositeOperation = 'source-over';
             });

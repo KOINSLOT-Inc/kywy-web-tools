@@ -708,15 +708,6 @@ input[type="range"]::-moz-range-thumb {
     margin-bottom: 15px;
 }
 
-.color-picker .label-text {
-    margin-bottom: 2px;
-}
-
-.color-picker .color-buttons {
-    display: flex;
-    gap: 5px;
-}
-
 .mode-buttons {
     display: flex;
     gap: 5px;
