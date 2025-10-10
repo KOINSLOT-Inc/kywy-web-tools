@@ -6321,10 +6321,8 @@ class DrawingEditor {
         this.setZoomAtPoint(newZoom, e.clientX, e.clientY);
         
         // After zoom, redraw any active preview based on current tool
-        // Only trigger mouse move if we have a last mouse event
-        if (this.lastMouseEvent) {
-            this.onMouseMove(this.lastMouseEvent);
-        }
+        this.redrawCanvas();
+        this.onMouseMove(this.lastMouseEvent);
     }
     
     // Touch event handlers
@@ -10524,13 +10522,7 @@ class DrawingEditor {
         const centerX = Math.floor(this.canvasWidth / 2);
         const centerY = Math.floor(this.canvasHeight / 2);
         
-        switch (this.currentTool) {
-            case 'bucket':
-                if (this.fillPattern !== 'solid') {
-                    this.showFillPreview(centerX, centerY);
-                }
-                break;
-                
+        switch (this.currentTool) {              
             case 'text':
                 if (this.textInput.trim()) {
                     this.generateTextCanvas();
