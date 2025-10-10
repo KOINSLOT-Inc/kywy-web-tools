@@ -5212,22 +5212,8 @@ class DrawingEditor {
                 const isWithinBounds = canvasX >= 0 && canvasX < this.canvasWidth && canvasY >= 0 && canvasY < this.canvasHeight;
                 
                 if (this.lastPos) {
-                    // Check if either the start or end point is within canvas bounds
-                    const startInBounds = this.lastPos.x >= 0 && this.lastPos.x < this.canvasWidth && 
-                                         this.lastPos.y >= 0 && this.lastPos.y < this.canvasHeight;
-                    const endInBounds = canvasX >= 0 && canvasX < this.canvasWidth && 
-                                       canvasY >= 0 && canvasY < this.canvasHeight;
-                    
-                    // Only draw if at least one endpoint is within bounds (this creates a line that crosses the canvas)
-                    if (startInBounds || endInBounds) {
-                        const clamped = this.clampLineToCanvas(this.lastPos.x, this.lastPos.y, canvasX, canvasY);
-                        
-                        // Only draw if there's actually a visible line segment within canvas
-                        if (clamped.x1 !== clamped.x2 || clamped.y1 !== clamped.y2) {
-                            this.drawLine(clamped.x1, clamped.y1, clamped.x2, clamped.y2);
-                        }
-                    }
-                    
+                    this.drawLine(this.lastPos.x, this.lastPos.y, canvasX, canvasY);
+                                       
                     // Always update last position regardless of bounds - this keeps the "virtual" drawing continuous
                     this.lastPos = {x: canvasX, y: canvasY};
                 } else {
@@ -6656,7 +6642,7 @@ class DrawingEditor {
                     // Draw straight line from start position - only preview, don't draw to canvas yet
                     this.drawStraightLinePreview(this.startPos.x, this.startPos.y, pos.x, pos.y);
                 } else {
-                    // Normal drawing - draw line and update position
+                    // Freehand drawing
                     this.drawLine(this.lastPos.x, this.lastPos.y, pos.x, pos.y);
                     this.lastPos = pos;
                     
@@ -6954,9 +6940,7 @@ class DrawingEditor {
         if (this.isDrawing && this.currentTool === 'pen' && this.lastPos) {
             if (!this.gridModeEnabled && this.penMode !== 'spray') {
                 // Only show pen preview if center is within bounds (pen is point-based)
-                if (this.isWithinCanvas(this.lastPos.x, this.lastPos.y)) {
-                    this.showPenPreview(this.lastPos.x, this.lastPos.y);
-                }
+                this.showPenPreview(this.lastPos.x, this.lastPos.y);
             } else if (this.penMode === 'spray') {
                 // Show spray preview even near edges (it handles clipping internally)
                 this.showSprayPreview(this.lastPos.x, this.lastPos.y);
