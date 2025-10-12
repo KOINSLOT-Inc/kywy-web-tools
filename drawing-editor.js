@@ -9364,22 +9364,51 @@ class DrawingEditor {
         const radius = thickness / 2;
         const halfThickness = Math.floor(thickness / 2);
         
+        // Use a Set to track which pixels have already been drawn
+        const drawnPixels = new Set();
+
         // First draw all the line segments
         for (let i = 0; i < points.length; i++) {
             const start = points[i];
             const end = points[(i + 1) % points.length];
-            this.drawThickLinePreview(start.x, start.y, end.x, end.y, thickness);
+            // For each pixel drawn by drawThickLinePreview, only draw if not already drawn
+            const dx = end.x - start.x;
+            const dy = end.y - start.y;
+            const steps = Math.max(Math.abs(dx), Math.abs(dy));
+            const halfThickness = Math.floor(thickness / 2);
+            for (let j = 0; j <= steps; j++) {
+                const t = j / steps;
+                const centerX = Math.round(start.x + t * dx);
+                const centerY = Math.round(start.y + t * dy);
+                for (let y = -halfThickness; y <= halfThickness; y++) {
+                    for (let x = -halfThickness; x <= halfThickness; x++) {
+                        if (x * x + y * y <= radius * radius) {
+                            const px = centerX + x;
+                            const py = centerY + y;
+                            const key = px + ',' + py;
+                            if (!drawnPixels.has(key)) {
+                                this.setPreviewPixel(px, py);
+                                drawnPixels.add(key);
+                            }
+                        }
+                    }
+                }
+            }
         }
-        
-        // Then draw filled circles at each vertex to ensure smooth connections
+
+        // Draw filled circles at each vertex, but only if pixel not already drawn
         for (let i = 0; i < points.length; i++) {
             const vertex = points[i];
-            
-            // Draw a filled circle at each vertex
             for (let y = -halfThickness; y <= halfThickness; y++) {
                 for (let x = -halfThickness; x <= halfThickness; x++) {
                     if (x * x + y * y <= radius * radius) {
-                        this.setPreviewPixel(vertex.x + x, vertex.y + y);
+                        const px = vertex.x + x;
+                        const py = vertex.y + y;
+                        const key = px + ',' + py;
+                        if (!drawnPixels.has(key)) {
+                            this.setPreviewPixel(px, py);
+                            drawnPixels.add(key);
+                        }
                     }
                 }
             }
