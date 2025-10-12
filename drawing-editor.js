@@ -8641,13 +8641,13 @@ class DrawingEditor {
                 const adjustedMaxX = maxX + t;
                 const adjustedMinY = minY - t;
                 const adjustedMaxY = maxY + t;
-                
+
                 // Draw preview border
                 for (let x = adjustedMinX; x <= adjustedMaxX; x++) {
                     this.setPreviewPixel(x, adjustedMinY);
                     this.setPreviewPixel(x, adjustedMaxY);
                 }
-                for (let y = adjustedMinY; y <= adjustedMaxY; y++) {
+                for (let y = adjustedMinY + 1; y <= adjustedMaxY - 1; y++) {
                     this.setPreviewPixel(adjustedMinX, y);
                     this.setPreviewPixel(adjustedMaxX, y);
                 }
@@ -8659,14 +8659,14 @@ class DrawingEditor {
                 const adjustedMaxX = maxX - t;
                 const adjustedMinY = minY + t;
                 const adjustedMaxY = maxY - t;
-                
+
                 if (adjustedMinX > adjustedMaxX || adjustedMinY > adjustedMaxY) break;
-                
+
                 for (let x = adjustedMinX; x <= adjustedMaxX; x++) {
                     this.setPreviewPixel(x, adjustedMinY);
                     this.setPreviewPixel(x, adjustedMaxY);
                 }
-                for (let y = adjustedMinY; y <= adjustedMaxY; y++) {
+                for (let y = adjustedMinY + 1; y <= adjustedMaxY - 1; y++) {
                     this.setPreviewPixel(adjustedMinX, y);
                     this.setPreviewPixel(adjustedMaxX, y);
                 }
@@ -8674,20 +8674,20 @@ class DrawingEditor {
         } else { // 'centered'
             // Preview centered rectangle
             const halfThickness = Math.floor(thickness / 2);
-            
+
             for (let t = -halfThickness; t <= halfThickness; t++) {
                 const adjustedMinX = minX + t;
                 const adjustedMaxX = maxX - t;
                 const adjustedMinY = minY + t;
                 const adjustedMaxY = maxY - t;
-                
+
                 if (adjustedMinX > adjustedMaxX || adjustedMinY > adjustedMaxY) continue;
-                
+
                 for (let x = adjustedMinX; x <= adjustedMaxX; x++) {
                     this.setPreviewPixel(x, adjustedMinY);
                     this.setPreviewPixel(x, adjustedMaxY);
                 }
-                for (let y = adjustedMinY; y <= adjustedMaxY; y++) {
+                for (let y = adjustedMinY + 1; y <= adjustedMaxY - 1; y++) {
                     this.setPreviewPixel(adjustedMinX, y);
                     this.setPreviewPixel(adjustedMaxX, y);
                 }
@@ -8699,7 +8699,7 @@ class DrawingEditor {
         if (x >= 0 && x < this.canvasWidth && y >= 0 && y < this.canvasHeight) {
             // Use red color for polygon preview
             if (this.currentColor === 'black' ) {
-                this.overlayCtx.fillStyle = 'rgba(0, 0, 255, 0.8)'; // Very strong red with 90% opacity for clear visibility
+                this.overlayCtx.fillStyle = 'rgba(0, 0, 255, 0.8)'; // Very strong red with 80% opacity for clear visibility
             } else {
                    this.overlayCtx.fillStyle = 'rgba(255, 0, 0, 0.8)'; // Strong red with 80% opacity for clear visibility
             }
