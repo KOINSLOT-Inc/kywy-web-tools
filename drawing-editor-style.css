@@ -1,10 +1,3 @@
-/* Allow selection for help section text in modal (override universal rule) */
-.modal .help-section {
-    -webkit-user-select: text !important;
-    -moz-user-select: text !important;
-    -ms-user-select: text !important;
-    user-select: text !important;
-}
 /* Drawing Editor Styles */
 :root {
     --bg-color: #ffffff;
