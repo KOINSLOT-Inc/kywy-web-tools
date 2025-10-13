@@ -18088,7 +18088,7 @@ Instructions:
         const ctx = this.getCurrentFrameContext();
         const cx = Math.floor(x);
         const cy = Math.floor(y);
-        const r = Math.floor(radius);
+        const r = radius - 0.5; // Adjust radius for pixel-perfect circle
         
         // Save and set fill mode
         const savedFillMode = this.shapeFillMode;
@@ -18669,7 +18669,6 @@ Instructions:
                 drawCircle: (x, y, r, filled, color) => {
                     this._checkScriptTimeout(); // Check for timeout
                     const coords = this.validateCoords(x, y);
-                    r = Math.floor(r);
                     const validColor = this.validateColor(color);
                     return this.drawCircleAt(coords.x, coords.y, r, filled, validColor);
                 },
