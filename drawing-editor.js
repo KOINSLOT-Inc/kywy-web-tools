@@ -4703,6 +4703,11 @@ class DrawingEditor {
                 checkbox.id = `frame-checkbox-${i}`;
                 checkbox.value = i;
                 checkbox.style.cssText = 'margin-right: 10px; width: 18px; height: 18px; cursor: pointer;';
+                // Ensure checkbox can be toggled by clicking directly
+                checkbox.addEventListener('click', function(e) {
+                    e.stopPropagation(); // Prevent wrapper click from firing
+                    checkbox.checked = !checkbox.checked;
+                });
                 
                 const label = document.createElement('label');
                 label.htmlFor = `frame-checkbox-${i}`;
