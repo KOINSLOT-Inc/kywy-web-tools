@@ -16707,15 +16707,15 @@ Instructions:
         // Put original image data on temp canvas
         tempCtx.putImageData(imageData, 0, 0);
         
-        // Clear the main canvas and rotate
+        // Fill the main canvas with white to avoid leftover bars
         ctx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
         ctx.save();
-        
+        ctx.fillStyle = 'white';
+        ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
         // Move to center, rotate, then move back
         ctx.translate(this.canvasWidth / 2, this.canvasHeight / 2);
         ctx.rotate(degrees * Math.PI / 180);
         ctx.drawImage(tempCanvas, -this.canvasWidth / 2, -this.canvasHeight / 2);
-        
         ctx.restore();
         this.redrawCanvas();
         this.generateThumbnail(this.currentFrameIndex);
