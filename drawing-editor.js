@@ -5684,6 +5684,7 @@ class DrawingEditor {
                 this.stopAnimation();
                 this.startAnimation();
             }
+            this.generateCode();
         });
         
         // Animation panel onion skin
